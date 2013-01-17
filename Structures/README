@@ -1,0 +1,130 @@
+= GSD Dictionary =
+
+GSD Dictionary is a dictionary type written in C. GSD Dictionary is designed
+for use by the GSD programming language.
+
+== Version ==
+
+Current version is 0.0.0.
+
+The left-most number is the major version, this only bumps up for
+reverse-incompatible changes.
+
+The middle number is the minor version, this bumps up for new features that do
+not break reverse-compatibility.
+
+The final number is the revision, it is bumped for bigfixes and enhancements
+that do not change or add features.
+
+== Features ===
+
+ * Designed for multithreading
+   * Reading never locks or spins
+   * Insert function to insert only new keys
+   * Update function to update existing key values
+   * Set function to update or insert as necessary
+   * Compare and Update function for an atomic update
+   * Writing never locks, but may spin if an internal tree is balancing
+   * You provide a callback to hold on to internal allocations until it is
+     safe to free them (that is when you know no thread is using it).
+ * Allows you to handle pathological data by providing alternate meta-data and
+   rebuilding the entire dictionary (This can be used to change a hash seed).
+ * Uses a hash table with customizable number of slots
+ * Each hash slot uses a binary tree for keys that use the same slot (hash
+   conflicts)
+ * You specify how deep a tree imbalance should be before it is balanced
+ * Each slots tree will be independantly balanced if an imbalance is detected
+ * Can use anything as keys and values
+   * You specify how to compare keys (for sorting, for the trees)
+   * You specify how to get a slot number (hash key) for a key
+   * Can provide a callback to note when a key or value is not longer referenced
+     by the dictionary.
+ * Can use the 'reference' feature to tie several keys together
+   (updating the value of one key is reflected in all keys)
+ * Callbacks for inserting keys and removing keys
+ * Each hash can have custom metadata associated with it for use in your
+   compare and update functions.
+
+== Overview ==
+
+When you create a dictionary, you provide a number of hash slots to use, how
+imbalanced a tree is allowed to be, a metadata pointer, and a set of callbacks.
+
+There are 3 callbacks you MUST provide:
+
+ * cmp
+
+    Used to compare/sort keys. Must return:
+     -1 - Less than
+     0  - Same as
+     1  - Greater than
+
+ * loc
+
+    Used to find the hash slot for a key. Must return a number between 0 and
+    the highest slot. The number of slots is always provided to the function.
+
+ * del
+
+    Used to free internally allocated data. In a non-threaded environment you
+    can simply set this to free(). In a threaded environment you must set this
+    to a custom function that holds on to the pointers until you can be sure no
+    thread is using them, that means no thread can be using the dictionary.
+
+    A reasonable solution to this problem is an epoch based collector. See the
+    Epoch Collector section for an overview of the concept.
+
+    NOTE: This callback MUST NEVER change anything in the allocation given to
+    it.
+
+    NOTE: This callback is used for the following:
+     * Freeing the entire dictionary
+     * Deleting a key
+     * Referencing a key where the key being altered already exists
+     * Rebalancing a tree
+     * Rebuilding the entire dictionary
+
+== Caveats ==
+
+In a threaded system you need to manage safe freeing of some internal structures.
+
+== Examples ==
+
+TODO
+
+== Epoch Collector ==
+
+An epoch based collector has the following components:
+
+ * Pointer stack, when your callback is used it simply pushes the pointer
+   onto the stack
+ * Epoch (integer), each thread has a copy of the epoch. Threads will
+   occasionally sync the epoch by checking the master epoch and updating their
+   own epoch when it changes.
+ * Collection, This can be handled many ways, essentially operations occur
+   in the following order, though which threads take which actions is generally
+   fluid.
+
+    * Pointer stack reaches a height requiring collection
+    * The stack is atomically moved leaving the original pointer to start a
+      new stack
+    * The master epoch is incrimented
+    * Each thread updates its internal epoch over the course of its regular
+      activity.
+    * Once all threads are aware of th new epoch, you know it is safe to
+      free all items in the original stack. This can be done in the last
+      thread to update its epoch (track number of threads, and how many
+      have updated?) or it can be done in an independant collector thread.
+
+=== Advantages ===
+
+ * Never have to stop all threads to collect garbage
+ * Can have garbage collection occur in a seperate thread
+
+=== Disadvantages ===
+
+ * Garbage can pile up while you wait for threads to update their epoch
+ * You need to be aware of how many threads you have.
+ * Can be complicated
+ * Only works on data you know needs to be freed, can't be used as a general
+   garbage collector.

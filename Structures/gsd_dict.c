@@ -69,6 +69,10 @@ void *dict_meta( dict *d ) {
     return d->set->meta;
 }
 
+int dict_free( dict *d ) {
+    return DICT_UNIMP_ERROR;
+}
+
 int x_dict_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods, char *file, size_t line ) {
     if ( methods == NULL ) {
         fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", file, line );

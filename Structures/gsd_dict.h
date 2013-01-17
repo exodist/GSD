@@ -39,6 +39,8 @@ struct dict;
 #define dict_create( a, b, c, d, e ) x_dict_create( a, b, c, d, e, __FILE__, __LINE__ )
 int x_dict_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods, char *file, size_t line );
 
+int dict_free( dict *d );
+
 void *dict_meta( dict *d );
 
 // -- Operation --
