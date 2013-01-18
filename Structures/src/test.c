@@ -1,4 +1,4 @@
-#include "gsd_dict.h"
+#include "gsd_dict_api.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>

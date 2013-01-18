@@ -1,67 +1,54 @@
-#include "gsd_dict.h"
+#include "gsd_dict_api.h"
+#include "gsd_dict_internal.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 
-typedef struct slot slot;
-typedef struct node node;
-typedef struct ref  ref;
-typedef struct set  set;
+/*\
+ * epoch count of 0 means free
+ * epoch count of 1 means needs to be cleared
+ * epoch count of >1 means active
+ *
+ * Create locator
+ * until not_full {
+ *  until success {
+ *   get pointer to epoch
+ *   if ( count == 0 )
+ *    swap count = 2
+ *   if ( count > 1 )
+ *    bump up by 1
+ *
+ *   try to push epoch (atomic swap)
+ *  }
+ *
+ *  if height > max
+ *      try to bump epoch
+ *      dec epoch (and possibly collect)
+ *      not_full = bumped ? 0 : 1; //if there is no new epoch we will use the full epoch
+ * }
+ * ... stuff ...
+ * locator decs epoch count
+ * if count is 1 we are last, time to free
+ * set epoch to 0
+ *
+    struct epoch {
+        size_t height;
+        size_t active;
+        epoch_stack *stack;
+    };
 
-typedef struct location location;
-
-struct dict {
-    set *set;
-    set *rebuild;
-
-    dict_methods *methods;
-};
-
-struct set {
-    slot  **slots;
-    slot  **slot_rebuild;
-    size_t  slot_count;
-    size_t  max_imbalance;
-    void   *meta;
-};
-
-struct slot {
-    node   *root;
-    size_t node_count;
-    size_t deleted;
-};
-
-struct node {
-    node *left;
-    node *right;
-    void *key;
-    ref  *value;
-};
-
-struct ref {
-    size_t  refcount;
-    void   *value;
-};
-
-struct location {
-    set    *st;
-    size_t  sltn;
-    uint8_t sltns;
-    slot   *slt;
-    node   *parent;
-    node   *found;
-    ref    *item;
-    size_t imbalance;
-};
-
-set *create_set( size_t slot_count, void *meta, size_t max_imb );
+    struct epoch_stack {
+        epoch_stack *down;
+        enum { DSLOT, DNODE, DREF, DSET } type;
+        void *to_free;
+    };
+ *
+\*/
 
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
-
-// success = __sync_bool_compare_and_swap( item, oldval, newval );
 
 // -- Creation and meta data --
 
@@ -69,63 +56,38 @@ void *dict_meta( dict *d ) {
     return d->set->meta;
 }
 
-int dict_free( dict *d ) {
+int dict_free( dict **d ) {
     return DICT_UNIMP_ERROR;
 }
 
-int x_dict_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods, char *file, size_t line ) {
-    if ( methods == NULL ) {
-        fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", file, line );
+int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth, char *f, size_t l ) {
+    if ( mth == NULL ) {
+        fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( methods->cmp == NULL ) {
-        fprintf( stderr, "The 'cmp' method may not be NULL. Called from %s line %zi", file, line );
+    if ( mth->cmp == NULL ) {
+        fprintf( stderr, "The 'cmp' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( methods->loc == NULL ) {
-        fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", file, line );
+    if ( mth->loc == NULL ) {
+        fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( methods->del == NULL ) {
-        fprintf( stderr, "The 'del' method may not be NULL. Called from %s line %zi", file, line );
+    if ( mth->del == NULL ) {
+        fprintf( stderr, "The 'del' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
 
-    dict *out = malloc( sizeof( dict ));
-    if ( out == NULL ) return DICT_MEM_ERROR;
-    memset( out, 0, sizeof( dict ));
-
-    out->set = create_set( slots, meta, max_imb );
-    if ( out->set == NULL ) {
-        free( out );
-        return DICT_MEM_ERROR;
-    }
-
-    out->methods = methods;
-
-    *d = out;
-
-    return 0;
+    return dict_do_create( d, s, mi, mta, mth );
 }
 
-set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
-    set *out = malloc( sizeof( set ));
-    if ( out == NULL ) return NULL;
+int dict_create( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth ) {
+    if ( mth == NULL )      return DICT_API_ERROR;
+    if ( mth->cmp == NULL ) return DICT_API_ERROR;
+    if ( mth->loc == NULL ) return DICT_API_ERROR;
+    if ( mth->del == NULL ) return DICT_API_ERROR;
 
-    memset( out, 0, sizeof( set ));
-
-    out->max_imbalance = max_imb;
-    out->meta = meta;
-    out->slot_count = slot_count;
-    out->slots = malloc( slot_count * sizeof( slot * ));
-    if ( out->slots == NULL ) {
-        free( out );
-        return NULL;
-    }
-
-    memset( out->slots, 0, slot_count * sizeof( slot * ));
-
-    return out;
+    return dict_do_create( d, s, mi, mta, mth );
 }
 
 // -- Operation --
@@ -441,68 +403,10 @@ int dict_update( dict *d, void *key, void *val ) {
     return err;
 }
 
-void dict_deref( dict *d, ref *r ) {
-    int success = 0;
-    size_t count;
-    while ( !success ) {
-        count = r->refcount;
-        success = __sync_bool_compare_and_swap( &(r->refcount), count, count - 1 );
-    }
-
-    if ( count == 0 ) {
-        dict_del *rem = d->methods->rem;
-        dict_del *del = d->methods->del;
-        if ( rem != NULL ) rem( r->value );
-        del( r );
-    }
-}
-
 int dict_delete( dict *d, void *key ) {
-    int err = 0;
-    int go = 1;
-
-    while ( go ) {
-        location *loc = NULL;
-        err = dict_locate( d, key, &loc );
-
-        // If there is an error, or nothing to delete
-        if ( err || loc == NULL || loc->item == NULL ) {
-            go = 0;
-        }
-        else {
-            ref *oldval;
-            int success = 0;
-            while ( !success ) {
-                oldval = loc->found->value;
-                success = __sync_bool_compare_and_swap( &(loc->found->value), oldval, NULL );
-            }
-
-            dict_deref( d, oldval );
-
-            go = 0;
-
-            // A rebuild might have carried over the ref to a new set or slot.
-            __sync_synchronize();
-            if ( loc->st  != d->set )                        go = 1;
-            if ( loc->slt != d->set->slots[loc->sltn] )      go = 1;
-            if ( d->rebuild != NULL )                        go = 1;
-            if ( loc->st->slot_rebuild[loc->sltn] != NULL )  go = 1;
-
-            if ( go == 1 ) {
-                while ( d->rebuild == NULL && loc->st->slot_rebuild[loc->sltn] != NULL )
-                    sleep(0);
-                while ( d->rebuild != NULL )
-                    sleep(0);
-            }
-            else {
-                if ( d->methods->dlt != NULL )
-                    d->methods->dlt( d, loc->st->meta, key );
-            }
-        }
-
-        if ( loc != NULL ) free( loc );
-    }
-
+    location *locator = NULL;
+    int err = dict_do_set( d, key, NULL, NULL, 1, 0, &locator );
+    if ( locator != NULL ) free( locator );
     return err;
 }
 
@@ -514,11 +418,124 @@ int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
     return err;
 }
 
-int dict_reference( dict *orig, dict *dest, dict *key ) {
+int dict_cmp_delete( dict *d, void *key, void *old_val ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, old_val, NULL, 1, 0, &locator );
+    if ( locator != NULL ) free( locator );
+    return err;
+}
+
+int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     //NOTE! if the refcount of the ref we are trying to use is at 0 we cannot raise it.
     return DICT_UNIMP_ERROR;
+}
+
+int dict_dereference( dict *d, void *key ) {
+    location *loc = NULL;
+    int err = dict_locate( d, key, &loc );
+    ref *initial = NULL;
+
+    if ( !err && loc != NULL && loc->item != NULL ) {
+        initial = loc->item;
+    }
+    else {
+        err = DICT_EXIST_ERROR;
+    }
+
+    if ( !err ) {
+        // We will need to get a new one
+        free( loc );
+        loc = NULL;
+
+        // Spin until we can lock out a rebuild of this tree
+        while ( !__sync_bool_compare_and_swap( &(loc->found->value), NULL, RBLD )) {
+            sleep(0);
+        }
+
+        // Find the item again, make sure it matches our initial
+        // if it does we will unref it.
+        err = dict_locate( d, key, &loc );
+        if ( !err && loc->item == initial ) {
+            // Remove the ref from the node.
+            dict_do_deref( d, &(loc->found->value));
+        }
+
+        // Unlock rebuilding this tree.
+        if ( !__sync_bool_compare_and_swap( &(loc->found->value), NULL, RBLD )) {
+            err = DICT_FATAL_ERROR;
+        }
+    }
+
+    if ( loc != NULL ) free( loc );
+    return err;
 }
 
 int dict_iterate( dict *d, dict_handler *h, void *args ) {
     return DICT_UNIMP_ERROR;
 }
+
+//----------
+
+void dict_do_deref( dict *d, ref **rr ) {
+    ref *r = *rr;
+    int success = 0;
+    size_t count;
+    while ( !success ) {
+        count = r->refcount;
+        success = __sync_bool_compare_and_swap( &(r->refcount), count, count - 1 );
+    }
+
+    if ( count == 0 ) {
+        // Nullify rr
+        success = 0;
+        while ( ! success ) {
+            success = __sync_bool_compare_and_swap( rr, *rr, NULL );
+        }
+
+        // Release the memory
+        dict_del *rem = d->methods->rem;
+        dict_del *del = d->methods->del;
+        if ( rem != NULL ) rem( r->value );
+        del( r );
+    }
+}
+
+int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods ) {
+    dict *out = malloc( sizeof( dict ));
+    if ( out == NULL ) return DICT_MEM_ERROR;
+    memset( out, 0, sizeof( dict ));
+
+    out->set = create_set( slots, meta, max_imb );
+    if ( out->set == NULL ) {
+        free( out );
+        return DICT_MEM_ERROR;
+    }
+
+    out->methods = methods;
+
+    *d = out;
+
+    return 0;
+}
+
+set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
+    set *out = malloc( sizeof( set ));
+    if ( out == NULL ) return NULL;
+
+    memset( out, 0, sizeof( set ));
+
+    out->max_imbalance = max_imb;
+    out->meta = meta;
+    out->slot_count = slot_count;
+    out->slots = malloc( slot_count * sizeof( slot * ));
+    if ( out->slots == NULL ) {
+        free( out );
+        return NULL;
+    }
+
+    memset( out->slots, 0, slot_count * sizeof( slot * ));
+
+    return out;
+}
+
+
