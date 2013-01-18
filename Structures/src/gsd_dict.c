@@ -507,6 +507,7 @@ int dict_delete( dict *d, void *key ) {
 }
 
 int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
+    if ( old_val == NULL ) return DICT_API_ERROR;
     location *locator = NULL;
     int err = dict_do_set( d, key, old_val, new_val, 1, 0, &locator );
     if ( locator != NULL ) free( locator );
