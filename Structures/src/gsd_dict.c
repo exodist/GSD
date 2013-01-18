@@ -6,49 +6,19 @@
 #include <string.h>
 #include <stdio.h>
 
-/*\
- * epoch count of 0 means free
- * epoch count of 1 means needs to be cleared
- * epoch count of >1 means active
- *
- * Create locator
- * until not_full {
- *  until success {
- *   get pointer to epoch
- *   if ( count == 0 )
- *    swap count = 2
- *   if ( count > 1 )
- *    bump up by 1
- *
- *   try to push epoch (atomic swap)
- *  }
- *
- *  if height > max
- *      try to bump epoch
- *      dec epoch (and possibly collect)
- *      not_full = bumped ? 0 : 1; //if there is no new epoch we will use the full epoch
- * }
- * ... stuff ...
- * locator decs epoch count
- * if count is 1 we are last, time to free
- * set epoch to 0
- *
-    struct epoch {
-        size_t height;
-        size_t active;
-        epoch_stack *stack;
-    };
-
-    struct epoch_stack {
-        epoch_stack *down;
-        enum { DSLOT, DNODE, DREF, DSET } type;
-        void *to_free;
-    };
- *
-\*/
-
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
+
+/*\ == TODO ==
+ * Replace all occurences of free(loc) and free(locate) with free_location()
+ * Add a function for pushing pointers to the epoch stack
+ * Update the rem hooks
+ * Flesh the collection function
+ * Write the rebalance function
+ * Write the rebuild function
+ * Insert calls to dict_new_epoch() (rebalance, rebuild, do_set, ref and deref)
+\*/
+
 
 // -- Creation and meta data --
 
@@ -73,10 +43,6 @@ int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth,
         fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( mth->del == NULL ) {
-        fprintf( stderr, "The 'del' method may not be NULL. Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
 
     return dict_do_create( d, s, mi, mta, mth );
 }
@@ -85,7 +51,6 @@ int dict_create( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth ) {
     if ( mth == NULL )      return DICT_API_ERROR;
     if ( mth->cmp == NULL ) return DICT_API_ERROR;
     if ( mth->loc == NULL ) return DICT_API_ERROR;
-    if ( mth->del == NULL ) return DICT_API_ERROR;
 
     return dict_do_create( d, s, mi, mta, mth );
 }
@@ -95,91 +60,6 @@ int dict_create( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth ) {
 // Chance to handle pathological data gracefully
 int dict_rebuild( dict *d, size_t slots, size_t max_imb, void *meta ) {
     return DICT_UNIMP_ERROR;
-}
-
-int dict_locate( dict *d, void *key, location **locate ) {
-    location *lc = *locate;
-
-    if ( lc == NULL ) {
-        lc = malloc( sizeof( location ));
-        if ( lc == NULL ) return DICT_MEM_ERROR;
-        memset( lc, 0, sizeof( location ));
-        *locate = lc;
-    }
-
-    // The set has been swapped start over.
-    if ( lc->st != NULL && lc->st != d->set ) {
-        memset( lc, 0, sizeof( location ));
-    }
-
-    if ( lc->st == NULL ) {
-        lc->st = d->set;
-    }
-
-    if ( !lc->sltns ) {
-        lc->sltn  = d->methods->loc( lc->st->meta, lc->st->slot_count, key );
-        lc->sltns = 1;
-    }
-
-    // If the slot has been swapped use the new one (resets decendant values)
-    if ( lc->slt != NULL && lc->slt != lc->st->slots[lc->sltn] ) {
-        lc->slt    = NULL;
-        lc->parent = NULL;
-        lc->found  = NULL;
-        lc->item   = NULL;
-    }
-
-    if ( lc->slt == NULL ) {
-        slot *slt = lc->st->slots[lc->sltn];
-
-        // Slot is not populated
-        if ( slt == NULL ) return 0;
-        if ( slt == RBLD ) return 0;
-
-        lc->slt = slt;
-    }
-
-    if ( lc->parent == NULL ) {
-        lc->parent = lc->slt->root;
-        if ( lc->parent == NULL ) return 0;
-    }
-
-    node *n = lc->parent;
-    while ( n != NULL ) {
-        int dir = d->methods->cmp( lc->st->meta, key, n->key );
-        switch( dir ) {
-            case 0:
-                lc->found = n;
-                lc->item = lc->found->value;
-
-                // If the node has a rebuild value we do not want to use it.
-                // But we check after setting it to avoid a race condition.
-                // We also use a memory barrier to make sure the set occurs
-                // before the check.
-                __sync_synchronize();
-                if ( lc->item == RBLD ) {
-                    lc->item = NULL;
-                }
-
-                return 0;
-            break;
-            case -1:
-                n = n->left;
-                if ( n->right == NULL ) lc->imbalance++;
-            break;
-            case 1:
-                n = n->right;
-                if ( n->left == NULL ) lc->imbalance++;
-            break;
-            default:
-                return DICT_API_ERROR;
-            break;
-        }
-        lc->parent = n;
-    }
-
-    lc->item = NULL;
-    return 0;
 }
 
 int dict_get( dict *d, void *key, void **val ) {
@@ -224,7 +104,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             if ( new_node != NULL ) free( new_node );
             if ( new_ref != NULL )  free( new_ref );
 
-            if ( !override ) return DICT_EXIST_ERROR;
+            if ( loc->item->value != NULL && !override )
+                return DICT_EXIST_ERROR;
 
             int success = 0;
 
@@ -242,6 +123,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 ov = loc->item->value;
                 success = __sync_bool_compare_and_swap( &(loc->item->value), ov, val );
             }
+
+            // FIXME: this needs to be updated to be a hook
             if ( d->methods->rem != NULL ) d->methods->rem( ov );
             return 0;
         }
@@ -262,13 +145,13 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             new_ref->refcount = 1;
         }
 
-        // Existing deleted node, lets give it the new ref to undelete it
+        // Existing derefed node, lets give it the new ref to revive it
         if ( loc->found != NULL && loc->found != RBLD ) {
             int success = __sync_bool_compare_and_swap( &(loc->found->value), NULL, new_ref );
             if ( success ) {
                 if ( new_node != NULL ) free( new_node );
                 if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key );
+                    d->methods->ins( d, loc->st->meta, key, val );
                 return 0;
             }
 
@@ -319,7 +202,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // place, job done.
             if ( success ) {
                 if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key );
+                    d->methods->ins( d, loc->st->meta, key, val );
                 return 0;
             }
 
@@ -350,7 +233,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // thread beat us to it..
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
                 if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key );
+                    d->methods->ins( d, loc->st->meta, key, val );
                 return 0;
             }
         }
@@ -493,9 +376,12 @@ void dict_do_deref( dict *d, ref **rr ) {
         }
 
         // Release the memory
+        // FIXME: this needs to be updated to be a hook
         dict_del *rem = d->methods->rem;
-        dict_del *del = d->methods->del;
         if ( rem != NULL ) rem( r->value );
+
+        // XXX FIXME: we will use internal garbage collection
+        dict_del *del = d->methods->del;
         del( r );
     }
 }
@@ -538,4 +424,178 @@ set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
     return out;
 }
 
+/*\
+ * epoch count of 0 means free
+ * epoch count of 1 means needs to be cleared
+ * epoch count of >1 means active
+ *
+ * Create locator
+ * ... stuff ...
+ *
+    struct epoch {
+        size_t active;
+        epoch_stack *stack;
+    };
+
+    struct epoch_stack {
+        epoch_stack *down;
+        enum { DSLOT, DNODE, DREF, DSET } type;
+        void *to_free;
+    };
+ *
+\*/
+
+void dict_new_epoch( dict *d, epoch *e ) {
+    uint8_t oe = d->epoch;
+
+    // Epoch already ended.
+    if ( &(d->epochs[oe]) != e ) return;
+
+    uint8_t ne = oe + 1;
+    if ( oe >= EPOCH_COUNT ) oe = 0;
+
+    // Bump the epoch, if this fails it just means another thread did it for
+    // us, so we ignore the return
+    __sync_bool_compare_and_swap( &(d->epoch), oe, ne );
+}
+
+void dict_collect( epoch *e ) {
+    // Walk the stack and free each item
+}
+
+location *dict_create_location( dict *d ) {
+    location *locate = malloc( sizeof( location ));
+    if ( locate == NULL ) return NULL;
+    memset( locate, 0, sizeof( location ));
+
+    epoch *e;
+
+    int success = 0;
+    while ( !success ) {
+        uint8_t ei = d->epoch;
+        epoch *e = &(d->epochs[ei]);
+
+        size_t active = e->active;
+        switch (e->active) {
+            case 0:
+                // Try to set the epoch to 2, thus activating it.
+                success = __sync_bool_compare_and_swap( &(e->active), 0, 2 );
+            break;
+
+            case 1: // not usable
+            break;
+
+            default:
+                // Epoch is active, add ourselves to it
+                success = __sync_bool_compare_and_swap( &(e->active), active, active + 1 );
+            break;
+        }
+    }
+
+    locate->epoch = e;
+
+    return locate;
+}
+
+void dict_free_location( location *locate ) {
+    int success = 0;
+    size_t nactive;
+    while ( !success ) {
+        size_t oactive = locate->epoch->active;
+        nactive = oactive - 1;
+        success = __sync_bool_compare_and_swap( &(locate->epoch->active), oactive, nactive );
+    }
+
+    if ( nactive == 1 ) { // we are last, time to clean up.
+        // Free Garbage
+        dict_collect( locate->epoch );
+
+        // re-open epoch
+        __sync_bool_compare_and_swap( &(locate->epoch->active), 1, 0 );
+    }
+
+    free( locate );
+}
+
+int dict_locate( dict *d, void *key, location **locate ) {
+    if ( *locate == NULL ) {
+        *locate = dict_create_location( d );
+        if ( *locate == NULL ) return DICT_MEM_ERROR;
+    }
+    location *lc = *locate;
+
+    // The set has been swapped start over.
+    if ( lc->st != NULL && lc->st != d->set ) {
+        memset( lc, 0, sizeof( location ));
+    }
+
+    if ( lc->st == NULL ) {
+        lc->st = d->set;
+    }
+
+    if ( !lc->sltns ) {
+        lc->sltn  = d->methods->loc( lc->st->meta, lc->st->slot_count, key );
+        lc->sltns = 1;
+    }
+
+    // If the slot has been swapped use the new one (resets decendant values)
+    if ( lc->slt != NULL && lc->slt != lc->st->slots[lc->sltn] ) {
+        lc->slt    = NULL;
+        lc->parent = NULL;
+        lc->found  = NULL;
+        lc->item   = NULL;
+    }
+
+    if ( lc->slt == NULL ) {
+        slot *slt = lc->st->slots[lc->sltn];
+
+        // Slot is not populated
+        if ( slt == NULL ) return 0;
+        if ( slt == RBLD ) return 0;
+
+        lc->slt = slt;
+    }
+
+    if ( lc->parent == NULL ) {
+        lc->parent = lc->slt->root;
+        if ( lc->parent == NULL ) return 0;
+    }
+
+    node *n = lc->parent;
+    while ( n != NULL ) {
+        int dir = d->methods->cmp( lc->st->meta, key, n->key );
+        switch( dir ) {
+            case 0:
+                lc->found = n;
+                lc->item = lc->found->value;
+
+                // If the node has a rebuild value we do not want to use it.
+                // But we check after setting it to avoid a race condition.
+                // We also use a memory barrier to make sure the set occurs
+                // before the check.
+                __sync_synchronize();
+                if ( lc->item == RBLD ) {
+                    lc->item = NULL;
+                }
+
+                return 0;
+            break;
+            case -1:
+                n = n->left;
+                if ( n->right == NULL ) lc->imbalance++;
+            break;
+            case 1:
+                n = n->right;
+                if ( n->left == NULL ) lc->imbalance++;
+            break;
+            default:
+                return DICT_API_ERROR;
+            break;
+        }
+        lc->parent = n;
+    }
+
+    lc->item = NULL;
+    return 0;
+}
 
