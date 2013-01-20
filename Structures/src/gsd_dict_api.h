@@ -18,7 +18,7 @@
 typedef struct dict_methods dict_methods;
 typedef struct dict dict;
 typedef void   (dict_hook)( dict *d, void *meta, void *key, void *val );
-typedef int    (dict_handler)( void *item, void *args );
+typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
 typedef size_t (dict_loc)( void *meta, size_t slot_count, void *key );
 
@@ -41,7 +41,8 @@ int dict_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_method
 
 int dict_free( dict **d );
 
-void *dict_meta( dict *d );
+void *dict_get_meta( dict *d );
+dict_methods *dict_get_methods( dict *d );
 
 // -- Operation --
 
@@ -60,6 +61,7 @@ int dict_cmp_delete( dict *d, void *key, void *old_val );
 int dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
 int dict_dereference( dict *d, void *key );
 
+// handler can return false to break loop
 int dict_iterate( dict *d, dict_handler *h, void *args );
 
 #endif

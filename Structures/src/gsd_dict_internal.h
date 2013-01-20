@@ -12,23 +12,22 @@ typedef struct slot  slot;
 typedef struct node  node;
 typedef struct ref   ref;
 typedef struct set   set;
-
 typedef struct epoch epoch;
-typedef struct epoch_stack epoch_stack;
 
 typedef struct location location;
 
 #define EPOCH_COUNT 10
 
+/*\
+ * epoch count of 0 means free
+ * epoch count of 1 means needs to be cleared (not joinable)
+ * epoch count of >1 means active
+\*/
 struct epoch {
-    size_t active;
-    epoch_stack *stack;
-};
-
-struct epoch_stack {
-    epoch_stack *down;
-    enum { DSLOT, DNODE, DREF, DSET } type;
-    void *to_free;
+    size_t  active;
+    void   *garbage;
+    enum { SET, SLOT, NODE, REF } gtype;
+    uint8_t deps[EPOCH_COUNT];
 };
 
 struct dict {
@@ -51,8 +50,7 @@ struct set {
 
 struct slot {
     node   *root;
-    size_t node_count;
-    size_t deleted;
+    size_t  node_count;
 };
 
 struct node {
@@ -80,19 +78,29 @@ struct location {
     epoch *epoch;
 };
 
+int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
+
 int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods );
-
-set *create_set( size_t slot_count, void *meta, size_t max_imb );
-
-void dict_new_epoch( dict *d, epoch *e );
-void dict_collect( epoch *e );
-
-int dict_locate( dict *d, void *key, location **locate );
-void dict_free_location( location *locate );
-location *dict_create_location( dict *d );
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
-void dict_do_deref( dict *d, ref **r );
+void dict_do_deref( dict *d, void *key, location *loc );
+
+set *create_set( size_t slot_count, void *meta, size_t max_imb );
+location *dict_create_location( dict *d );
+
+void dict_free_location( dict *d, location *locate );
+void dict_dispose( dict *d, epoch *e, void *garbage, int type );
+void dict_join_epoch( dict *d, uint8_t *idx, epoch **ep );
+void dict_leave_epoch( dict *d, epoch *e );
+int dict_locate( dict *d, void *key, location **locate );
+
+void dict_free_set( set *s );
+void dict_free_slot( slot *s );
+void dict_free_node( node *n );
+void dict_free_ref( ref *r );
+
+void rebalance( dict *d, location *loc );
 
 #endif
+

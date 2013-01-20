@@ -9,25 +9,36 @@
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
-/*\ == TODO ==
- * Replace all occurences of free(loc) and free(locate) with free_location()
- * Add a function for pushing pointers to the epoch stack
- * Update the rem hooks
- * Flesh the collection function
- * Write the rebalance function
- * Write the rebuild function
- * Insert calls to dict_new_epoch() (rebalance, rebuild, do_set, ref and deref)
-\*/
-
-
 // -- Creation and meta data --
 
-void *dict_meta( dict *d ) {
+void *dict_get_meta( dict *d ) {
     return d->set->meta;
 }
 
-int dict_free( dict **d ) {
-    return DICT_UNIMP_ERROR;
+dict_methods *dict_get_methods( dict *d ) {
+    return d->methods;
+}
+
+int dict_free( dict **dr ) {
+    dict *d = *dr;
+    *dr = NULL;
+
+    // Wait on all epochs
+    int active = 1;
+    while ( active ) {
+        active = 0;
+        for ( int i = 0; i < 10; i++ ) {
+            epoch *e = &( d->epochs[i] );
+            active += e->active;
+        }
+        if ( active ) sleep( 0 );
+    }
+
+    if ( d->set != NULL ) dict_free_set( d->set );
+    if ( d->rebuild != NULL ) dict_free_set( d->rebuild );
+    free( d );
+
+    return 0;
 }
 
 int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth, char *f, size_t l ) {
@@ -76,9 +87,144 @@ int dict_get( dict *d, void *key, void **val ) {
     }
 
     // Free our locator
-    if ( loc != NULL ) free( loc );
+    if ( loc != NULL ) dict_free_location( d, loc );
 
     return err;
+}
+
+int dict_set( dict *d, void *key, void *val ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, NULL, val, 1, 1, &locator );
+    if ( locator != NULL ) {
+        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
+            rebalance( d, locator );
+        dict_free_location( d, locator );
+    }
+    return err;
+}
+
+int dict_insert( dict *d, void *key, void *val ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, NULL, val, 0, 1, &locator );
+    if ( locator != NULL ) {
+        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
+            rebalance( d, locator );
+        dict_free_location( d, locator );
+    }
+    return err;
+}
+
+int dict_update( dict *d, void *key, void *val ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, NULL, val, 1, 0, &locator );
+    if ( locator != NULL ) dict_free_location( d, locator );
+    return err;
+}
+
+int dict_delete( dict *d, void *key ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, NULL, NULL, 1, 0, &locator );
+    if ( locator != NULL ) dict_free_location( d, locator );
+    return err;
+}
+
+int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
+    if ( old_val == NULL ) return DICT_API_ERROR;
+    location *locator = NULL;
+    int err = dict_do_set( d, key, old_val, new_val, 1, 0, &locator );
+    if ( locator != NULL ) dict_free_location( d, locator );
+    return err;
+}
+
+int dict_cmp_delete( dict *d, void *key, void *old_val ) {
+    location *locator = NULL;
+    int err = dict_do_set( d, key, old_val, NULL, 1, 0, &locator );
+    if ( locator != NULL ) dict_free_location( d, locator );
+    return err;
+}
+
+int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
+    //NOTE! if the refcount of the ref we are trying to use is at 0 we cannot raise it.
+    return DICT_UNIMP_ERROR;
+}
+
+int dict_dereference( dict *d, void *key ) {
+    location *loc = NULL;
+    int err = dict_locate( d, key, &loc );
+
+    if ( err || loc == NULL || loc->item == NULL ) {
+        err = DICT_EXIST_ERROR;
+    }
+    else {
+        dict_do_deref( d, key, loc );
+    }
+
+    if ( loc != NULL ) dict_free_location( d, loc );
+    return err;
+}
+
+int dict_iterate( dict *d, dict_handler *h, void *args ) {
+    epoch *e = NULL;
+    dict_join_epoch( d, NULL, &e );
+    set *s = d->set;
+    int stop = 0;
+
+    for ( int i = 0; i < s->slot_count; i++ ) {
+        slot *sl = s->slots[i];
+        if ( sl == NULL ) continue;
+        node *n = sl->root;
+        if ( n == NULL ) continue;
+        stop = dict_iterate_node( d, n, h, args );
+        if ( stop ) break;
+    }
+
+    dict_leave_epoch( d, e );
+    return stop;
+}
+
+//----------
+
+int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
+    int stop = 0;
+
+    if ( n->left != NULL && n->left != RBLD ) {
+        stop = dict_iterate_node( d, n->left, h, args );
+        if ( stop ) return stop;
+    }
+
+    ref *value = n->value;
+    if ( value != NULL && value != RBLD ) {
+        void *item = value->value;
+        if ( item != NULL ) {
+            stop = h( n->key, item, args );
+            if ( stop ) return stop;
+        }
+    }
+
+    if ( n->right != NULL && n->right != RBLD ) {
+        stop = dict_iterate_node( d, n->right, h, args );
+        if ( stop ) return stop;
+    }
+
+    return 0;
+}
+
+int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods ) {
+    dict *out = malloc( sizeof( dict ));
+    if ( out == NULL ) return DICT_MEM_ERROR;
+    memset( out, 0, sizeof( dict ));
+
+    out->set = create_set( slots, meta, max_imb );
+    if ( out->set == NULL ) {
+        free( out );
+        return DICT_MEM_ERROR;
+    }
+
+    out->methods = methods;
+
+    *d = out;
+
+    return 0;
 }
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator ) {
@@ -124,8 +270,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 success = __sync_bool_compare_and_swap( &(loc->item->value), ov, val );
             }
 
-            // FIXME: this needs to be updated to be a hook
-            if ( d->methods->rem != NULL ) d->methods->rem( ov );
+            if ( d->methods->rem != NULL ) d->methods->rem( d, loc->st->meta, key, ov );
             return 0;
         }
 
@@ -164,7 +309,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         if ( new_node == NULL ) {
             new_node = malloc( sizeof( node ));
             if ( new_node == NULL ) {
-                if ( new_ref != NULL )  free( new_ref  );
+                if ( new_ref != NULL ) free( new_ref );
                 return DICT_MEM_ERROR;
             }
             memset( new_node, 0, sizeof( node ));
@@ -232,6 +377,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // If we fail to swap the new node into place, this means another
             // thread beat us to it..
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
+                __sync_add_and_fetch( &(loc->slt->node_count), 1 );
                 if ( d->methods->ins != NULL )
                     d->methods->ins( d, loc->st->meta, key, val );
                 return 0;
@@ -257,151 +403,20 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     }
 }
 
-int dict_set( dict *d, void *key, void *val ) {
-    location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 1, 1, &locator );
-    if ( locator != NULL ) {
-        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
-            fprintf( stderr, "Imbalance\n" );
-        free( locator );
-    }
-    return err;
-}
+void dict_do_deref( dict *d, void *key, location *loc ) {
+    ref *r = loc->item;
+    size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
 
-int dict_insert( dict *d, void *key, void *val ) {
-    location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 0, 1, &locator );
-    if ( locator != NULL ) {
-        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
-            fprintf( stderr, "Imbalance\n" );
-        free( locator );
-    }
-    return err;
-}
-
-int dict_update( dict *d, void *key, void *val ) {
-    location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 1, 0, &locator );
-    if ( locator != NULL ) free( locator );
-    return err;
-}
-
-int dict_delete( dict *d, void *key ) {
-    location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, NULL, 1, 0, &locator );
-    if ( locator != NULL ) free( locator );
-    return err;
-}
-
-int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
-    if ( old_val == NULL ) return DICT_API_ERROR;
-    location *locator = NULL;
-    int err = dict_do_set( d, key, old_val, new_val, 1, 0, &locator );
-    if ( locator != NULL ) free( locator );
-    return err;
-}
-
-int dict_cmp_delete( dict *d, void *key, void *old_val ) {
-    location *locator = NULL;
-    int err = dict_do_set( d, key, old_val, NULL, 1, 0, &locator );
-    if ( locator != NULL ) free( locator );
-    return err;
-}
-
-int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
-    //NOTE! if the refcount of the ref we are trying to use is at 0 we cannot raise it.
-    return DICT_UNIMP_ERROR;
-}
-
-int dict_dereference( dict *d, void *key ) {
-    location *loc = NULL;
-    int err = dict_locate( d, key, &loc );
-    ref *initial = NULL;
-
-    if ( !err && loc != NULL && loc->item != NULL ) {
-        initial = loc->item;
-    }
-    else {
-        err = DICT_EXIST_ERROR;
-    }
-
-    if ( !err ) {
-        // We will need to get a new one
-        free( loc );
-        loc = NULL;
-
-        // Spin until we can lock out a rebuild of this tree
-        while ( !__sync_bool_compare_and_swap( &(loc->found->value), NULL, RBLD )) {
-            sleep(0);
-        }
-
-        // Find the item again, make sure it matches our initial
-        // if it does we will unref it.
-        err = dict_locate( d, key, &loc );
-        if ( !err && loc->item == initial ) {
-            // Remove the ref from the node.
-            dict_do_deref( d, &(loc->found->value));
-        }
-
-        // Unlock rebuilding this tree.
-        if ( !__sync_bool_compare_and_swap( &(loc->found->value), NULL, RBLD )) {
-            err = DICT_FATAL_ERROR;
-        }
-    }
-
-    if ( loc != NULL ) free( loc );
-    return err;
-}
-
-int dict_iterate( dict *d, dict_handler *h, void *args ) {
-    return DICT_UNIMP_ERROR;
-}
-
-//----------
-
-void dict_do_deref( dict *d, ref **rr ) {
-    ref *r = *rr;
-    int success = 0;
-    size_t count;
-    while ( !success ) {
-        count = r->refcount;
-        success = __sync_bool_compare_and_swap( &(r->refcount), count, count - 1 );
-    }
+    // Nullify if the ref is still in the node
+    __sync_bool_compare_and_swap( &(loc->found->value), r, NULL );
 
     if ( count == 0 ) {
-        // Nullify rr
-        success = 0;
-        while ( ! success ) {
-            success = __sync_bool_compare_and_swap( rr, *rr, NULL );
-        }
-
         // Release the memory
-        // FIXME: this needs to be updated to be a hook
-        dict_del *rem = d->methods->rem;
-        if ( rem != NULL ) rem( r->value );
+        dict_hook *rem = d->methods->rem;
+        if ( rem != NULL ) rem( d, loc->st->meta, key, r->value );
 
-        // XXX FIXME: we will use internal garbage collection
-        dict_del *del = d->methods->del;
-        del( r );
+        dict_dispose( d, loc->epoch, r, REF );
     }
-}
-
-int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods ) {
-    dict *out = malloc( sizeof( dict ));
-    if ( out == NULL ) return DICT_MEM_ERROR;
-    memset( out, 0, sizeof( dict ));
-
-    out->set = create_set( slots, meta, max_imb );
-    if ( out->set == NULL ) {
-        free( out );
-        return DICT_MEM_ERROR;
-    }
-
-    out->methods = methods;
-
-    *d = out;
-
-    return 0;
 }
 
 set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
@@ -424,56 +439,66 @@ set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
     return out;
 }
 
-/*\
- * epoch count of 0 means free
- * epoch count of 1 means needs to be cleared
- * epoch count of >1 means active
- *
- * Create locator
- * ... stuff ...
- *
-    struct epoch {
-        size_t active;
-        epoch_stack *stack;
-    };
-
-    struct epoch_stack {
-        epoch_stack *down;
-        enum { DSLOT, DNODE, DREF, DSET } type;
-        void *to_free;
-    };
- *
-\*/
-
-void dict_new_epoch( dict *d, epoch *e ) {
-    uint8_t oe = d->epoch;
-
-    // Epoch already ended.
-    if ( &(d->epochs[oe]) != e ) return;
-
-    uint8_t ne = oe + 1;
-    if ( oe >= EPOCH_COUNT ) oe = 0;
-
-    // Bump the epoch, if this fails it just means another thread did it for
-    // us, so we ignore the return
-    __sync_bool_compare_and_swap( &(d->epoch), oe, ne );
-}
-
-void dict_collect( epoch *e ) {
-    // Walk the stack and free each item
-}
-
 location *dict_create_location( dict *d ) {
     location *locate = malloc( sizeof( location ));
     if ( locate == NULL ) return NULL;
     memset( locate, 0, sizeof( location ));
 
+    dict_join_epoch( d, NULL, &(locate->epoch) );
+
+    return locate;
+}
+
+void dict_free_location( dict *d, location *locate ) {
+    dict_leave_epoch( d, locate->epoch );
+    free( locate );
+}
+
+void dict_dispose( dict *d, epoch *e, void *garbage, int type ) {
+    epoch *effective = e;
+    uint8_t effidx;
+
+    while ( 1 ) {
+        if (__sync_bool_compare_and_swap( &(effective->garbage), NULL, garbage )) {
+            effective->gtype = type;
+            // If effective != e, add dep
+            if ( e != effective ) {
+                e->deps[effidx] = 1;
+            }
+            return;
+        }
+
+        // if the garbage slot is full we need a different epoch
+        // if effective is the current epoch, bump the epoch number
+        while ( 1 ) {
+            uint8_t ei = d->epoch;
+            if ( &(d->epochs[ei]) != effective )
+                break;
+
+            uint8_t nei = ei + 1;
+            if ( nei >= EPOCH_COUNT ) nei = 0;
+
+            if ( __sync_bool_compare_and_swap( &(d->epoch), ei, nei ))
+                break;
+        }
+
+        // Leave old epoch, unless it is our main epoch
+        if ( e != effective )
+            dict_leave_epoch( d, effective );
+
+        // Get new effective epoch
+        dict_join_epoch( d, &effidx, &effective );
+    }
+}
+
+void dict_join_epoch( dict *d, uint8_t *idx, epoch **ep ) {
+    uint8_t ei;
     epoch *e;
 
     int success = 0;
     while ( !success ) {
-        uint8_t ei = d->epoch;
-        epoch *e = &(d->epochs[ei]);
+        ei = d->epoch;
+        e  = &(d->epochs[ei]);
 
         size_t active = e->active;
         switch (e->active) {
@@ -482,7 +507,8 @@ location *dict_create_location( dict *d ) {
                 success = __sync_bool_compare_and_swap( &(e->active), 0, 2 );
             break;
 
-            case 1: // not usable
+            case 1: // not usable, we need to wait for the epoch to change or open.
+                sleep( 0 );
             break;
 
             default:
@@ -492,29 +518,45 @@ location *dict_create_location( dict *d ) {
         }
     }
 
-    locate->epoch = e;
-
-    return locate;
+    if ( ep  != NULL ) *ep  = e;
+    if ( idx != NULL ) *idx = ei;
 }
 
-void dict_free_location( location *locate ) {
-    int success = 0;
-    size_t nactive;
-    while ( !success ) {
-        size_t oactive = locate->epoch->active;
-        nactive = oactive - 1;
-        success = __sync_bool_compare_and_swap( &(locate->epoch->active), oactive, nactive );
-    }
+void dict_leave_epoch( dict *d, epoch *e ) {
+    size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
 
     if ( nactive == 1 ) { // we are last, time to clean up.
         // Free Garbage
-        dict_collect( locate->epoch );
+        if ( e->garbage != NULL ) {
+            switch ( e->gtype ) {
+                case SET:
+                    dict_free_set( e->garbage );
+                break;
+                case SLOT:
+                    dict_free_slot( e->garbage );
+                break;
+                case NODE:
+                    dict_free_node( e->garbage );
+                break;
+                case REF:
+                    dict_free_ref( e->garbage );
+                break;
+            }
+        }
+
+        // This is safe, if nactive is 1 it means no others are active on this
+        // epoch, and none will be
+        e->garbage = NULL;
+
+        // dec deps
+        for ( int i = 0; i < EPOCH_COUNT; i++ ) {
+            if ( e->deps[i] ) dict_leave_epoch( d, &(d->epochs[i]) );
+            e->deps[i] = 0;
+        }
 
         // re-open epoch
-        __sync_bool_compare_and_swap( &(locate->epoch->active), 1, 0 );
+        __sync_bool_compare_and_swap( &(e->active), 1, 0 );
     }
-
-    free( locate );
 }
 
 int dict_locate( dict *d, void *key, location **locate ) {
@@ -592,10 +634,50 @@ int dict_locate( dict *d, void *key, location **locate ) {
                 return DICT_API_ERROR;
             break;
         }
+
+        // If the node has no value it has been deref'd
+        if ( n->value == NULL ) lc->imbalance++;
         lc->parent = n;
     }
 
     lc->item = NULL;
     return 0;
+}
+
+void dict_free_set( set *s ) {
+    for ( int i = 0; i < s->slot_count; i++ ) {
+        if ( s->slots[i] != NULL ) dict_free_slot( s->slots[i] );
+        if ( s->slot_rebuild[i] != NULL ) dict_free_slot( s->slot_rebuild[i] );
+    }
+    free( s );
+}
+
+void dict_free_slot( slot *s ) {
+    if ( s->root != NULL ) dict_free_node( s->root );
+    free( s );
+}
+
+void dict_free_node( node *n ) {
+    if ( n->left != NULL && n->left != RBLD )
+        dict_free_node( n->left );
+    if ( n->right != NULL && n->right != RBLD )
+        dict_free_node( n->right );
+
+    if ( n->value != NULL && n->value != RBLD ) {
+        ref *r = n->value;
+        size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
+        if( count == 0 ) dict_free_ref( r );
+    }
+}
+
+void dict_free_ref( ref *r ) {
+    free( r );
+}
+
+void rebalance( dict *d, location *loc ) {
+    // When rebalancing we need to increment the node ref count if each ref as
+    // it is inserted after we swap out the slot we need to go through again
+    // and dec each ref count (in the old slot), if it becomes 0 we need to
+    // remove the ref. This occurs if someone uses deref during a rebalance
 }
 

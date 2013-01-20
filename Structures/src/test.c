@@ -22,7 +22,6 @@ int main() {
     dict_methods *m = malloc( sizeof( dict_methods ));
     m->cmp = compare;
     m->loc = locate;
-    m->del = free;
 
     dict_create( &d, 10, 10, NULL, m );
     return 0;
