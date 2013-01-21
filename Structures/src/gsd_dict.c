@@ -149,6 +149,7 @@ int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
 }
 
 int dict_dereference( dict *d, void *key ) {
+    // FIXME: Broken for rebuilds and balances
     location *loc = NULL;
     int err = dict_locate( d, key, &loc );
 
@@ -156,7 +157,15 @@ int dict_dereference( dict *d, void *key ) {
         err = DICT_EXIST_ERROR;
     }
     else {
-        dict_do_deref( d, key, loc );
+        while (!__sync_bool_compare_and_swap( &(loc->set->slot_rebuild[loc->sltn]), NULL, RBLD )) {
+            sleep(0);
+        }
+
+        // Refresh the location
+        err = dict_locate( d, key, &loc );
+        if ( ! err ) dict_do_deref( d, key, loc );
+
+        __sync_bool_compare_and_swap( &(loc->set->slot_rebuild[loc->sltn]), RBLD, NULL );
     }
 
     if ( loc != NULL ) dict_free_location( d, loc );
@@ -675,9 +684,5 @@ void dict_free_ref( ref *r ) {
 }
 
 void rebalance( dict *d, location *loc ) {
-    // When rebalancing we need to increment the node ref count if each ref as
-    // it is inserted after we swap out the slot we need to go through again
-    // and dec each ref count (in the old slot), if it becomes 0 we need to
-    // remove the ref. This occurs if someone uses deref during a rebalance
 }
 
