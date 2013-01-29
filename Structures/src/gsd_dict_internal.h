@@ -13,6 +13,7 @@ typedef struct node  node;
 typedef struct ref   ref;
 typedef struct set   set;
 typedef struct epoch epoch;
+typedef struct dot   dot;
 
 typedef struct location location;
 
@@ -35,6 +36,9 @@ struct dict {
     set *rebuild;
 
     dict_methods *methods;
+
+    dict *cow;
+    uint8_t cow_ref;
 
     epoch epochs[EPOCH_COUNT];
     uint8_t epoch;
@@ -63,6 +67,12 @@ struct node {
 struct ref {
     size_t  refcount;
     void   *value;
+};
+
+struct dot {
+    char     *buffer;
+    size_t    size;
+    dict_dot *show;
 };
 
 struct location {
@@ -100,7 +110,12 @@ void dict_free_slot( slot *s );
 void dict_free_node( node *n );
 void dict_free_ref( ref *r );
 
-void rebalance( dict *d, location *loc );
+int rebalance( dict *d, location *loc );
+
+int dict_dump_dot_start( dot *dt );
+int dict_dump_dot_slink( dot *dt, int s1, int s2 );
+int dict_dump_dot_subgraph( dot *dt, int s, node *n );
+int dict_dump_dot_node( dot *dt, char *line, node *n, char *label );
+int dict_dump_dot_write( dot *dt, char *add );
 
 #endif
-
