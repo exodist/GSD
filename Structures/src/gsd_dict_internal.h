@@ -37,24 +37,20 @@ struct dict {
 
     dict_methods *methods;
 
-    dict *cow;
-    uint8_t cow_ref;
-
     epoch epochs[EPOCH_COUNT];
     uint8_t epoch;
 };
 
 struct set {
     slot  **slots;
-    slot  **slot_rebuild;
     size_t  slot_count;
-    size_t  max_imbalance;
     void   *meta;
 };
 
 struct slot {
     node   *root;
-    size_t  node_count;
+    size_t  count;
+    uint8_t rebuild;
 };
 
 struct node {
@@ -80,23 +76,23 @@ struct location {
     size_t  sltn;
     uint8_t sltns;
     slot   *slt;
+    size_t  height;
     node   *parent;
     node   *found;
     ref    *item;
-    size_t imbalance;
 
     epoch *epoch;
 };
 
 int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
 
-int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods );
+int dict_do_create( dict **d, size_t slots, void *meta, dict_methods *methods );
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
 void dict_do_deref( dict *d, void *key, location *loc );
 
-set *create_set( size_t slot_count, void *meta, size_t max_imb );
+set *create_set( size_t slot_count, void *meta );
 location *dict_create_location( dict *d );
 
 void dict_free_location( dict *d, location *locate );
@@ -111,6 +107,9 @@ void dict_free_node( node *n );
 void dict_free_ref( ref *r );
 
 int rebalance( dict *d, location *loc );
+size_t rebalance_node( node *n, node ***all, size_t *size, size_t count );
+int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end );
+int rebalance_insert( dict *d, set *st, slot *s, node *n );
 
 int dict_dump_dot_start( dot *dt );
 int dict_dump_dot_slink( dot *dt, int s1, int s2 );

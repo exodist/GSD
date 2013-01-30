@@ -41,7 +41,7 @@ int dict_free( dict **dr ) {
     return DICT_NO_ERROR;
 }
 
-int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth, char *f, size_t l ) {
+int dict_create_vb( dict **d, size_t s, void *mta, dict_methods *mth, char *f, size_t l ) {
     if ( mth == NULL ) {
         fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
@@ -55,15 +55,15 @@ int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth,
         return DICT_API_ERROR;
     }
 
-    return dict_do_create( d, s, mi, mta, mth );
+    return dict_do_create( d, s, mta, mth );
 }
 
-int dict_create( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth ) {
+int dict_create( dict **d, size_t s, void *mta, dict_methods *mth ) {
     if ( mth == NULL )      return DICT_API_ERROR;
     if ( mth->cmp == NULL ) return DICT_API_ERROR;
     if ( mth->loc == NULL ) return DICT_API_ERROR;
 
-    return dict_do_create( d, s, mi, mta, mth );
+    return dict_do_create( d, s, mta, mth );
 }
 
 int dict_clone( dict **dest, dict *orig )         { return DICT_UNIMP_ERROR; }
@@ -115,7 +115,7 @@ int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
 // -- Operation --
 
 // Chance to handle pathological data gracefully
-int dict_rebuild( dict *d, size_t slots, size_t max_imb, void *meta ) {
+int dict_rebuild( dict *d, size_t slots, void *meta ) {
     return DICT_UNIMP_ERROR;
 }
 
@@ -142,8 +142,6 @@ int dict_set( dict *d, void *key, void *val ) {
     location *locator = NULL;
     int err = dict_do_set( d, key, NULL, val, 1, 1, &locator );
     if ( locator != NULL ) {
-        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
-            rebalance( d, locator );
         dict_free_location( d, locator );
     }
     return err;
@@ -153,8 +151,6 @@ int dict_insert( dict *d, void *key, void *val ) {
     location *locator = NULL;
     int err = dict_do_set( d, key, NULL, val, 0, 1, &locator );
     if ( locator != NULL ) {
-        if ( !err && locator->st != NULL && locator->imbalance > locator->st->max_imbalance )
-            rebalance( d, locator );
         dict_free_location( d, locator );
     }
     return err;
@@ -192,14 +188,6 @@ int dict_cmp_delete( dict *d, void *key, void *old_val ) {
 int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     //NOTE! if the refcount of the ref we are trying to use is at 0 we cannot raise it.
 
-    // Get the origin location
-    // lock out a rebuild
-    // locate in dest
-    // lock out a rebalance
-    // locate again from locked set
-    // update or insert
-    // unlock balance
-    // unlock rebuild
 
     return DICT_UNIMP_ERROR;
 }
@@ -210,7 +198,6 @@ int dict_dereference( dict *d, void *key ) {
     location *loc = NULL;
     // Block rebuild
     int err = dict_locate( d, key, &loc );
-    // Block rebalance
     // locate again from rebuild locked slot
 
     // dict_do_deref
@@ -268,12 +255,12 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     return DICT_NO_ERROR;
 }
 
-int dict_do_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods ) {
+int dict_do_create( dict **d, size_t slots, void *meta, dict_methods *methods ) {
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return DICT_MEM_ERROR;
     memset( out, 0, sizeof( dict ));
 
-    out->set = create_set( slots, meta, max_imb );
+    out->set = create_set( slots, meta );
     if ( out->set == NULL ) {
         free( out );
         return DICT_MEM_ERROR;
@@ -295,6 +282,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     ref  *new_ref  = NULL;
 
     while( 1 ) {
+        while ( d->rebuild != NULL ) sleep(0);
+
         int err = dict_locate( d, key, locator );
         if ( err ) {
             if ( new_node != NULL ) free( new_node );
@@ -392,8 +381,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 return DICT_MEM_ERROR;
             }
             memset( new_slot, 0, sizeof( slot ));
-            new_slot->root = new_node;
-            new_slot->node_count = 1;
+            new_slot->root   = new_node;
+            new_slot->count  = 1;
 
             // swap into place
             int success = __sync_bool_compare_and_swap(
@@ -430,34 +419,36 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             else { // This should not be possible.
                 if ( new_node != NULL ) free( new_node );
                 if ( new_ref  != NULL ) free( new_ref  );
-                return DICT_INT_ERROR;
+                return DICT_API_ERROR;
             }
 
             // If we fail to swap the new node into place, this means another
             // thread beat us to it..
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
-                __sync_add_and_fetch( &(loc->slt->node_count), 1 );
+                size_t count = __sync_add_and_fetch( &(loc->slt->count), 1 );
+
                 if ( d->methods->ins != NULL )
                     d->methods->ins( d, loc->st->meta, key, val );
+
+                size_t height = loc->height + 1;
+                size_t ideal = 0;
+                while ( count > 0 ) {
+                    count >>= 1;
+                    ideal++;
+                }
+
+                if ( height > ideal + 2 && __sync_bool_compare_and_swap( &(loc->slt->rebuild), 0, 1 )) {
+                    int ret = rebalance( d, loc );
+                    loc->slt->rebuild = 0;
+
+                    return ret;
+                }
+
                 return DICT_NO_ERROR;
             }
-        }
 
-        // If we found a branch, and its value is not rebuild then another
-        // thread beat us to the punch, just start over, if it is RBLD then we
-        // are rebuilding
-        if ( branch == NULL || *branch != RBLD ) continue;
-
-        // We are in a rebuild, wait for it to end, then we will try again.
-        if ( loc->st != NULL && loc->sltns ) {
-            // Wait until either the slot rebuild finishes, or a complete
-            // rebuild begins.  A complete rebuild could prevent the slot
-            // rebuild from finishing.
-            while ( d->rebuild == NULL && loc->st->slot_rebuild[loc->sltn] != NULL )
+            while ( d->rebuild == NULL && loc->slt->rebuild > 0 )
                 sleep(0);
-        }
-        else {
-            while ( d->rebuild != NULL ) sleep(0);
         }
     }
 }
@@ -478,13 +469,12 @@ void dict_do_deref( dict *d, void *key, location *loc ) {
     }
 }
 
-set *create_set( size_t slot_count, void *meta, size_t max_imb ) {
+set *create_set( size_t slot_count, void *meta ) {
     set *out = malloc( sizeof( set ));
     if ( out == NULL ) return NULL;
 
     memset( out, 0, sizeof( set ));
 
-    out->max_imbalance = max_imb;
     out->meta = meta;
     out->slot_count = slot_count;
     out->slots = malloc( slot_count * sizeof( slot * ));
@@ -659,11 +649,12 @@ int dict_locate( dict *d, void *key, location **locate ) {
 
     if ( lc->parent == NULL ) {
         lc->parent = lc->slt->root;
+        lc->height = 1;
         if ( lc->parent == NULL ) return DICT_NO_ERROR;
     }
 
     node *n = lc->parent;
-    while ( n != NULL ) {
+    while ( n != NULL && n != RBLD ) {
         int dir = d->methods->cmp( lc->st->meta, key, n->key );
         switch( dir ) {
             case 0:
@@ -682,11 +673,11 @@ int dict_locate( dict *d, void *key, location **locate ) {
                 return DICT_NO_ERROR;
             break;
             case -1:
-                if ( n->right == NULL ) lc->imbalance++;
+                lc->height++;
                 n = n->left;
             break;
             case 1:
-                if ( n->left == NULL ) lc->imbalance++;
+                lc->height++;
                 n = n->right;
             break;
             default:
@@ -696,7 +687,6 @@ int dict_locate( dict *d, void *key, location **locate ) {
 
         // If the node has no value it has been deref'd
         if ( n != NULL ) {
-            if( n->value == NULL ) lc->imbalance++;
             lc->parent = n;
         }
     }
@@ -708,7 +698,6 @@ int dict_locate( dict *d, void *key, location **locate ) {
 void dict_free_set( set *s ) {
     for ( int i = 0; i < s->slot_count; i++ ) {
         if ( s->slots[i] != NULL ) dict_free_slot( s->slots[i] );
-        if ( s->slot_rebuild[i] != NULL ) dict_free_slot( s->slot_rebuild[i] );
     }
     free( s );
 }
@@ -735,7 +724,122 @@ void dict_free_ref( ref *r ) {
     free( r );
 }
 
-int rebalance( dict *d, location *loc ) { return DICT_UNIMP_ERROR; }
+int rebalance( dict *d, location *loc ) {
+    // Attempt to create rebalance slot, or return
+    slot *ns = malloc( sizeof( slot ));
+    if ( ns == NULL ) return DICT_MEM_ERROR;
+    memset( ns, 0, sizeof( slot ));
+
+    // Create balance_pair array
+    size_t size = loc->slt->count + 100;
+    node **all = malloc( sizeof( node * ) * size );
+    if ( all == NULL ) {
+        free( ns );
+        return DICT_MEM_ERROR;
+    }
+    memset( all, 0, size * sizeof( node * ));
+
+    // Iterate nodes, add to array, block new branches
+    size_t count = rebalance_node( loc->slt->root, &all, &size, 0 );
+    if ( count == 0 ) return DICT_MEM_ERROR;
+    ns->count = count;
+
+    // insert nodes
+    int ret = rebalance_insert_list( d, loc->st, ns, all, 0, count - 1 );
+
+    // swap
+    if (!ret && __sync_bool_compare_and_swap( &(loc->st->slots[loc->sltn]), loc->slt, ns )) {
+        dict_dispose( d, loc->epoch, loc->slt, SLOT );
+    }
+    else {
+        free( ns );
+    }
+
+    free( all );
+    return ret;
+}
+
+size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
+    if ( n->right == NULL ) __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
+    if ( n->right != NULL && n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
+
+    if ( n->value == NULL ) {
+        __sync_bool_compare_and_swap( &(n->value), NULL, RBLD );
+    }
+
+    if ( n->value != RBLD  ) {
+        if ( count >= *size ) {
+            fprintf( stderr, "GROW: %zi, %zi\n", count, *size );
+            node **nall = realloc( *all, (*size + 10) * sizeof(node *));
+            *size += 10;
+            if ( nall == NULL ) return 0;
+            *all = nall;
+        }
+        (*all)[count] = n;
+        count++;
+    }
+
+    if ( n->left == NULL ) __sync_bool_compare_and_swap( &(n->left), NULL, RBLD );
+    if ( n->left != NULL && n->left != RBLD ) count = rebalance_node( n->left, all, size, count );
+
+    return count;
+}
+
+int rebalance_insert( dict *d, set *st, slot *s, node *n ) {
+    node **put_here = &(s->root);
+    while ( *put_here != NULL ) {
+        int dir = d->methods->cmp( st->meta, n->key, (*put_here)->key );
+        if ( dir == -1 ) { // Left
+            put_here = &((*put_here)->left);
+        }
+        else if ( dir == 1 ) { // Right
+            put_here = &((*put_here)->right);
+        }
+        else {
+            return DICT_API_ERROR;
+        }
+    }
+
+    node *new_node = malloc( sizeof( node ));
+    if ( new_node == NULL ) return DICT_MEM_ERROR;
+    memset( new_node, 0, sizeof( node ));
+
+    int success = 0;
+    while ( !success ) {
+        size_t c = n->value->refcount;
+        if ( c < 1 ) break;
+        success = __sync_bool_compare_and_swap( &(n->value->refcount), c, c + 1 );
+    }
+    if ( n->value->refcount < 1 ) {
+        free( new_node );
+        return DICT_NO_ERROR;
+    }
+
+    new_node->key   = n->key;
+    new_node->value = n->value;
+
+    *put_here = new_node;
+    return DICT_NO_ERROR;
+}
+
+int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end ) {
+    if ( start == end ) return rebalance_insert( d, st, s, all[start] );
+
+    size_t total = end - start;
+    size_t half = total / 2;
+    size_t center = total % 2 ? start + half + 1
+                              : start + half;
+
+    int res = rebalance_insert( d, st, s, all[center] );
+    if ( res ) return res;
+
+    res = rebalance_insert_list( d, st, s, all, start, center - 1 );
+    if ( res ) return res;
+
+    if ( center == end ) return res;
+    res = rebalance_insert_list( d, st, s, all, center + 1, end );
+    return res;
+}
 
 int dict_dump_dot_start( dot *dt ) {
     return dict_dump_dot_write( dt,

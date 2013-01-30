@@ -1,11 +1,10 @@
-#define DICT_DEBUG "monitor.dot"
-
 #include "gsd_dict_api.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <assert.h>
 
 int compare( void *meta, void *key1, void *key2 ) {
     int64_t k1 = *(int64_t*)key1;
@@ -37,19 +36,29 @@ int main() {
     m->cmp = compare;
     m->loc = locate;
 
-    dict_create( &d, 1, 10, NULL, m );
+    dict_create( &d, 128, NULL, m );
     int64_t v = 1;
     int64_t v2 = 11;
-    int64_t k[1001];
-    for (int i = 0; i < 1001; i++) {
+    int64_t k[4001];
+    for (uint64_t i = 0; i < 4001; i++) {
         k[i] = i;
     }
 
-    for ( int i = 0; i < 500; i += 5 ) {
-        int x = rand() % 100;
+    for ( int i = 0; i < 4000; i++ ) {
+        int64_t x = rand();
+        x <<= 8;
+        x += rand();
+        x %= 4000;
+
+        if ( x < 0 ) x *= -1;
         dict_set( d, &k[x], &v );
-        if ( i % 25 == 0 ) {
+        int64_t *g = NULL;
+        dict_get( d, &k[x], (void **)&g );
+        assert( g == &v );
+        if ( i % 8 == 0 ) {
             dict_delete( d, &k[x] );
+            dict_get( d, &k[x], (void **)&g );
+            assert( g == NULL );
         }
     }
 

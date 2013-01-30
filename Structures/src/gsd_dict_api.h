@@ -42,10 +42,10 @@ struct dict_methods {
 // This macro can be used to create a dict that gives you more verbose errors
 // if you use it incorrectly.
 #define dict_create_verbose( a, b, c, d, e ) dict_create_vb( a, b, c, d, e, __FILE__, __LINE__ )
-int dict_create_vb( dict **d, size_t s, size_t mi, void *mta, dict_methods *mth, char *f, size_t l );
+int dict_create_vb( dict **d, size_t s, void *mta, dict_methods *mth, char *f, size_t l );
 
 // This is the normal way to create a dict that does not write any output
-int dict_create( dict **d, size_t slots, size_t max_imb, void *meta, dict_methods *methods );
+int dict_create( dict **d, size_t slots, void *meta, dict_methods *methods );
 
 // Copying and cloning
 int dict_clone( dict **dest, dict *orig );
@@ -73,7 +73,7 @@ int dict_dump_dot( dict *d, char **buffer, dict_dot *show );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-int dict_rebuild( dict *d, size_t slots, size_t max_imb, void *meta );
+int dict_rebuild( dict *d, size_t slots, void *meta );
 
 // Get never blocks
 // Set will insert or update as necessary
