@@ -36,15 +36,16 @@ int main() {
     m->cmp = compare;
     m->loc = locate;
 
-    dict_create( &d, 128, NULL, m );
+    dict_create( &d, 8, NULL, m );
     int64_t v = 1;
     int64_t v2 = 11;
+    int64_t v3 = 55;
     int64_t k[4001];
     for (uint64_t i = 0; i < 4001; i++) {
         k[i] = i;
     }
 
-    for ( int i = 0; i < 4000; i++ ) {
+    for ( int i = 0; i < 200; i++ ) {
         int64_t x = rand();
         x <<= 8;
         x += rand();
@@ -60,13 +61,21 @@ int main() {
             dict_get( d, &k[x], (void **)&g );
             assert( g == NULL );
         }
+        if ( i % 5 == 0 ) {
+            int64_t y = rand() % 8;
+            if ( x == y ) { y += 1; }
+            dict_reference( d, &k[x], d, &k[y] );
+        }
     }
 
-    dict_set( d, &k[5], &v );
+    dict_set( d, &k[0], &v );
     dict_set( d, &k[8], &v );
-    dict_delete( d, &k[5] );
-    dict_delete( d, &k[8] );
-    dict_set( d, &k[8], &v2 );
+    dict_dereference( d, &k[0] );
+    dict_dereference( d, &k[8] );
+    dict_reference( d, &k[0], d, &k[3905] );
+    dict_set( d, &k[0], &v3 );
+    dict_reference( d, &k[3905], d, &k[2401] );
+
 
     char *buffer;
     int ret = dict_dump_dot( d, &buffer, show );

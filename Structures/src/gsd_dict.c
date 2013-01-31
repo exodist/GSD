@@ -10,6 +10,14 @@
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
+/* TODO:
+ * Split into more files
+ * Rebuild
+ * Merging
+ * Epoch in dot-dump
+ * Control max imbalance
+\*/
+
 // -- Creation and meta data --
 
 void *dict_get_meta( dict *d ) {
@@ -35,7 +43,7 @@ int dict_free( dict **dr ) {
         if ( active ) sleep( 0 );
     }
 
-    if ( d->set != NULL ) dict_free_set( d->set );
+    if ( d->set != NULL ) dict_free_set( d, d->set );
     free( d );
 
     return DICT_NO_ERROR;
@@ -66,11 +74,9 @@ int dict_create( dict **d, size_t s, void *mta, dict_methods *mth ) {
     return dict_do_create( d, s, mta, mth );
 }
 
-int dict_clone( dict **dest, dict *orig )         { return DICT_UNIMP_ERROR; }
-int dict_clone_cow( dict **dest, dict *orig )     { return DICT_UNIMP_ERROR; }
-int dict_clone_cow_ref( dict **dest, dict *orig ) { return DICT_UNIMP_ERROR; }
-int dict_copy( dict *dest, dict *orig )           { return DICT_UNIMP_ERROR; }
-int dict_copy_ref( dict *dest, dict *orig )       { return DICT_UNIMP_ERROR; }
+// Copying and cloning
+int dict_merge( dict *from, dict *to );
+int dict_merge_refs( dict *from, dict *to );
 
 // -- Informational --
 
@@ -186,24 +192,40 @@ int dict_cmp_delete( dict *d, void *key, void *old_val ) {
 }
 
 int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
-    //NOTE! if the refcount of the ref we are trying to use is at 0 we cannot raise it.
+    location *oloc = NULL;
+    location *dloc = NULL;
 
+    // Find item in orig, insert if necessary
+    int err1 = dict_do_set( orig, okey, NULL, NULL, 0, 1, &oloc );
+    // Find item in dest, insert if necessary
+    int err2 = dict_do_set( dest, dkey, NULL, NULL, 0, 1, &dloc );
 
-    return DICT_UNIMP_ERROR;
+    // Ignore rebalance errors.. might want to readdress this.
+    if ( err1 > 100 ) err1 = 0;
+    if ( err2 > 100 ) err2 = 0;
+
+    // Transaction error from above simply means it already exists
+    if ( err1 == DICT_TRANS_FAIL ) err1 = 0;
+    if ( err2 == DICT_TRANS_FAIL ) err2 = 0;
+
+    if ( !err1 && !err2 ) {
+        dict_do_deref( dest, dkey, dloc, oloc->itemp->value );
+    }
+
+    if ( oloc != NULL ) dict_free_location( orig, oloc );
+    if ( dloc != NULL ) dict_free_location( dest, dloc );
+
+    if ( err1 ) return err1;
+    if ( err2 ) return err2;
+
+    return DICT_NO_ERROR;
 }
 
 int dict_dereference( dict *d, void *key ) {
-    return DICT_UNIMP_ERROR;
-
     location *loc = NULL;
-    // Block rebuild
     int err = dict_locate( d, key, &loc );
-    // locate again from rebuild locked slot
 
-    // dict_do_deref
-
-    // unblock rebalance
-    // unblock rebuild
+    if ( !err && loc->item != NULL ) dict_do_deref( d, key, loc, NULL );
 
     if ( loc != NULL ) dict_free_location( d, loc );
     return err;
@@ -238,9 +260,10 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
         if ( stop ) return stop;
     }
 
-    ref *value = n->value;
-    if ( value != NULL && value != RBLD ) {
-        void *item = value->value;
+    usref *ur = n->value;
+    sref *sr = ur->value;
+    if ( sr != NULL && sr != RBLD ) {
+        void *item = sr->value;
         if ( item != NULL ) {
             stop = h( n->key, item, args );
             if ( stop ) return stop;
@@ -276,18 +299,18 @@ int dict_do_create( dict **d, size_t slots, void *meta, dict_methods *methods ) 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator ) {
     // If these get created we want to hold on to them until the last iteration
     // in case they are needed instead of building them each loop.
-    // As such they need to be freed anywhere that returns without referencign
+    // As such they need to be freed anywhere that returns without referencing
     // them anywhere.
     node *new_node = NULL;
-    ref  *new_ref  = NULL;
+    sref *new_sref = NULL;
 
     while( 1 ) {
         while ( d->rebuild != NULL ) sleep(0);
 
         int err = dict_locate( d, key, locator );
         if ( err ) {
-            if ( new_node != NULL ) free( new_node );
-            if ( new_ref != NULL )  free( new_ref );
+            if ( new_node != NULL ) dict_free_node( d, d->set, new_node );
+            if ( new_sref != NULL ) free( new_sref );
             return err;
         }
         location *loc = *locator;
@@ -295,8 +318,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         // Existing ref, safe to update even in a rebuild
         if ( loc->item != NULL ) {
             // We will not need new_node or new_ref anymore.
-            if ( new_node != NULL ) free( new_node );
-            if ( new_ref != NULL )  free( new_ref );
+            if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            if ( new_sref != NULL ) free( new_sref );
 
             if ( loc->item->value != NULL && !override )
                 return DICT_TRANS_FAIL;
@@ -318,38 +341,39 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 success = __sync_bool_compare_and_swap( &(loc->item->value), ov, val );
             }
 
-            if ( d->methods->rem != NULL ) d->methods->rem( d, loc->st->meta, key, ov );
+            if ( d->methods->rem != NULL ) d->methods->rem( d, loc->st->meta, NULL, ov );
             return DICT_NO_ERROR;
         }
 
         // If we have no item, and cannot create, transaction fail.
         if ( !create ) {
-            if ( new_node != NULL ) free( new_node );
-            if ( new_ref != NULL )  free( new_ref );
+            if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            if ( new_sref != NULL ) free( new_sref );
             return DICT_TRANS_FAIL;
         }
 
         // We need a new ref
-        if ( new_ref == NULL ) {
-            new_ref = malloc( sizeof( ref ));
-            if ( new_ref == NULL ) return DICT_MEM_ERROR;
-            memset( new_ref, 0, sizeof( ref ));
-            new_ref->value = val;
-            new_ref->refcount = 1;
+        if ( new_sref == NULL ) {
+            new_sref = malloc( sizeof( sref ));
+            if ( new_sref == NULL ) return DICT_MEM_ERROR;
+            memset( new_sref, 0, sizeof( sref ));
+            new_sref->value = val;
+            new_sref->refcount = 1;
         }
 
         // Existing derefed node, lets give it the new ref to revive it
         if ( loc->found != NULL && loc->found != RBLD ) {
-            int success = __sync_bool_compare_and_swap( &(loc->found->value), NULL, new_ref );
+            int success = __sync_bool_compare_and_swap( &(loc->found->value->value), NULL, new_sref );
             if ( success ) {
-                if ( new_node != NULL ) free( new_node );
+                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                loc->item = new_sref;
                 if ( d->methods->ins != NULL )
                     d->methods->ins( d, loc->st->meta, key, val );
                 return DICT_NO_ERROR;
             }
 
             // Something else undeleted the node, start over
-            if ( loc->found->value != RBLD )
+            if ( loc->found->value->value != RBLD )
                 continue;
         }
 
@@ -357,27 +381,33 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         if ( new_node == NULL ) {
             new_node = malloc( sizeof( node ));
             if ( new_node == NULL ) {
-                if ( new_ref != NULL ) free( new_ref );
+                if ( new_sref != NULL ) free( new_sref );
                 return DICT_MEM_ERROR;
             }
             memset( new_node, 0, sizeof( node ));
             new_node->key = key;
-            new_node->value = new_ref;
+            new_node->value = malloc( sizeof( usref ));
+            if ( new_node->value == NULL ) {
+                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_sref != NULL ) free( new_sref );
+                return DICT_MEM_ERROR;
+            }
+            new_node->value->value = new_sref;
         }
 
         // Create slot if necessary
         if ( loc->slt == NULL ) {
             // No slot, and no slot number? something fishy!
             if ( !loc->sltns ) {
-                if ( new_node != NULL ) free( new_node );
-                if ( new_ref  != NULL ) free( new_ref  );
+                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_sref != NULL ) free( new_sref );
                 return DICT_INT_ERROR;
             }
 
             slot *new_slot = malloc( sizeof( slot ));
             if ( new_slot == NULL ) {
-                if ( new_node != NULL ) free( new_node );
-                if ( new_ref  != NULL ) free( new_ref  );
+                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_sref != NULL ) free( new_sref );
                 return DICT_MEM_ERROR;
             }
             memset( new_slot, 0, sizeof( slot ));
@@ -394,6 +424,11 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // If the swap took place we have a new slot, node and ref all in
             // place, job done.
             if ( success ) {
+                loc->slt = new_slot;
+                loc->found = new_node;
+                loc->itemp = new_node->value;
+                loc->item  = new_node->value->value;
+
                 if ( d->methods->ins != NULL )
                     d->methods->ins( d, loc->st->meta, key, val );
                 return DICT_NO_ERROR;
@@ -417,8 +452,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 branch = &(loc->parent->right);
             }
             else { // This should not be possible.
-                if ( new_node != NULL ) free( new_node );
-                if ( new_ref  != NULL ) free( new_ref  );
+                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_sref != NULL ) free( new_sref );
                 return DICT_API_ERROR;
             }
 
@@ -427,21 +462,34 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
                 size_t count = __sync_add_and_fetch( &(loc->slt->count), 1 );
 
+                loc->found = new_node;
+                loc->itemp = new_node->value;
+                loc->item  = new_node->value->value;
+
                 if ( d->methods->ins != NULL )
                     d->methods->ins( d, loc->st->meta, key, val );
 
                 size_t height = loc->height + 1;
-                size_t ideal = 0;
-                while ( count > 0 ) {
-                    count >>= 1;
-                    ideal++;
-                }
+                size_t ideal  = tree_ideal_height( count );
+
+                // Check if we are balanced with our neighbors
+                slot *n1 = loc->st->slots[(loc->sltn + 1) % loc->st->slot_count];
+                if (( n1 == NULL && ideal > 2 ) || ( n1 && ideal > 2 + tree_ideal_height( n1->count )))
+                    return DICT_PATHO_ERROR;
+                slot *n2 = loc->st->slots[(loc->sltn - 1) % loc->st->slot_count];
+                if (( n2 == NULL && ideal > 2 ) || ( n2 && ideal > 2 + tree_ideal_height( n2->count )))
+                    return DICT_PATHO_ERROR;
 
                 if ( height > ideal + 2 && __sync_bool_compare_and_swap( &(loc->slt->rebuild), 0, 1 )) {
+                    fprintf( stderr, "Rebalance\n" );
                     int ret = rebalance( d, loc );
                     loc->slt->rebuild = 0;
 
-                    return ret;
+                    if ( ret == DICT_PATHO_ERROR )
+                        return ret;
+
+                    if ( ret != DICT_NO_ERROR )
+                        return DICT_RBAL + ret;
                 }
 
                 return DICT_NO_ERROR;
@@ -453,19 +501,34 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     }
 }
 
-void dict_do_deref( dict *d, void *key, location *loc ) {
-    ref *r = loc->item;
-    size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
+void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
+    sref *r = loc->item;
 
     // Nullify if the ref is still in the node
-    __sync_bool_compare_and_swap( &(loc->found->value), r, NULL );
+    if ( swap != NULL ) {
+        int success = 0;
+        while ( !success ) {
+            size_t sc = swap->refcount;
+
+            // If ref count goes to zero we cannot use it.
+            if ( sc == 0 ) {
+                swap = NULL;
+                break;
+            }
+
+            success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
+        }
+    }
+
+    __sync_bool_compare_and_swap( &(loc->itemp->value), r, swap );
+    size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
 
     if ( count == 0 ) {
         // Release the memory
         dict_hook *rem = d->methods->rem;
         if ( rem != NULL ) rem( d, loc->st->meta, key, r->value );
 
-        dict_dispose( d, loc->epoch, r, REF );
+        dict_dispose( d, loc->epoch, loc->st->meta, r, SREF );
     }
 }
 
@@ -503,13 +566,14 @@ void dict_free_location( dict *d, location *locate ) {
     free( locate );
 }
 
-void dict_dispose( dict *d, epoch *e, void *garbage, int type ) {
+void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     epoch *effective = e;
     uint8_t effidx;
 
     while ( 1 ) {
         if (__sync_bool_compare_and_swap( &(effective->garbage), NULL, garbage )) {
             effective->gtype = type;
+            effective->meta  = meta;
             // If effective != e, add dep
             if ( e != effective ) {
                 e->deps[effidx] = 1;
@@ -579,16 +643,16 @@ void dict_leave_epoch( dict *d, epoch *e ) {
         if ( e->garbage != NULL ) {
             switch ( e->gtype ) {
                 case SET:
-                    dict_free_set( e->garbage );
+                    dict_free_set( d, e->garbage );
                 break;
                 case SLOT:
-                    dict_free_slot( e->garbage );
+                    dict_free_slot( d, e->meta, e->garbage );
                 break;
                 case NODE:
-                    dict_free_node( e->garbage );
+                    dict_free_node( d, e->meta, e->garbage );
                 break;
-                case REF:
-                    dict_free_ref( e->garbage );
+                case SREF:
+                    dict_free_sref( d, e->garbage );
                 break;
             }
         }
@@ -634,6 +698,7 @@ int dict_locate( dict *d, void *key, location **locate ) {
         lc->slt    = NULL;
         lc->parent = NULL;
         lc->found  = NULL;
+        lc->itemp  = NULL;
         lc->item   = NULL;
     }
 
@@ -641,8 +706,13 @@ int dict_locate( dict *d, void *key, location **locate ) {
         slot *slt = lc->st->slots[lc->sltn];
 
         // Slot is not populated
-        if ( slt == NULL ) return DICT_NO_ERROR;
-        if ( slt == RBLD ) return DICT_NO_ERROR;
+        if ( slt == NULL || slt == RBLD ){
+            lc->parent = NULL;
+            lc->found  = NULL;
+            lc->itemp  = NULL;
+            lc->item   = NULL;
+            return DICT_NO_ERROR;
+        }
 
         lc->slt = slt;
     }
@@ -650,7 +720,12 @@ int dict_locate( dict *d, void *key, location **locate ) {
     if ( lc->parent == NULL ) {
         lc->parent = lc->slt->root;
         lc->height = 1;
-        if ( lc->parent == NULL ) return DICT_NO_ERROR;
+        if ( lc->parent == NULL ) {
+            lc->found = NULL;
+            lc->itemp = NULL;
+            lc->item  = NULL;
+            return DICT_NO_ERROR;
+        }
     }
 
     node *n = lc->parent;
@@ -659,7 +734,8 @@ int dict_locate( dict *d, void *key, location **locate ) {
         switch( dir ) {
             case 0:
                 lc->found = n;
-                lc->item = lc->found->value;
+                lc->itemp = lc->found->value;
+                lc->item  = lc->found->value->value;
 
                 // If the node has a rebuild value we do not want to use it.
                 // But we check after setting it to avoid a race condition.
@@ -695,33 +771,54 @@ int dict_locate( dict *d, void *key, location **locate ) {
     return DICT_NO_ERROR;
 }
 
-void dict_free_set( set *s ) {
+void dict_free_set( dict *d, set *s ) {
     for ( int i = 0; i < s->slot_count; i++ ) {
-        if ( s->slots[i] != NULL ) dict_free_slot( s->slots[i] );
+        if ( s->slots[i] != NULL ) dict_free_slot( d, s->meta, s->slots[i] );
     }
     free( s );
 }
 
-void dict_free_slot( slot *s ) {
-    if ( s->root != NULL ) dict_free_node( s->root );
+void dict_free_slot( dict *d, void *meta, slot *s ) {
+    if ( s->root != NULL ) dict_free_node( d, meta, s->root );
     free( s );
 }
 
-void dict_free_node( node *n ) {
+void dict_free_node( dict *d, void *meta, node *n ) {
     if ( n->left != NULL && n->left != RBLD )
-        dict_free_node( n->left );
+        dict_free_node( d, meta, n->left );
     if ( n->right != NULL && n->right != RBLD )
-        dict_free_node( n->right );
+        dict_free_node( d, meta, n->right );
 
-    if ( n->value != NULL && n->value != RBLD ) {
-        ref *r = n->value;
-        size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
-        if( count == 0 ) dict_free_ref( r );
+    size_t count = __sync_sub_and_fetch( &(n->value->refcount), 1 );
+    if( count == 0 ) {
+        if ( n->value->value != NULL && n->value->value != RBLD ) {
+            sref *r = n->value->value;
+            count = __sync_sub_and_fetch( &(r->refcount), 1 );
+            if( count == 0 ) dict_free_sref( d, r );
+            if ( d->methods->rem != NULL )
+                d->methods->rem( d, meta, n->key, n->value->value->value );
+        }
+        else {
+            if ( d->methods->rem != NULL )
+                d->methods->rem( d, meta, n->key, NULL );
+        }
+
+        free( n->value );
     }
 }
 
-void dict_free_ref( ref *r ) {
+void dict_free_sref( dict *d, sref *r ) {
     free( r );
+}
+
+size_t tree_ideal_height( size_t count ) {
+    size_t ideal = 0;
+    while ( count > 0 ) {
+        count >>= 1;
+        ideal++;
+    }
+
+    return ideal;
 }
 
 int rebalance( dict *d, location *loc ) {
@@ -745,11 +842,12 @@ int rebalance( dict *d, location *loc ) {
     ns->count = count;
 
     // insert nodes
-    int ret = rebalance_insert_list( d, loc->st, ns, all, 0, count - 1 );
+    size_t ideal = tree_ideal_height( count );
+    int ret = rebalance_insert_list( d, loc->st, ns, all, 0, count - 1, ideal );
 
     // swap
     if (!ret && __sync_bool_compare_and_swap( &(loc->st->slots[loc->sltn]), loc->slt, ns )) {
-        dict_dispose( d, loc->epoch, loc->slt, SLOT );
+        dict_dispose( d, loc->epoch, loc->st->meta, loc->slt, SLOT );
     }
     else {
         free( ns );
@@ -769,7 +867,6 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
 
     if ( n->value != RBLD  ) {
         if ( count >= *size ) {
-            fprintf( stderr, "GROW: %zi, %zi\n", count, *size );
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
             if ( nall == NULL ) return 0;
@@ -785,9 +882,11 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
     return count;
 }
 
-int rebalance_insert( dict *d, set *st, slot *s, node *n ) {
+int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
+    size_t height = 0;
     node **put_here = &(s->root);
     while ( *put_here != NULL ) {
+        height++;
         int dir = d->methods->cmp( st->meta, n->key, (*put_here)->key );
         if ( dir == -1 ) { // Left
             put_here = &((*put_here)->left);
@@ -800,6 +899,8 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n ) {
         }
     }
 
+    if ( height > ideal + 2 ) return DICT_PATHO_ERROR;
+
     node *new_node = malloc( sizeof( node ));
     if ( new_node == NULL ) return DICT_MEM_ERROR;
     memset( new_node, 0, sizeof( node ));
@@ -810,7 +911,7 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n ) {
         if ( c < 1 ) break;
         success = __sync_bool_compare_and_swap( &(n->value->refcount), c, c + 1 );
     }
-    if ( n->value->refcount < 1 ) {
+    if ( n->value->value == NULL || n->value->value->refcount < 1 ) {
         free( new_node );
         return DICT_NO_ERROR;
     }
@@ -822,36 +923,36 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n ) {
     return DICT_NO_ERROR;
 }
 
-int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end ) {
-    if ( start == end ) return rebalance_insert( d, st, s, all[start] );
+int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal ) {
+    if ( start == end ) return rebalance_insert( d, st, s, all[start], ideal );
 
     size_t total = end - start;
     size_t half = total / 2;
     size_t center = total % 2 ? start + half + 1
                               : start + half;
 
-    int res = rebalance_insert( d, st, s, all[center] );
+    int res = rebalance_insert( d, st, s, all[center], ideal );
     if ( res ) return res;
 
-    res = rebalance_insert_list( d, st, s, all, start, center - 1 );
+    res = rebalance_insert_list( d, st, s, all, start, center - 1, ideal );
     if ( res ) return res;
 
     if ( center == end ) return res;
-    res = rebalance_insert_list( d, st, s, all, center + 1, end );
+    res = rebalance_insert_list( d, st, s, all, center + 1, end, ideal );
     return res;
 }
 
 int dict_dump_dot_start( dot *dt ) {
     return dict_dump_dot_write( dt,
-        "digraph dict {\n    bgcolor=black\n    node [color=yellow,fontcolor=white,shape=egg]\n    edge [color=cyan]"
+        "digraph dict {\n    ordering=out\n    bgcolor=black\n    node [color=yellow,fontcolor=white,shape=egg]\n    edge [color=cyan]"
     );
 }
 
 int dict_dump_dot_slink( dot *dt, int s1, int s2 ) {
-    char buffer[100];
+    char buffer[DOT_BUFFER_SIZE];
 
     // Add the slot node
-    int ret = snprintf( buffer, 100, "    s%d [color=green,fontcolor=cyan,shape=box]", s2 );
+    int ret = snprintf( buffer, DOT_BUFFER_SIZE, "    s%d [color=green,fontcolor=cyan,shape=box]", s2 );
     if ( ret < 0 ) return DICT_INT_ERROR;
     ret = dict_dump_dot_write( dt, buffer );
     if ( ret ) return ret;
@@ -859,7 +960,7 @@ int dict_dump_dot_slink( dot *dt, int s1, int s2 ) {
     // Link it to the last one
     if ( s1 >= 0 ) {
         int ret = snprintf(
-            buffer, 100,
+            buffer, DOT_BUFFER_SIZE,
             "    s%d->s%d [arrowhead=none,color=yellow]\n    {rank=same; s%d s%d}",
             s1, s2, s1, s2
         );
@@ -871,13 +972,13 @@ int dict_dump_dot_slink( dot *dt, int s1, int s2 ) {
 }
 
 int dict_dump_dot_subgraph( dot *dt, int s, node *n ) {
-    char buffer[100];
-    char *label = dt->show( n->key, n->value ? n->value->value : NULL );
+    char buffer[DOT_BUFFER_SIZE];
+    char *label = dt->show( n->key, n->value->value ? n->value->value->value : NULL );
     int ret = 0;
 
     // Link node
     //s1->10 [arrowhead="none",color=blue]
-    ret = snprintf( buffer, 100,
+    ret = snprintf( buffer, DOT_BUFFER_SIZE,
         "    s%d->\"%s\" [arrowhead=none,color=blue]",
         s, label
     );
@@ -886,48 +987,95 @@ int dict_dump_dot_subgraph( dot *dt, int s, node *n ) {
     if ( ret ) return ret;
 
     // subgraph
-    ret = snprintf( buffer, 100,
-        "    subgraph cluster_s%d {\n        graph [style=dotted,color=grey]",
-        s
-    );
-    if ( ret < 0 ) return DICT_INT_ERROR;
-    ret = dict_dump_dot_write( dt, buffer );
-    if ( ret ) return ret;
+//    ret = snprintf( buffer, DOT_BUFFER_SIZE,
+//        "    subgraph cluster_s%d {\n        graph [style=dotted,color=grey]",
+//        s
+//    );
+//    if ( ret < 0 ) return DICT_INT_ERROR;
+//    ret = dict_dump_dot_write( dt, buffer );
+//    if ( ret ) return ret;
 
     ret = dict_dump_dot_node( dt, buffer, n, label );
     if ( ret ) return ret;
 
-    return dict_dump_dot_write( dt, "    }" );
+//    return dict_dump_dot_write( dt, "    }" );
+    return ret;
 }
 
 int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
     // This node
-    char *style = n->value ? n->value->value ? ""
-                                             : "[color=pink,fontcolor=pink,style=dashed]"
-                           : "[color=red,fontcolor=red,style=dashed]";
-    int ret = snprintf( buffer, 100, "        \"%s\" %s", label, style );
+    char *style = n->value->value ? n->value->value->value ? ""
+                                                           : "[color=pink,fontcolor=pink,style=dashed]"
+                                  : "[color=red,fontcolor=red,style=dashed]";
+
+    int ret = snprintf( buffer, DOT_BUFFER_SIZE, "        \"%s\" %s", label, style );
     if ( ret < 0 ) return DICT_INT_ERROR;
     ret = dict_dump_dot_write( dt, buffer );
     if ( ret ) return ret;
+
+    if ( n->value->value != NULL && n->value->value->refcount > 1 ) {
+        int ret = snprintf( buffer, DOT_BUFFER_SIZE,
+            "        \"%s\"->\"%p\" [color=green,style=dashed]",
+            label, n->value->value
+        );
+        if ( ret < 0 ) return DICT_INT_ERROR;
+        ret = dict_dump_dot_write( dt, buffer );
+        if ( ret ) return ret;
+
+        ret = snprintf( buffer, DOT_BUFFER_SIZE,
+            "        \"%p\" [color=white,fontcolor=yellow,shape=hexagon]",
+            n->value->value
+        );
+        if ( ret < 0 ) return DICT_INT_ERROR;
+        ret = dict_dump_dot_write( dt, buffer );
+        if ( ret ) return ret;
+
+        ret = snprintf( buffer, DOT_BUFFER_SIZE,
+            "        {rank=sink; \"%p\"}",
+            n->value->value
+        );
+        if ( ret < 0 ) return DICT_INT_ERROR;
+        ret = dict_dump_dot_write( dt, buffer );
+        if ( ret ) return ret;
+    }
 
     char *left_name  = NULL;
     char *right_name = NULL;
     node *left  = n->left;
     node *right = n->right;
-    if ( left != NULL ) {
-        left_name = dt->show( left->key, left->value ? left->value->value : NULL );
+    if ( right != NULL ) {
+        right_name = dt->show( right->key, right->value->value ? right->value->value->value : NULL );
 
         // link
-        ret = snprintf( buffer, 100, "        \"%s\"->\"%s\"", label, left_name );
+        ret = snprintf( buffer, DOT_BUFFER_SIZE, "        \"%s\"->\"%s\"", label, right_name );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
         if ( ret ) return ret;
     }
-    if ( right != NULL ) {
-        right_name = dt->show( right->key, right->value ? right->value->value : NULL );
+    else if ( left != NULL ) {
+        ret = snprintf( buffer, DOT_BUFFER_SIZE,
+            "\"%s\"->\"%p\"[style=dotted]\n\"%p\" [label=NULL,color=grey,fontcolor=grey]",
+            label, (void *)&(n->right), (void *)&(n->right)
+        );
+        if ( ret < 0 ) return DICT_INT_ERROR;
+        ret = dict_dump_dot_write( dt, buffer );
+        if ( ret ) return ret;
+    }
+
+    if ( left != NULL ) {
+        left_name = dt->show( left->key, left->value->value ? left->value->value->value : NULL );
 
         // link
-        ret = snprintf( buffer, 100, "        \"%s\"->\"%s\"", label, right_name );
+        ret = snprintf( buffer, DOT_BUFFER_SIZE, "        \"%s\"->\"%s\"", label, left_name );
+        if ( ret < 0 ) return DICT_INT_ERROR;
+        ret = dict_dump_dot_write( dt, buffer );
+        if ( ret ) return ret;
+    }
+    else if ( right != NULL ) {
+        ret = snprintf( buffer, DOT_BUFFER_SIZE,
+            "\"%s\"->\"%p\"[style=dotted]\n\"%p\" [label=NULL,color=grey,fontcolor=grey]",
+            label, (void *)&(n->left), (void *)&(n->left)
+        );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
         if ( ret ) return ret;
@@ -937,7 +1085,7 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
 
     // level
     if ( left_name != NULL && right_name != NULL ) {
-        ret = snprintf( buffer, 100, "        {rank=same; \"%s\" \"%s\"}", left_name, right_name );
+        ret = snprintf( buffer, DOT_BUFFER_SIZE, "        {rank=same; \"%s\" \"%s\"}", left_name, right_name );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
         if ( ret ) return ret;
