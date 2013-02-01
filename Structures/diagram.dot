@@ -1,0 +1,46 @@
+digraph overview {
+    ordering=out
+    bgcolor=black
+    node [color=white,fontcolor=white]
+
+    Dictionary [shape=hexagon]
+
+    edge [color=blue]
+    node [color=green,fontcolor=white]
+    Dictionary->HashSlot0
+    Dictionary->HashSlot1
+    Dictionary->HashSlot2
+
+    node [color=yellow,fontcolor=white]
+    edge [color=cyan]
+    HashSlot1->Node0
+
+    Node0 [shape=egg]
+    Node1 [shape=egg]
+    Key   [color=red]
+    USRef [color=green,shape=doublecircle]
+    Node2 [shape=egg]
+
+    Node0->Node1
+    Node0->Key   [color=pink]
+    Node0->USRef [color=pink]
+    Node0->Node2
+
+    SRef  [color=blue,shape=Mcircle]
+    Value [color=red]
+
+    USRef->SRef
+    SRef->Value
+
+    {rank=same; HashSlot0 HashSlot1 HashSlot2}
+    {rank=same; Node1 Node2}
+    {rank=sink; Key Value}
+
+    node [shape=hexagon]
+    edge [color=grey]
+    Dictionary->Epoch0
+    Dictionary->Epoch1
+    Dictionary->Epoch2
+
+    {rank=min; Epoch0 Epoch1 Epoch2}
+}

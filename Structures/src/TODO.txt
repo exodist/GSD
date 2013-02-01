@@ -1,0 +1,5 @@
+* Rebuild
+* Merging
+* Epoch in dot-dump
+* Control max imbalance
+* Audit when we trigger method removes and inserts, add deref?
