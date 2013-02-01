@@ -47,7 +47,7 @@
 
 typedef struct dict_methods dict_methods;
 typedef struct dict dict;
-typedef void   (dict_hook)( dict *d, void *meta, void *key, void *val );
+typedef void   (dict_hook)( dict *d, void *meta, void *item );
 typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
 typedef size_t (dict_loc)( void *meta, size_t slot_count, void *key );
@@ -56,11 +56,27 @@ typedef char * (dict_dot)( void *key, void *val );
 struct dict;
 
 struct dict_methods {
+    // These 2 are required
     dict_cmp *cmp;  // Used to compare keys ( -1, 0, 1 : left, same, right )
-    dict_loc *loc;  // Used to find slot of key
+    dict_loc *loc;  // Used to find slot of key (hashing function)
 
-    dict_hook *ins; // Callback when a new pair is inserted
-    dict_hook *rem; // Callback when an item is removed (key and/or value)
+    // Hooks for when keys are added/removed
+    // These should be used for metadata
+    // ** NOT FOR REFERENCE COUNTING **
+    // This is also called when a key is set to NULL as opposed to being
+    // removed completely.
+    dict_hook *ins; // Callback when a key obtains a value (insert, or previously null)
+    dict_hook *rem; // Callback when a key looses a value (delete or deref)
+
+    // Hooks for reference counting
+    // These are called whenever a dictionary adds or removes a reference to
+    // key or value. These can be used for reference counting purposes.
+    dict_hook *ref_add; // Callback when the dictionary adds a ref
+    dict_hook *ref_del; // Callback when the dictionart deletes a ref
+
+    // Customise node labels when dumping DOT language representation of
+    // dictionary.
+    dict_dot *dot;
 };
 
 // -- Creation and meta data --
@@ -117,6 +133,7 @@ int dict_delete( dict *d, void *key );
 // you expect.
 int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
 int dict_cmp_delete( dict *d, void *key, void *old_val );
+int dict_cmp_dereference( dict *fromd, void *fromk, dict *cmpd, void *cmpk );
 
 // reference allows you to "tie" a key in one dictionary to a key in another
 // dictionary.

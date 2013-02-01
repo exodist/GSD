@@ -48,11 +48,12 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
     if ( n->right == NULL ) __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
     if ( n->right != NULL && n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
 
-    if ( n->value == NULL ) {
-        __sync_bool_compare_and_swap( &(n->value), NULL, RBLD );
+    if ( n->value->value == NULL ) {
+        __sync_bool_compare_and_swap( &(n->value->value), NULL, RBLD );
     }
 
-    if ( n->value != RBLD  ) {
+    // HERE
+    if ( n->value->value != RBLD ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
@@ -103,6 +104,11 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
         return DICT_NO_ERROR;
     }
 
+    if ( d->methods->ref_add != NULL ) {
+        d->methods->ref_add( d, meta, key );
+        if ( n->value->value->value != NULL )
+            d->methods->ref_add( d, meta, n->value->value->value );
+    }
     new_node->key   = n->key;
     new_node->value = n->value;
 

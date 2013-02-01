@@ -65,17 +65,17 @@ struct node {
     node  *left;
     node  *right;
     void  *key;
-    usref *value;
+    usref *usref;
+};
+
+struct usref {
+    uint8_t refcount;
+    sref   *usref;
 };
 
 struct sref {
     size_t  refcount;
     void   *value;
-};
-
-struct usref {
-    uint8_t refcount;
-    sref   *value;
 };
 
 struct dot {
@@ -85,17 +85,16 @@ struct dot {
 };
 
 struct location {
-    set    *st;
-    size_t  sltn;
-    uint8_t sltns;
-    slot   *slt;
+    epoch  *epoch;
+    set    *set;
+    size_t  slotn;
+    uint8_t slotn_set;
+    slot   *slot;
     size_t  height;
     node   *parent;
-    node   *found;
-    usref  *itemp;
-    sref   *item;
-
-    epoch *epoch;
+    node   *node;
+    usref  *usref;
+    sref   *sref;
 };
 
 #endif

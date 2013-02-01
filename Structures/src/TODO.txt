@@ -1,3 +1,4 @@
+* On deref rebuild subtree from deref node, swap into place.
 * Rebuild
 * Merging
 * Epoch in dot-dump

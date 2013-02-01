@@ -16,6 +16,6 @@
 void dict_free_set( dict *d, set *s );
 void dict_free_slot( dict *d, void *meta, slot *s );
 void dict_free_node( dict *d, void *meta, node *n );
-void dict_free_sref( dict *d, sref *r );
+void dict_free_sref( dict *d, void *meta, sref *r );
 
 #endif

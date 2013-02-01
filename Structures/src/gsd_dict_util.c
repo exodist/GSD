@@ -182,6 +182,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             memset( new_slot, 0, sizeof( slot ));
             new_slot->root   = new_node;
             new_slot->count  = 1;
+            new_slot->rebuild = 0;
 
             // swap into place
             int success = __sync_bool_compare_and_swap(
@@ -293,10 +294,6 @@ void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
 
     if ( count == 0 ) {
-        // Release the memory
-        dict_hook *rem = d->methods->rem;
-        if ( rem != NULL ) rem( d, loc->st->meta, key, r->value );
-
         dict_dispose( d, loc->epoch, loc->st->meta, r, SREF );
     }
 }

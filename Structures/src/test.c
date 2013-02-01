@@ -32,6 +32,7 @@ int main() {
 
     dict *d;
     dict_methods *m = malloc( sizeof( dict_methods ));
+    memset( m, 0, sizeof( dict_methods ));
     m->cmp = compare;
     m->loc = locate;
 
@@ -64,6 +65,9 @@ int main() {
             int64_t y = rand() % 8;
             if ( x == y ) { y += 1; }
             dict_reference( d, &k[x], d, &k[y] );
+        }
+        if ( i % 7 == 0 ) {
+            dict_dereference( d, &k[x] );
         }
     }
 

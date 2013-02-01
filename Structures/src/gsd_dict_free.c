@@ -24,23 +24,28 @@ void dict_free_node( dict *d, void *meta, node *n ) {
 
     size_t count = __sync_sub_and_fetch( &(n->value->refcount), 1 );
     if( count == 0 ) {
-        if ( n->value->value != NULL && n->value->value != RBLD ) {
-            sref *r = n->value->value;
+        sref *r = n->value->value;
+        if ( r != NULL && r != RBLD ) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
-            if( count == 0 ) dict_free_sref( d, r );
-            if ( d->methods->rem != NULL )
-                d->methods->rem( d, meta, n->key, n->value->value->value );
+            if( count == 0 ) dict_free_sref( d, meta, r );
         }
-        else {
-            if ( d->methods->rem != NULL )
-                d->methods->rem( d, meta, n->key, NULL );
-        }
+
+        if ( d->methods->rem != NULL )
+            d->methods->rem( d, meta, n->key );
 
         free( n->value );
     }
+
+    if ( d->methods->ref_del != NULL )
+        d->methods->ref_del( d, meta, n->key );
+
+    free( n );
 }
 
-void dict_free_sref( dict *d, sref *r ) {
+void dict_free_sref( dict *d, void *meta, sref *r ) {
+    if ( r->value != NULL && r->value != RBLD && d->methods->ref_del != NULL )
+        d->methods->ref_del( d, meta, r->value );
+
     free( r );
 }
 

@@ -3,7 +3,6 @@
 #include "gsd_dict_dot.h"
 #include "gsd_dict_epoch.h"
 #include "gsd_dict_free.h"
-#include "gsd_dict_internal.h"
 #include "gsd_dict_location.h"
 #include "gsd_dict_structures.h"
 #include "gsd_dict_util.h"
