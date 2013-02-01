@@ -11,6 +11,7 @@
 #define GSD_DICT_STRUCTURES_H
 
 #include <stdint.h>
+#include <stdio.h>
 #include "gsd_dict_api.h"
 
 typedef struct slot  slot;
@@ -79,22 +80,22 @@ struct sref {
 };
 
 struct dot {
-    char     *buffer;
-    size_t    size;
-    dict_dot *show;
+    char   *buffer;
+    size_t  size;
+    FILE   *fp;
 };
 
 struct location {
     epoch  *epoch;
-    set    *set;
-    size_t  slotn;
-    uint8_t slotn_set;
-    slot   *slot;
-    size_t  height;
+    set    *set;        // st
+    size_t  slotn;      // sltn
+    uint8_t slotn_set;  // sltns
+    slot   *slot;       // slt
+    size_t  height; 
     node   *parent;
-    node   *node;
-    usref  *usref;
-    sref   *sref;
+    node   *node;       // found
+    usref  *usref;      // itemp
+    sref   *sref;       // item
 };
 
 #endif
