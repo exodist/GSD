@@ -37,7 +37,7 @@ int dict_locate( dict *d, void *key, location **locate ) {
     }
 
     if ( !lc->slotn_set ) {
-        lc->slotn  = d->methods->loc( lc->set->meta, lc->set->slot_count, key );
+        lc->slotn  = d->methods->loc( lc->set->settings, key );
         lc->slotn_set = 1;
     }
 
@@ -78,7 +78,7 @@ int dict_locate( dict *d, void *key, location **locate ) {
 
     node *n = lc->parent;
     while ( n != NULL && n != RBLD ) {
-        int dir = d->methods->cmp( lc->set->meta, key, n->key );
+        int dir = d->methods->cmp( lc->set->settings->meta, key, n->key );
         switch( dir ) {
             case 0:
                 lc->node = n;

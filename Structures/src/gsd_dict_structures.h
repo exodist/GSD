@@ -19,6 +19,7 @@ typedef struct node  node;
 typedef struct set   set;
 typedef struct epoch epoch;
 typedef struct dot   dot;
+typedef struct flags flags;
 
 typedef struct sref  sref;
 typedef struct usref usref;
@@ -31,11 +32,11 @@ typedef struct location location;
  * epoch count of >1 means active
 \*/
 struct epoch {
-    size_t  active;
-    void   *garbage;
-    void   *meta;
-    enum { SET, SLOT, NODE, SREF } gtype;
-    uint8_t deps[EPOCH_COUNT];
+    size_t   active;
+    void    *garbage;
+    void    *meta;
+    enum    { SET, SLOT, NODE, SREF } gtype;
+    uint8_t *deps;
 };
 
 struct dict {
@@ -44,7 +45,8 @@ struct dict {
     dict_methods *methods;
 
     epoch **epochs;
-    size_t  epoch;
+    uint8_t epoch;
+    uint8_t epoch_count;
 };
 
 struct set {
@@ -55,6 +57,7 @@ struct set {
 struct slot {
     node   *root;
     size_t  count;
+    uint8_t ideal_height;
     uint8_t rebuild;
 };
 

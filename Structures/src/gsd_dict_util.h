@@ -14,16 +14,16 @@
 #include "gsd_dict_structures.h"
 #include <stdint.h>
 
-size_t tree_ideal_height( size_t count );
+uint8_t max_bit( uint64_t num );
 
 int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
 
-int dict_do_create( dict **d, size_t slots, void *meta, dict_methods *methods );
+int dict_do_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods );
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
 void dict_do_deref( dict *d, void *key, location *loc, sref *swap );
 
-set *create_set( size_t slot_count, void *meta );
+set *dict_create_set( dict_settings *settings );
 
 #endif

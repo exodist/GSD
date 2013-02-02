@@ -11,14 +11,14 @@
 #include <string.h>
 #include <stdio.h>
 
-size_t tree_ideal_height( size_t count ) {
-    size_t ideal = 0;
-    while ( count > 0 ) {
-        count >>= 1;
-        ideal++;
+uint8_t max_bit( uint64_t num ) {
+    uint8_t bit = 0;
+    while ( num > 0 ) {
+        num >>= 1;
+        bit++;
     }
 
-    return ideal;
+    return bit;
 }
 
 int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
@@ -47,13 +47,26 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     return DICT_NO_ERROR;
 }
 
-int dict_do_create( dict **d, size_t slots, void *meta, dict_methods *methods ) {
+int dict_do_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods ) {
+    if( !settings->slot_count    ) settings->slot_count    = 256;
+    if( !settings->max_imbalance ) settings->max_imbalance = 3;
+
+    if( !epoch_count ) return DICT_API_ERROR;
+
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return DICT_MEM_ERROR;
     memset( out, 0, sizeof( dict ));
 
-    out->set = create_set( slots, meta );
+    out->epoch_count = epoch_count;
+    out->epochs = dict_create_epochs( epoch_count );
+    if ( out->epochs == NULL ) {
+        free( out );
+        return DICT_MEM_ERROR;
+    }
+
+    out->set = dict_create_set( settings );
     if ( out->set == NULL ) {
+        free( out->epochs );
         free( out );
         return DICT_MEM_ERROR;
     }
@@ -217,7 +230,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         node **branch = NULL;
         if ( loc->node == NULL && loc->parent != NULL ) {
             // Find the branch to take
-            int dir = d->methods->cmp( loc->set->meta, key, loc->parent->key );
+            int dir = d->methods->cmp( loc->set->settings, key, loc->parent->key );
             if ( dir == -1 ) { // Left
                 branch = &(loc->parent->left);
             }
@@ -234,6 +247,13 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // thread beat us to it..
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
                 size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
+                uint8_t ideal = max_bit( count );
+
+                uint8_t old_ideal = loc->slot->ideal_height;
+                while ( ideal > old_ideal && count >= loc->slot->count ) {
+                    if( !__sync_bool_compare_and_swap( &(loc->slot->ideal_height), old_ideal, ideal ))
+                        old_ideal = loc->slot->ideal_height;
+                }
 
                 loc->node = new_node;
                 loc->usref = new_node->usref;
@@ -243,18 +263,21 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 //if ( d->methods->ins != NULL )
                 //    d->methods->ins( d, loc->set->meta, key, val );
 
-                size_t height = loc->height + 1;
-                size_t ideal  = tree_ideal_height( count );
+                // We add 1 to represent the new node, location does not do it
+                // for us.
+                size_t  height  = loc->height + 1;
+                uint8_t max_imb = loc->set->settings->max_imbalance;
 
                 // Check if we are balanced with our neighbors
-                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->slot_count];
-                if (( n1 == NULL && ideal > 2 ) || ( n1 && ideal > 2 + tree_ideal_height( n1->count )))
+                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->settings->slot_count];
+                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->settings->slot_count];
+                if (( n1 == NULL && ideal > max_imb ) || ( n1 && ideal > max_imb + n1->ideal_height ))
                     return DICT_PATHO_ERROR;
-                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->slot_count];
-                if (( n2 == NULL && ideal > 2 ) || ( n2 && ideal > 2 + tree_ideal_height( n2->count )))
+                if (( n2 == NULL && ideal > max_imb ) || ( n2 && ideal > max_imb + n2->ideal_height ))
                     return DICT_PATHO_ERROR;
 
-                if ( height > ideal + 2 && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
+                // Check if we have an internal imbalance
+                if ( height > ideal + max_imb && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
                     fprintf( stderr, "Rebalance\n" );
                     int ret = rebalance( d, loc );
                     loc->slot->rebuild = 0;
@@ -297,25 +320,24 @@ void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
 
     if ( count == 0 ) {
-        dict_dispose( d, loc->epoch, loc->set->meta, r, SREF );
+        dict_dispose( d, loc->epoch, loc->set->settings->meta, r, SREF );
     }
 }
 
-set *create_set( size_t slot_count, void *meta ) {
+set *dict_create_set( dict_settings *settings ) {
     set *out = malloc( sizeof( set ));
     if ( out == NULL ) return NULL;
 
     memset( out, 0, sizeof( set ));
 
-    out->meta = meta;
-    out->slot_count = slot_count;
-    out->slots = malloc( slot_count * sizeof( slot * ));
+    out->settings = settings;
+    out->slots = malloc( settings->slot_count * sizeof( slot * ));
     if ( out->slots == NULL ) {
         free( out );
         return NULL;
     }
 
-    memset( out->slots, 0, slot_count * sizeof( slot * ));
+    memset( out->slots, 0, settings->slot_count * sizeof( slot * ));
 
     return out;
 }

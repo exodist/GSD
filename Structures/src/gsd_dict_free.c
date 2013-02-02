@@ -5,8 +5,8 @@
 #include "gsd_dict_balance.h"
 
 void dict_free_set( dict *d, set *s ) {
-    for ( int i = 0; i < s->slot_count; i++ ) {
-        if ( s->slots[i] != NULL ) dict_free_slot( d, s->meta, s->slots[i] );
+    for ( int i = 0; i < s->settings->slot_count; i++ ) {
+        if ( s->slots[i] != NULL ) dict_free_slot( d, s->settings->meta, s->slots[i] );
     }
     free( s );
 }

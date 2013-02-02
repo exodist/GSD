@@ -93,22 +93,21 @@ struct dict_methods {
  * more memory usage, but potentially faster updates.
  *
  * epoch_count determines how many slots the garbage collector is assigned. In
- * a single-threaded environment this can be set to 1. In a multithreaded
- * environment this is very important. Too few and you can have threads
- * spinning waiting for garbage collection. Too many and you have wasted space
- * (See struct epoch in structures.h for the size of each epoch).
+ * a multithreaded environment this is very important. Too few and you can have
+ * threads spinning waiting for garbage collection. Too many and you have
+ * wasted space (See struct epoch in structures.h for the size of each epoch).
  *
  * It is unlikely (but possible) to use more epochs than you have threads
- * modifying the dictionary. Adding epochs is a cheap operation, removing
- * epochs will block while epochs that need to be removed are in use.
+ * modifying the dictionary. Attempting to change the number of epochs after
+ * the dictionary is created will result in an API error. As such even in a
+ * single threaded environment this should be at least 5.
  *
  * meta is yours to use, it is not used internally, but is passed to several
  * callbacks.
 \*/
 struct dict_settings {
-    size_t slot_count;    // How many hash slots to allocate
-    size_t epoch_count;   // How many epochs the GC can use
-    size_t max_imbalance; // How much imbalance is allowed
+    size_t  slot_count;    // How many hash slots to allocate
+    uint8_t max_imbalance; // How much imbalance is allowed
 
     // Metadata you can attach to the dictionary
     void *meta;
@@ -118,11 +117,11 @@ struct dict_settings {
 
 // This macro can be used to create a dict that gives you more verbose errors
 // if you use it incorrectly.
-#define dict_create_verbose( a, b, c, d, e ) dict_create_vb( a, b, c, d, e, __FILE__, __LINE__ )
-int dict_create_vb( dict **d, dict_settings *s, dict_methods *m, char *f, size_t l );
+#define dict_create_verbose( a, b, c, d ) dict_create_vb( a, b, c, d, __FILE__, __LINE__ )
+int dict_create_vb( dict **d, uint8_t c, dict_settings *s, dict_methods *m, char *f, size_t l );
 
 // This is the normal way to create a dict that does not write any output
-int dict_create( dict **d, dict_settings *settings, dict_methods *methods );
+int dict_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods );
 
 // Copying and cloning
 int dict_merge( dict *from, dict *to );

@@ -29,12 +29,12 @@ int rebalance( dict *d, location *loc ) {
     ns->count = count;
 
     // insert nodes
-    size_t ideal = tree_ideal_height( count );
+    size_t ideal = max_bit( count );
     int ret = rebalance_insert_list( d, loc->set, ns, all, 0, count - 1, ideal );
 
     // swap
     if (!ret && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
-        dict_dispose( d, loc->epoch, loc->set->meta, loc->slot, SLOT );
+        dict_dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
     }
     else {
         free( ns );
@@ -75,7 +75,7 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     node **put_here = &(s->root);
     while ( *put_here != NULL ) {
         height++;
-        int dir = d->methods->cmp( st->meta, n->key, (*put_here)->key );
+        int dir = d->methods->cmp( st->settings->meta, n->key, (*put_here)->key );
         if ( dir == -1 ) { // Left
             put_here = &((*put_here)->left);
         }
@@ -87,7 +87,8 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
         }
     }
 
-    if ( height > ideal + 2 ) return DICT_PATHO_ERROR;
+    if ( height > ideal + st->settings->max_imbalance )
+        return DICT_PATHO_ERROR;
 
     node *new_node = malloc( sizeof( node ));
     if ( new_node == NULL ) return DICT_MEM_ERROR;
@@ -105,9 +106,9 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     }
 
     if ( d->methods->ref_add != NULL ) {
-        d->methods->ref_add( d, st->meta, n->key );
+        d->methods->ref_add( d, st->settings->meta, n->key );
         if ( n->usref->sref->value != NULL )
-            d->methods->ref_add( d, st->meta, n->usref->sref->value );
+            d->methods->ref_add( d, st->settings->meta, n->usref->sref->value );
     }
     new_node->key   = n->key;
     new_node->usref = n->usref;

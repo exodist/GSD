@@ -3,6 +3,35 @@
 #include "gsd_dict_epoch.h"
 #include "gsd_dict_free.h"
 #include <unistd.h>
+#include <string.h>
+
+epoch **dict_create_epochs( uint8_t epoch_count ) {
+    epoch **new = malloc( sizeof( epoch * ) * epoch_count );
+    if ( new == NULL ) return NULL;
+
+    // Add padding at the end for the dependancy flags
+    int depslots = epoch_count / sizeof( uint8_t )
+                 + epoch_count % sizeof( uint8_t ) ? 1 : 0;
+    uint8_t padding = sizeof( uint8_t ) * depslots;
+
+    for ( int i = 0; i < epoch_count; i++ ) {
+        new[i] = malloc( sizeof( epoch ) + padding );
+        if ( new[i] == NULL ) {
+            for ( int j = 0; j < i; j++ ) {
+                free( new[i] );
+            }
+            free( new );
+            return NULL;
+        }
+        memset( new[i], 0, sizeof( epoch ) + padding );
+
+        // Point deps at the memory just after the end of our struct which we
+        // allocated to be our flags
+        new[i]->deps = (void *)(&(new[i]->deps) + 1);
+    }
+
+    return new;
+}
 
 void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     epoch *effective = e;
@@ -13,21 +42,24 @@ void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
             effective->gtype = type;
             effective->meta  = meta;
             // If effective != e, add dep
-            if ( e != effective ) {
-                e->deps[effidx] = 1;
+            if ( effective != e ) {
+                e->deps[effidx / 8] |= 1 << (effidx % 8);
             }
             return;
         }
 
         // if the garbage slot is full we need a different epoch
-        // if effective is the current epoch, bump the epoch number
+        // if effective is the current epoch, bump the epoch number, if it is
+        // not the effective it means somethign else already bumped the epoch
+        // for us.
         while ( 1 ) {
             uint8_t ei = d->epoch;
-            if ( &(d->epochs[ei]) != effective )
+
+            if ( d->epochs[effidx] != effective )
                 break;
 
             uint8_t nei = ei + 1;
-            if ( nei >= EPOCH_COUNT ) nei = 0;
+            if ( nei >= d->epoch_count ) nei = 0;
 
             if ( __sync_bool_compare_and_swap( &(d->epoch), ei, nei ))
                 break;
@@ -39,6 +71,11 @@ void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
 
         // Get new effective epoch
         dict_join_epoch( d, &effidx, &effective );
+
+        // See if we double-joined the main epoch..
+        if ( effective == e ) {
+            dict_leave_epoch( d, effective );
+        }
     }
 }
 
@@ -49,7 +86,7 @@ void dict_join_epoch( dict *d, uint8_t *idx, epoch **ep ) {
     int success = 0;
     while ( !success ) {
         ei = d->epoch;
-        e  = &(d->epochs[ei]);
+        e  = d->epochs[ei];
 
         size_t active = e->active;
         switch (e->active) {
@@ -100,9 +137,13 @@ void dict_leave_epoch( dict *d, epoch *e ) {
         e->garbage = NULL;
 
         // dec deps
-        for ( int i = 0; i < EPOCH_COUNT; i++ ) {
-            if ( e->deps[i] ) dict_leave_epoch( d, &(d->epochs[i]) );
-            e->deps[i] = 0;
+        for ( uint8_t i = 0; i < d->epoch_count; i++ ) {
+            uint8_t depslot = i / 8;
+            uint8_t bitmask = 1 << (i % 8);
+            if ( e->deps[depslot] & bitmask ) {
+                dict_leave_epoch( d, d->epochs[i] );
+                e->deps[depslot] ^= bitmask;
+            }
         }
 
         // re-open epoch

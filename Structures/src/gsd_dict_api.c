@@ -14,8 +14,8 @@
 
 // -- Creation and meta data --
 
-void *dict_get_meta( dict *d ) {
-    return d->set->meta;
+dict_settings *dict_get_settings( dict *d ) {
+    return d->set->settings;
 }
 
 dict_methods *dict_get_methods( dict *d ) {
@@ -31,7 +31,7 @@ int dict_free( dict **dr ) {
     while ( active ) {
         active = 0;
         for ( int i = 0; i < 10; i++ ) {
-            epoch *e = &( d->epochs[i] );
+            epoch *e = d->epochs[i];
             active += e->active;
         }
         if ( active ) sleep( 0 );
@@ -43,29 +43,34 @@ int dict_free( dict **dr ) {
     return DICT_NO_ERROR;
 }
 
-int dict_create_vb( dict **d, size_t s, void *mta, dict_methods *mth, char *f, size_t l ) {
-    if ( mth == NULL ) {
+int dict_create_vb( dict **d, uint8_t c, dict_settings *s, dict_methods *m, char *f, size_t l ) {
+    if ( s == NULL ) {
+        fprintf( stderr, "Settings may not be NULL. Called from %s line %zi", f, l );
+        return DICT_API_ERROR;
+    }
+    if ( m == NULL ) {
         fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( mth->cmp == NULL ) {
+    if ( m->cmp == NULL ) {
         fprintf( stderr, "The 'cmp' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( mth->loc == NULL ) {
+    if ( m->loc == NULL ) {
         fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
 
-    return dict_do_create( d, s, mta, mth );
+    return dict_do_create( d, c, s, m );
 }
 
-int dict_create( dict **d, size_t s, void *mta, dict_methods *mth ) {
-    if ( mth == NULL )      return DICT_API_ERROR;
-    if ( mth->cmp == NULL ) return DICT_API_ERROR;
-    if ( mth->loc == NULL ) return DICT_API_ERROR;
+int dict_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods ) {
+    if ( settings == NULL ) return DICT_API_ERROR;
+    if ( methods == NULL )      return DICT_API_ERROR;
+    if ( methods->cmp == NULL ) return DICT_API_ERROR;
+    if ( methods->loc == NULL ) return DICT_API_ERROR;
 
-    return dict_do_create( d, s, mta, mth );
+    return dict_do_create( d, epoch_count, settings, methods );
 }
 
 // Copying and cloning
@@ -88,7 +93,7 @@ int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
     }
 
     int last = -1;
-    for ( int i = 0; i < s->slot_count; i++ ) {
+    for ( int i = 0; i < s->settings->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         error = dict_dump_dot_slink( &dt, last, i );
@@ -231,7 +236,7 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
     set *s = d->set;
     int stop = DICT_NO_ERROR;
 
-    for ( int i = 0; i < s->slot_count; i++ ) {
+    for ( int i = 0; i < s->settings->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         node *n = sl->root;
