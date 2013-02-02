@@ -29,8 +29,8 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
         if ( stop ) return stop;
     }
 
-    usref *ur = n->value;
-    sref *sr = ur->value;
+    usref *ur = n->usref;
+    sref *sr = ur->sref;
     if ( sr != NULL && sr != RBLD ) {
         void *item = sr->value;
         if ( item != NULL ) {
@@ -74,8 +74,6 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     sref *new_sref = NULL;
 
     while( 1 ) {
-        while ( d->rebuild != NULL ) sleep(0);
-
         int err = dict_locate( d, key, locator );
         if ( err ) {
             if ( new_node != NULL ) dict_free_node( d, d->set, new_node );
@@ -85,12 +83,12 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         location *loc = *locator;
 
         // Existing ref, safe to update even in a rebuild
-        if ( loc->item != NULL ) {
+        if ( loc->sref != NULL ) {
             // We will not need new_node or new_ref anymore.
-            if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
             if ( new_sref != NULL ) free( new_sref );
 
-            if ( loc->item->value != NULL && !override )
+            if ( loc->sref->value != NULL && !override )
                 return DICT_TRANS_FAIL;
 
             int success = 0;
@@ -98,7 +96,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // If we have old_val it means we only want to place the new value
             // if the old value is what we expect.
             if ( old_val != NULL ) {
-                success = __sync_bool_compare_and_swap( &(loc->item->value), old_val, val );
+                success = __sync_bool_compare_and_swap( &(loc->sref->value), old_val, val );
                 return success ? 0 : DICT_TRANS_FAIL;
             }
 
@@ -106,17 +104,20 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // the value we remove.
             void *ov;
             while ( !success ) {
-                ov = loc->item->value;
-                success = __sync_bool_compare_and_swap( &(loc->item->value), ov, val );
+                ov = loc->sref->value;
+                success = __sync_bool_compare_and_swap( &(loc->sref->value), ov, val );
             }
 
-            if ( d->methods->rem != NULL ) d->methods->rem( d, loc->st->meta, NULL, ov );
+            // XX TODO: Removing a ref
+            //if ( d->methods->rem != NULL )
+            //    d->methods->rem( d, loc->set->meta, ov );
+
             return DICT_NO_ERROR;
         }
 
         // If we have no item, and cannot create, transaction fail.
         if ( !create ) {
-            if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
             if ( new_sref != NULL ) free( new_sref );
             return DICT_TRANS_FAIL;
         }
@@ -131,18 +132,19 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         }
 
         // Existing derefed node, lets give it the new ref to revive it
-        if ( loc->found != NULL && loc->found != RBLD ) {
-            int success = __sync_bool_compare_and_swap( &(loc->found->value->value), NULL, new_sref );
+        if ( loc->node != NULL && loc->node != RBLD ) {
+            int success = __sync_bool_compare_and_swap( &(loc->node->usref->sref), NULL, new_sref );
             if ( success ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
-                loc->item = new_sref;
-                if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key, val );
+                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
+                loc->sref = new_sref;
+                // XX TODO
+                //if ( d->methods->ins != NULL )
+                //    d->methods->ins( d, loc->set->meta, key, val );
                 return DICT_NO_ERROR;
             }
 
             // Something else undeleted the node, start over
-            if ( loc->found->value->value != RBLD )
+            if ( loc->node->usref->sref != RBLD )
                 continue;
         }
 
@@ -155,27 +157,27 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             }
             memset( new_node, 0, sizeof( node ));
             new_node->key = key;
-            new_node->value = malloc( sizeof( usref ));
-            if ( new_node->value == NULL ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            new_node->usref = malloc( sizeof( usref ));
+            if ( new_node->usref == NULL ) {
+                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
                 if ( new_sref != NULL ) free( new_sref );
                 return DICT_MEM_ERROR;
             }
-            new_node->value->value = new_sref;
+            new_node->usref->sref = new_sref;
         }
 
         // Create slot if necessary
-        if ( loc->slt == NULL ) {
+        if ( loc->slot == NULL ) {
             // No slot, and no slot number? something fishy!
-            if ( !loc->sltns ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+            if ( !loc->slotn_set ) {
+                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
                 if ( new_sref != NULL ) free( new_sref );
                 return DICT_INT_ERROR;
             }
 
             slot *new_slot = malloc( sizeof( slot ));
             if ( new_slot == NULL ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
                 if ( new_sref != NULL ) free( new_sref );
                 return DICT_MEM_ERROR;
             }
@@ -186,7 +188,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
 
             // swap into place
             int success = __sync_bool_compare_and_swap(
-                &(loc->st->slots[loc->sltn]),
+                &(loc->set->slots[loc->slotn]),
                 NULL,
                 new_slot
             );
@@ -194,13 +196,14 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // If the swap took place we have a new slot, node and ref all in
             // place, job done.
             if ( success ) {
-                loc->slt = new_slot;
-                loc->found = new_node;
-                loc->itemp = new_node->value;
-                loc->item  = new_node->value->value;
+                loc->slot = new_slot;
+                loc->node = new_node;
+                loc->usref = new_node->usref;
+                loc->sref  = new_node->usref->sref;
 
-                if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key, val );
+                // XXX TODO:
+                //if ( d->methods->ins != NULL )
+                //    d->methods->ins( d, loc->set->meta, key, val );
                 return DICT_NO_ERROR;
             }
 
@@ -212,9 +215,9 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
 
         // We didn't find an existing node, but we did find the nearest parent.
         node **branch = NULL;
-        if ( loc->found == NULL && loc->parent != NULL ) {
+        if ( loc->node == NULL && loc->parent != NULL ) {
             // Find the branch to take
-            int dir = d->methods->cmp( loc->st->meta, key, loc->parent->key );
+            int dir = d->methods->cmp( loc->set->meta, key, loc->parent->key );
             if ( dir == -1 ) { // Left
                 branch = &(loc->parent->left);
             }
@@ -222,7 +225,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 branch = &(loc->parent->right);
             }
             else { // This should not be possible.
-                if ( new_node != NULL ) dict_free_node( d, loc->st, new_node );
+                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
                 if ( new_sref != NULL ) free( new_sref );
                 return DICT_API_ERROR;
             }
@@ -230,30 +233,31 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // If we fail to swap the new node into place, this means another
             // thread beat us to it..
             if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
-                size_t count = __sync_add_and_fetch( &(loc->slt->count), 1 );
+                size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
 
-                loc->found = new_node;
-                loc->itemp = new_node->value;
-                loc->item  = new_node->value->value;
+                loc->node = new_node;
+                loc->usref = new_node->usref;
+                loc->sref  = new_node->usref->sref;
 
-                if ( d->methods->ins != NULL )
-                    d->methods->ins( d, loc->st->meta, key, val );
+                // XXX TODO:
+                //if ( d->methods->ins != NULL )
+                //    d->methods->ins( d, loc->set->meta, key, val );
 
                 size_t height = loc->height + 1;
                 size_t ideal  = tree_ideal_height( count );
 
                 // Check if we are balanced with our neighbors
-                slot *n1 = loc->st->slots[(loc->sltn + 1) % loc->st->slot_count];
+                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->slot_count];
                 if (( n1 == NULL && ideal > 2 ) || ( n1 && ideal > 2 + tree_ideal_height( n1->count )))
                     return DICT_PATHO_ERROR;
-                slot *n2 = loc->st->slots[(loc->sltn - 1) % loc->st->slot_count];
+                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->slot_count];
                 if (( n2 == NULL && ideal > 2 ) || ( n2 && ideal > 2 + tree_ideal_height( n2->count )))
                     return DICT_PATHO_ERROR;
 
-                if ( height > ideal + 2 && __sync_bool_compare_and_swap( &(loc->slt->rebuild), 0, 1 )) {
+                if ( height > ideal + 2 && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
                     fprintf( stderr, "Rebalance\n" );
                     int ret = rebalance( d, loc );
-                    loc->slt->rebuild = 0;
+                    loc->slot->rebuild = 0;
 
                     if ( ret == DICT_PATHO_ERROR )
                         return ret;
@@ -265,14 +269,13 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 return DICT_NO_ERROR;
             }
 
-            while ( d->rebuild == NULL && loc->slt->rebuild > 0 )
-                sleep(0);
+            while ( loc->slot->rebuild > 0 ) sleep(0);
         }
     }
 }
 
 void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
-    sref *r = loc->item;
+    sref *r = loc->sref;
 
     // Nullify if the ref is still in the node
     if ( swap != NULL ) {
@@ -290,11 +293,11 @@ void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
         }
     }
 
-    __sync_bool_compare_and_swap( &(loc->itemp->value), r, swap );
+    __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap );
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
 
     if ( count == 0 ) {
-        dict_dispose( d, loc->epoch, loc->st->meta, r, SREF );
+        dict_dispose( d, loc->epoch, loc->set->meta, r, SREF );
     }
 }
 

@@ -90,7 +90,7 @@ void dict_leave_epoch( dict *d, epoch *e ) {
                     dict_free_node( d, e->meta, e->garbage );
                 break;
                 case SREF:
-                    dict_free_sref( d, e->garbage );
+                    dict_free_sref( d, e->meta, e->garbage );
                 break;
             }
         }

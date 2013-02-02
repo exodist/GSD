@@ -79,7 +79,7 @@ int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
     dict_join_epoch( d, NULL, &e );
     set *s = d->set;
 
-    dot dt = { NULL, 0, show };
+    dot dt = { NULL, 0, show, NULL };
 
     int error = dict_dump_dot_start( &dt );
     if( error ) {
@@ -115,7 +115,7 @@ int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
 // -- Operation --
 
 // Chance to handle pathological data gracefully
-int dict_rebuild( dict *d, size_t slots, void *meta ) {
+int dict_reconfigure( dict *d, dict_settings *settings ) {
     return DICT_UNIMP_ERROR;
 }
 
@@ -124,11 +124,11 @@ int dict_get( dict *d, void *key, void **val ) {
     int err = dict_locate( d, key, &loc );
 
     if ( !err ) {
-        if ( loc->item == NULL ) {
+        if ( loc->sref == NULL ) {
             *val = NULL;
         }
         else {
-            *val = loc->item->value;
+            *val = loc->sref->value;
         }
     }
 
@@ -203,7 +203,7 @@ int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     if ( err2 == DICT_TRANS_FAIL ) err2 = 0;
 
     if ( !err1 && !err2 ) {
-        dict_do_deref( dest, dkey, dloc, oloc->itemp->value );
+        dict_do_deref( dest, dkey, dloc, oloc->usref->sref );
     }
 
     if ( oloc != NULL ) dict_free_location( orig, oloc );
@@ -219,7 +219,7 @@ int dict_dereference( dict *d, void *key ) {
     location *loc = NULL;
     int err = dict_locate( d, key, &loc );
 
-    if ( !err && loc->item != NULL ) dict_do_deref( d, key, loc, NULL );
+    if ( !err && loc->sref != NULL ) dict_do_deref( d, key, loc, NULL );
 
     if ( loc != NULL ) dict_free_location( d, loc );
     return err;

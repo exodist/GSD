@@ -35,7 +35,7 @@ int dict_dump_dot_slink( dot *dt, int s1, int s2 ) {
 
 int dict_dump_dot_subgraph( dot *dt, int s, node *n ) {
     char buffer[DOT_BUFFER_SIZE];
-    char *label = dt->show( n->key, n->value->value ? n->value->value->value : NULL );
+    char *label = dt->show( n->key, n->usref->sref ? n->usref->sref->value : NULL );
     int ret = 0;
 
     // Link node
@@ -66,7 +66,7 @@ int dict_dump_dot_subgraph( dot *dt, int s, node *n ) {
 
 int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
     // This node
-    char *style = n->value->value ? n->value->value->value ? ""
+    char *style = n->usref->sref ? n->usref->sref->value ? ""
                                                            : "[color=pink,fontcolor=pink,style=dashed]"
                                   : "[color=red,fontcolor=red,style=dashed]";
 
@@ -75,10 +75,10 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
     ret = dict_dump_dot_write( dt, buffer );
     if ( ret ) return ret;
 
-    if ( n->value->value != NULL && n->value->value->refcount > 1 ) {
+    if ( n->usref->sref != NULL && n->usref->sref->refcount > 1 ) {
         int ret = snprintf( buffer, DOT_BUFFER_SIZE,
             "        \"%s\"->\"%p\" [color=green,style=dashed]",
-            label, n->value->value
+            label, n->usref->sref
         );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
@@ -86,7 +86,7 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
 
         ret = snprintf( buffer, DOT_BUFFER_SIZE,
             "        \"%p\" [color=white,fontcolor=yellow,shape=hexagon]",
-            n->value->value
+            n->usref->sref
         );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
@@ -94,7 +94,7 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
 
         ret = snprintf( buffer, DOT_BUFFER_SIZE,
             "        {rank=sink; \"%p\"}",
-            n->value->value
+            n->usref->sref
         );
         if ( ret < 0 ) return DICT_INT_ERROR;
         ret = dict_dump_dot_write( dt, buffer );
@@ -106,7 +106,7 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
     node *left  = n->left;
     node *right = n->right;
     if ( right != NULL ) {
-        right_name = dt->show( right->key, right->value->value ? right->value->value->value : NULL );
+        right_name = dt->show( right->key, right->usref->sref ? right->usref->sref->value : NULL );
 
         // link
         ret = snprintf( buffer, DOT_BUFFER_SIZE, "        \"%s\"->\"%s\"", label, right_name );
@@ -125,7 +125,7 @@ int dict_dump_dot_node( dot *dt, char *buffer, node *n, char *label ) {
     }
 
     if ( left != NULL ) {
-        left_name = dt->show( left->key, left->value->value ? left->value->value->value : NULL );
+        left_name = dt->show( left->key, left->usref->sref ? left->usref->sref->value : NULL );
 
         // link
         ret = snprintf( buffer, DOT_BUFFER_SIZE, "        \"%s\"->\"%s\"", label, left_name );

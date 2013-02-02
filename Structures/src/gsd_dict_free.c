@@ -22,9 +22,9 @@ void dict_free_node( dict *d, void *meta, node *n ) {
     if ( n->right != NULL && n->right != RBLD )
         dict_free_node( d, meta, n->right );
 
-    size_t count = __sync_sub_and_fetch( &(n->value->refcount), 1 );
+    size_t count = __sync_sub_and_fetch( &(n->usref->refcount), 1 );
     if( count == 0 ) {
-        sref *r = n->value->value;
+        sref *r = n->usref->sref;
         if ( r != NULL && r != RBLD ) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
             if( count == 0 ) dict_free_sref( d, meta, r );
@@ -33,7 +33,7 @@ void dict_free_node( dict *d, void *meta, node *n ) {
         if ( d->methods->rem != NULL )
             d->methods->rem( d, meta, n->key );
 
-        free( n->value );
+        free( n->usref );
     }
 
     if ( d->methods->ref_del != NULL )

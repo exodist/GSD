@@ -15,7 +15,7 @@ int rebalance( dict *d, location *loc ) {
     memset( ns, 0, sizeof( slot ));
 
     // Create balance_pair array
-    size_t size = loc->slt->count + 100;
+    size_t size = loc->slot->count + 100;
     node **all = malloc( sizeof( node * ) * size );
     if ( all == NULL ) {
         free( ns );
@@ -24,17 +24,17 @@ int rebalance( dict *d, location *loc ) {
     memset( all, 0, size * sizeof( node * ));
 
     // Iterate nodes, add to array, block new branches
-    size_t count = rebalance_node( loc->slt->root, &all, &size, 0 );
+    size_t count = rebalance_node( loc->slot->root, &all, &size, 0 );
     if ( count == 0 ) return DICT_MEM_ERROR;
     ns->count = count;
 
     // insert nodes
     size_t ideal = tree_ideal_height( count );
-    int ret = rebalance_insert_list( d, loc->st, ns, all, 0, count - 1, ideal );
+    int ret = rebalance_insert_list( d, loc->set, ns, all, 0, count - 1, ideal );
 
     // swap
-    if (!ret && __sync_bool_compare_and_swap( &(loc->st->slots[loc->sltn]), loc->slt, ns )) {
-        dict_dispose( d, loc->epoch, loc->st->meta, loc->slt, SLOT );
+    if (!ret && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
+        dict_dispose( d, loc->epoch, loc->set->meta, loc->slot, SLOT );
     }
     else {
         free( ns );
@@ -48,12 +48,12 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
     if ( n->right == NULL ) __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
     if ( n->right != NULL && n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
 
-    if ( n->value->value == NULL ) {
-        __sync_bool_compare_and_swap( &(n->value->value), NULL, RBLD );
+    if ( n->usref->sref == NULL ) {
+        __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
     }
 
     // HERE
-    if ( n->value->value != RBLD ) {
+    if ( n->usref->sref != RBLD ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
@@ -95,22 +95,22 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
 
     int success = 0;
     while ( !success ) {
-        size_t c = n->value->refcount;
+        size_t c = n->usref->refcount;
         if ( c < 1 ) break;
-        success = __sync_bool_compare_and_swap( &(n->value->refcount), c, c + 1 );
+        success = __sync_bool_compare_and_swap( &(n->usref->refcount), c, c + 1 );
     }
-    if ( n->value->value == NULL || n->value->value->refcount < 1 ) {
+    if ( n->usref->sref == NULL || n->usref->sref->refcount < 1 ) {
         free( new_node );
         return DICT_NO_ERROR;
     }
 
     if ( d->methods->ref_add != NULL ) {
-        d->methods->ref_add( d, meta, key );
-        if ( n->value->value->value != NULL )
-            d->methods->ref_add( d, meta, n->value->value->value );
+        d->methods->ref_add( d, st->meta, n->key );
+        if ( n->usref->sref->value != NULL )
+            d->methods->ref_add( d, st->meta, n->usref->sref->value );
     }
     new_node->key   = n->key;
-    new_node->value = n->value;
+    new_node->usref = n->usref;
 
     *put_here = new_node;
     return DICT_NO_ERROR;

@@ -28,70 +28,70 @@ int dict_locate( dict *d, void *key, location **locate ) {
     location *lc = *locate;
 
     // The set has been swapped start over.
-    if ( lc->st != NULL && lc->st != d->set ) {
+    if ( lc->set != NULL && lc->set != d->set ) {
         memset( lc, 0, sizeof( location ));
     }
 
-    if ( lc->st == NULL ) {
-        lc->st = d->set;
+    if ( lc->set == NULL ) {
+        lc->set = d->set;
     }
 
-    if ( !lc->sltns ) {
-        lc->sltn  = d->methods->loc( lc->st->meta, lc->st->slot_count, key );
-        lc->sltns = 1;
+    if ( !lc->slotn_set ) {
+        lc->slotn  = d->methods->loc( lc->set->meta, lc->set->slot_count, key );
+        lc->slotn_set = 1;
     }
 
     // If the slot has been swapped use the new one (resets decendant values)
-    if ( lc->slt != NULL && lc->slt != lc->st->slots[lc->sltn] ) {
-        lc->slt    = NULL;
+    if ( lc->slot != NULL && lc->slot != lc->set->slots[lc->slotn] ) {
+        lc->slot    = NULL;
         lc->parent = NULL;
-        lc->found  = NULL;
-        lc->itemp  = NULL;
-        lc->item   = NULL;
+        lc->node  = NULL;
+        lc->usref  = NULL;
+        lc->sref   = NULL;
     }
 
-    if ( lc->slt == NULL ) {
-        slot *slt = lc->st->slots[lc->sltn];
+    if ( lc->slot == NULL ) {
+        slot *slt = lc->set->slots[lc->slotn];
 
         // Slot is not populated
         if ( slt == NULL || slt == RBLD ){
             lc->parent = NULL;
-            lc->found  = NULL;
-            lc->itemp  = NULL;
-            lc->item   = NULL;
+            lc->node  = NULL;
+            lc->usref  = NULL;
+            lc->sref   = NULL;
             return DICT_NO_ERROR;
         }
 
-        lc->slt = slt;
+        lc->slot = slt;
     }
 
     if ( lc->parent == NULL ) {
-        lc->parent = lc->slt->root;
+        lc->parent = lc->slot->root;
         lc->height = 1;
         if ( lc->parent == NULL ) {
-            lc->found = NULL;
-            lc->itemp = NULL;
-            lc->item  = NULL;
+            lc->node = NULL;
+            lc->usref = NULL;
+            lc->sref  = NULL;
             return DICT_NO_ERROR;
         }
     }
 
     node *n = lc->parent;
     while ( n != NULL && n != RBLD ) {
-        int dir = d->methods->cmp( lc->st->meta, key, n->key );
+        int dir = d->methods->cmp( lc->set->meta, key, n->key );
         switch( dir ) {
             case 0:
-                lc->found = n;
-                lc->itemp = lc->found->value;
-                lc->item  = lc->found->value->value;
+                lc->node = n;
+                lc->usref = lc->node->usref; // This is never NULL
+                lc->sref  = lc->node->usref->sref;
 
                 // If the node has a rebuild value we do not want to use it.
                 // But we check after setting it to avoid a race condition.
                 // We also use a memory barrier to make sure the set occurs
                 // before the check.
                 __sync_synchronize();
-                if ( lc->item == RBLD ) {
-                    lc->item = NULL;
+                if ( lc->sref == RBLD ) {
+                    lc->sref = NULL;
                 }
 
                 return DICT_NO_ERROR;
@@ -115,7 +115,7 @@ int dict_locate( dict *d, void *key, location **locate ) {
         }
     }
 
-    lc->item = NULL;
+    lc->sref = NULL;
     return DICT_NO_ERROR;
 }
 

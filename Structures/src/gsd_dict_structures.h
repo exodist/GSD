@@ -25,8 +25,6 @@ typedef struct usref usref;
 
 typedef struct location location;
 
-#define EPOCH_COUNT 10
-
 /*\
  * epoch count of 0 means free
  * epoch count of 1 means needs to be cleared (not joinable)
@@ -42,18 +40,16 @@ struct epoch {
 
 struct dict {
     set *set;
-    set *rebuild;
 
     dict_methods *methods;
 
-    epoch epochs[EPOCH_COUNT];
-    uint8_t epoch;
+    epoch **epochs;
+    size_t  epoch;
 };
 
 struct set {
-    slot  **slots;
-    size_t  slot_count;
-    void   *meta;
+    slot **slots;
+    dict_settings *settings;
 };
 
 struct slot {
@@ -71,7 +67,7 @@ struct node {
 
 struct usref {
     uint8_t refcount;
-    sref   *usref;
+    sref   *sref;
 };
 
 struct sref {
@@ -80,9 +76,10 @@ struct sref {
 };
 
 struct dot {
-    char   *buffer;
-    size_t  size;
-    FILE   *fp;
+    char     *buffer;
+    size_t    size;
+    dict_dot *show;
+    FILE     *fp;
 };
 
 struct location {
