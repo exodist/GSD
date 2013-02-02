@@ -49,7 +49,8 @@ typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
 
-typedef void   (dict_hook)( dict *d, dict_settings *s, void *item );
+typedef void   (dict_change)( dict *d, dict_settings *s, void *key, void *old_val, void *new_val );
+typedef void   (dict_ref)( dict *d, dict_settings *s, void *ref, int offset );
 typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( dict_settings *s, void *key1, void *key2 );
 typedef size_t (dict_loc)( dict_settings *s, void *key );
@@ -69,19 +70,17 @@ struct dict_methods {
     dict_cmp *cmp;  // Used to compare keys ( -1, 0, 1 : left, same, right )
     dict_loc *loc;  // Used to find slot of key (hashing function)
 
-    // Hooks for when keys are added/removed
-    // These should be used for metadata
+    // Hooks for when a key-value pair is modified
+    // This should be used for metadata
     // ** NOT FOR REFERENCE COUNTING **
     // This is also called when a key is set to NULL as opposed to being
     // removed completely.
-    dict_hook *ins; // Callback when a key obtains a value (insert, or previously null)
-    dict_hook *rem; // Callback when a key looses a value (delete or deref)
+    dict_change *change; // Callback when a key's value is changed (or added)
 
     // Hooks for reference counting
     // These are called whenever a dictionary adds or removes a reference to
     // key or value. These can be used for reference counting purposes.
-    dict_hook *ref_add; // Callback when the dictionary adds a ref
-    dict_hook *ref_del; // Callback when the dictionart deletes a ref
+    dict_ref *ref; // Callback when the dictionary adds or removes a ref
 };
 
 /* Dictionary Settings:

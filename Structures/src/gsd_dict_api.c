@@ -30,7 +30,7 @@ int dict_free( dict **dr ) {
     int active = 1;
     while ( active ) {
         active = 0;
-        for ( int i = 0; i < 10; i++ ) {
+        for ( int i = 0; i < d->epoch_count; i++ ) {
             epoch *e = d->epochs[i];
             active += e->active;
         }
@@ -258,5 +258,4 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
     dict_leave_epoch( d, e );
     return stop;
 }
-
 

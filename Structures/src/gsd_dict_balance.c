@@ -2,6 +2,7 @@
 #include "gsd_dict_structures.h"
 #include "gsd_dict_util.h"
 #include "gsd_dict_epoch.h"
+#include "gsd_dict_free.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -37,7 +38,7 @@ int rebalance( dict *d, location *loc ) {
         dict_dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
     }
     else {
-        free( ns );
+        dict_free_slot( d, loc->set->settings->meta, ns );
     }
 
     free( all );
@@ -45,14 +46,13 @@ int rebalance( dict *d, location *loc ) {
 }
 
 size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
-    if ( n->right == NULL ) __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
-    if ( n->right != NULL && n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
 
-    if ( n->usref->sref == NULL ) {
-        __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
-    }
+    // If right is NULL we block it off with RBLD, otherwise recurse
+    __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
+    if ( n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
 
-    // HERE
+    __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
+
     if ( n->usref->sref != RBLD ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
@@ -64,8 +64,9 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
         count++;
     }
 
-    if ( n->left == NULL ) __sync_bool_compare_and_swap( &(n->left), NULL, RBLD );
-    if ( n->left != NULL && n->left != RBLD ) count = rebalance_node( n->left, all, size, count );
+    // If left is NULL we block it off with RBLD, otherwise recurse
+    __sync_bool_compare_and_swap( &(n->left), NULL, RBLD );
+    if ( n->left != RBLD ) count = rebalance_node( n->left, all, size, count );
 
     return count;
 }
@@ -105,11 +106,7 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
         return DICT_NO_ERROR;
     }
 
-    if ( d->methods->ref_add != NULL ) {
-        d->methods->ref_add( d, st->settings->meta, n->key );
-        if ( n->usref->sref->value != NULL )
-            d->methods->ref_add( d, st->settings->meta, n->usref->sref->value );
-    }
+    // REF TODO: key gains a ref
     new_node->key   = n->key;
     new_node->usref = n->usref;
 

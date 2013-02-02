@@ -30,21 +30,18 @@ void dict_free_node( dict *d, void *meta, node *n ) {
             if( count == 0 ) dict_free_sref( d, meta, r );
         }
 
-        if ( d->methods->rem != NULL )
-            d->methods->rem( d, meta, n->key );
-
         free( n->usref );
     }
 
-    if ( d->methods->ref_del != NULL )
-        d->methods->ref_del( d, meta, n->key );
+    // REF TODO: key loses a ref
 
     free( n );
 }
 
 void dict_free_sref( dict *d, void *meta, sref *r ) {
-    if ( r->value != NULL && r->value != RBLD && d->methods->ref_del != NULL )
-        d->methods->ref_del( d, meta, r->value );
+    // REF TODO: value loses a ref
+    //if ( r->value != NULL && r->value != RBLD && d->methods->ref_del != NULL )
+    //    d->methods->ref_del( d, meta, r->value );
 
     free( r );
 }
