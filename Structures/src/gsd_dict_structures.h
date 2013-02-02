@@ -79,10 +79,13 @@ struct sref {
 };
 
 struct dot {
-    char     *buffer;
-    size_t    size;
+    char     *buffer1;
+    char     *buffer2;
+    size_t    size1;
+    size_t    size2;
     dict_dot *show;
     FILE     *fp;
+    int      cluster;
 };
 
 struct location {

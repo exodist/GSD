@@ -17,8 +17,11 @@
 
 int dict_dump_dot_start( dot *dt );
 int dict_dump_dot_slink( dot *dt, int s1, int s2 );
-int dict_dump_dot_subgraph( dot *dt, int s, node *n );
+int dict_dump_dot_slotn( dot *dt, int s, node *n );
 int dict_dump_dot_node( dot *dt, char *line, node *n, char *label );
-int dict_dump_dot_write( dot *dt, char *add );
+int dict_dump_dot_write( dot *dt, char *add, size_t add_size, int bfn );
+int dict_dump_dot_epochs( dot *dt, dict *d, set *s );
+int dict_dump_dot_subgraph_start( dot *dt );
+int dict_dump_dot_subgraph_end( dot *dt );
 
 #endif
