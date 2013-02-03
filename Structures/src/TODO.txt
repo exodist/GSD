@@ -1,6 +1,6 @@
+* Update 'REF TODO' spots in code to do what they say
+* Epoch system, start with one, add more as necessary, optional limit to epochs
+* Rewrite DOT compiler, it sucks.
 * On deref rebuild subtree from deref node, swap into place.
-* Rebuild
 * Merging
-* Epoch in dot-dump
-* Control max imbalance
-* Audit when we trigger method removes and inserts, add deref?
+* dict_reconfigure()
