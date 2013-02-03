@@ -27,14 +27,10 @@ int dict_free( dict **dr ) {
     *dr = NULL;
 
     // Wait on all epochs
-    int active = 1;
-    while ( active ) {
-        active = 0;
-        for ( int i = 0; i < d->epoch_count; i++ ) {
-            epoch *e = d->epochs[i];
-            active += e->active;
-        }
-        if ( active ) sleep( 0 );
+    epoch *e = d->epochs;
+    while ( e != NULL ) {
+        while( e->active ) sleep( 0 );
+        e = e->next;
     }
 
     if ( d->set != NULL ) dict_free_set( d, d->set );
@@ -43,7 +39,7 @@ int dict_free( dict **dr ) {
     return DICT_NO_ERROR;
 }
 
-int dict_create_vb( dict **d, uint8_t c, dict_settings *s, dict_methods *m, char *f, size_t l ) {
+int dict_create_vb( dict **d, uint8_t el, dict_settings *s, dict_methods *m, char *f, size_t l ) {
     if ( s == NULL ) {
         fprintf( stderr, "Settings may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
@@ -60,17 +56,22 @@ int dict_create_vb( dict **d, uint8_t c, dict_settings *s, dict_methods *m, char
         fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
+    if ( l && l < 3 ) {
+        fprintf( stderr, "The epoch limit cannot be less than 3 (except for 0). Called from %s line %zi", f, l );
+        return DICT_API_ERROR;
+    }
 
-    return dict_do_create( d, c, s, m );
+    return dict_do_create( d, el, s, m );
 }
 
-int dict_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods ) {
-    if ( settings == NULL ) return DICT_API_ERROR;
+int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
+    if ( settings == NULL )     return DICT_API_ERROR;
     if ( methods == NULL )      return DICT_API_ERROR;
     if ( methods->cmp == NULL ) return DICT_API_ERROR;
     if ( methods->loc == NULL ) return DICT_API_ERROR;
+    if ( epoch_limit && epoch_limit < 3 ) return DICT_API_ERROR;
 
-    return dict_do_create( d, epoch_count, settings, methods );
+    return dict_do_create( d, epoch_limit, settings, methods );
 }
 
 // Copying and cloning
@@ -80,17 +81,16 @@ int dict_merge_refs( dict *from, dict *to );
 // -- Informational --
 
 int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
-    epoch *e = NULL;
-    dict_join_epoch( d, NULL, &e );
+    epoch *e = dict_join_epoch( d );
     set *s = d->set;
 
     dot dt = { NULL, NULL, 0, 0, show, NULL, 0 };
 
     int error = dict_dump_dot_start( &dt );
 
-    if ( !error ) {
-        error = dict_dump_dot_epochs( &dt, d, s );
-    }
+    //if ( !error ) {
+    //    error = dict_dump_dot_epochs( &dt, d, s );
+    //}
 
     int last = -1;
     for ( int i = 0; i < s->settings->slot_count && !error; i++ ) {
@@ -241,8 +241,7 @@ int dict_dereference( dict *d, void *key ) {
 }
 
 int dict_iterate( dict *d, dict_handler *h, void *args ) {
-    epoch *e = NULL;
-    dict_join_epoch( d, NULL, &e );
+    epoch *e = dict_join_epoch( d );
     set *s = d->set;
     int stop = DICT_NO_ERROR;
 

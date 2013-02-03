@@ -202,51 +202,51 @@ int dict_dump_dot_write( dot *dt, char *add, size_t asize, int bfn ) {
     return DICT_NO_ERROR;
 }
 
-int dict_dump_dot_epochs( dot *dt, dict *d, set *s ) {
-    char buffer[DOT_BUFFER_SIZE];
-
-    int ret = dict_dump_dot_write( dt,
-        "    Dictionary [color=grey,fontcolor=white,shape=box]\nDictionary->s0",
-        0, 0
-    );
-    if ( ret ) return ret;
-    
-    //for ( int i = 0; i < s->settings->slot_count; i++ ) {
-    //    ret = snprintf( buffer, DOT_BUFFER_SIZE, "    Dictionary->s%i", i );
-    //    if ( ret < 0 ) return DICT_INT_ERROR;
-    //    ret = dict_dump_dot_write( dt, buffer, 0, 0 );
-    //    if ( ret ) return ret;
-    //}
-
-    for ( int i = 0; i < d->epoch_count; i++ ) {
-
-        char *color = d->epochs[i]->active ? "green" : "grey";
-        char *shape = d->epochs[i]->garbage ? "doubleoctagon" : "octagon";
-
-        ret = snprintf( buffer, DOT_BUFFER_SIZE,
-            "    epoch%i [color=%s,shape=%s]",
-            i, color, shape
-        );
-        if ( ret < 0 ) return DICT_INT_ERROR;
-        ret = dict_dump_dot_write( dt, buffer, 0, 0 );
-        if ( ret ) return ret;
-
-        ret = snprintf( buffer, DOT_BUFFER_SIZE, "    Dictionary->epoch%i", i );
-        if ( ret < 0 ) return DICT_INT_ERROR;
-        ret = dict_dump_dot_write( dt, buffer, 0, 0 );
-        if ( ret ) return ret;
-
-        if ( i != 0 ) {
-            ret = snprintf( buffer, DOT_BUFFER_SIZE, "    {rank=min; epoch0 epoch%i}", i );
-            if ( ret < 0 ) return DICT_INT_ERROR;
-            ret = dict_dump_dot_write( dt, buffer, 0, 0 );
-            if ( ret ) return ret;
-        }
-
-        // For dependancies
-        //epoch0->epoch2 [color=blue,style=dotted,constraint=none]
-    }
-
-    return DICT_NO_ERROR;
-}
+//int dict_dump_dot_epochs( dot *dt, dict *d, set *s ) {
+//    char buffer[DOT_BUFFER_SIZE];
+//
+//    int ret = dict_dump_dot_write( dt,
+//        "    Dictionary [color=grey,fontcolor=white,shape=box]\nDictionary->s0",
+//        0, 0
+//    );
+//    if ( ret ) return ret;
+//    
+//    //for ( int i = 0; i < s->settings->slot_count; i++ ) {
+//    //    ret = snprintf( buffer, DOT_BUFFER_SIZE, "    Dictionary->s%i", i );
+//    //    if ( ret < 0 ) return DICT_INT_ERROR;
+//    //    ret = dict_dump_dot_write( dt, buffer, 0, 0 );
+//    //    if ( ret ) return ret;
+//    //}
+//
+//    for ( int i = 0; i < d->epoch_count; i++ ) {
+//
+//        char *color = d->epochs[i]->active ? "green" : "grey";
+//        char *shape = d->epochs[i]->garbage ? "doubleoctagon" : "octagon";
+//
+//        ret = snprintf( buffer, DOT_BUFFER_SIZE,
+//            "    epoch%i [color=%s,shape=%s]",
+//            i, color, shape
+//        );
+//        if ( ret < 0 ) return DICT_INT_ERROR;
+//        ret = dict_dump_dot_write( dt, buffer, 0, 0 );
+//        if ( ret ) return ret;
+//
+//        ret = snprintf( buffer, DOT_BUFFER_SIZE, "    Dictionary->epoch%i", i );
+//        if ( ret < 0 ) return DICT_INT_ERROR;
+//        ret = dict_dump_dot_write( dt, buffer, 0, 0 );
+//        if ( ret ) return ret;
+//
+//        if ( i != 0 ) {
+//            ret = snprintf( buffer, DOT_BUFFER_SIZE, "    {rank=min; epoch0 epoch%i}", i );
+//            if ( ret < 0 ) return DICT_INT_ERROR;
+//            ret = dict_dump_dot_write( dt, buffer, 0, 0 );
+//            if ( ret ) return ret;
+//        }
+//
+//        // For dependancies
+//        //epoch0->epoch2 [color=blue,style=dotted,constraint=none]
+//    }
+//
+//    return DICT_NO_ERROR;
+//}
 

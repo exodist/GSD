@@ -13,9 +13,9 @@
 #include "gsd_dict_api.h"
 #include "gsd_dict_structures.h"
 
-epoch **dict_create_epochs( uint8_t epoch_count );
+epoch *dict_create_epoch();
 void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type );
-void dict_join_epoch( dict *d, uint8_t *idx, epoch **ep );
+epoch *dict_join_epoch( dict *d );
 void dict_leave_epoch( dict *d, epoch *e );
 
 #endif

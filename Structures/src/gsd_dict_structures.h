@@ -32,11 +32,13 @@ typedef struct location location;
  * epoch count of >1 means active
 \*/
 struct epoch {
-    size_t   active;
-    void    *garbage;
-    void    *meta;
-    enum    { SET, SLOT, NODE, SREF } gtype;
-    uint8_t *deps;
+    size_t active;
+    void  *garbage;
+    void  *meta;
+    enum  { SET, SLOT, NODE, SREF } gtype;
+
+    epoch *dep;
+    epoch *next;
 };
 
 struct dict {
@@ -44,8 +46,9 @@ struct dict {
 
     dict_methods *methods;
 
-    epoch **epochs;
-    uint8_t epoch;
+    epoch *epochs;
+    epoch *epoch;
+    uint8_t epoch_limit;
     uint8_t epoch_count;
 };
 
@@ -94,7 +97,7 @@ struct location {
     size_t  slotn;      // sltn
     uint8_t slotn_set;  // sltns
     slot   *slot;       // slt
-    size_t  height; 
+    size_t  height;
     node   *parent;
     node   *node;       // found
     usref  *usref;      // itemp

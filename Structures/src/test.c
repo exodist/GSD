@@ -40,7 +40,7 @@ int main() {
     m->cmp = compare;
     m->loc = locate;
 
-    dict_create( &d, 10, s, m );
+    dict_create( &d, 0, s, m );
     int64_t v = 1;
     int64_t v2 = 11;
     int64_t v3 = 55;

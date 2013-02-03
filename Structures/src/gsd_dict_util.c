@@ -47,19 +47,26 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     return DICT_NO_ERROR;
 }
 
-int dict_do_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods ) {
+int dict_do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
     if( !settings->slot_count    ) settings->slot_count    = 256;
     if( !settings->max_imbalance ) settings->max_imbalance = 3;
-
-    if( !epoch_count ) return DICT_API_ERROR;
 
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return DICT_MEM_ERROR;
     memset( out, 0, sizeof( dict ));
 
-    out->epoch_count = epoch_count;
-    out->epochs = dict_create_epochs( epoch_count );
+    out->epoch_limit = epoch_limit;
+    out->epochs = dict_create_epoch();
+    out->epoch = out->epochs;
+    out->epoch_count = 2;
     if ( out->epochs == NULL ) {
+        free( out );
+        return DICT_MEM_ERROR;
+    }
+
+    out->epochs->next = dict_create_epoch();
+    if ( out->epochs->next == NULL ) {
+        free( out->epochs );
         free( out );
         return DICT_MEM_ERROR;
     }
@@ -279,7 +286,6 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
 
                 // Check if we have an internal imbalance
                 if ( height > ideal + max_imb && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
-                    fprintf( stderr, "Rebalance\n" );
                     int ret = rebalance( d, loc );
                     loc->slot->rebuild = 0;
 

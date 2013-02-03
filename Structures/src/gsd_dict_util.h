@@ -18,7 +18,7 @@ uint8_t max_bit( uint64_t num );
 
 int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
 
-int dict_do_create( dict **d, uint8_t epoch_count, dict_settings *settings, dict_methods *methods );
+int dict_do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 

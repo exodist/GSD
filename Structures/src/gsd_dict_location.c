@@ -10,7 +10,7 @@ location *dict_create_location( dict *d ) {
     if ( locate == NULL ) return NULL;
     memset( locate, 0, sizeof( location ));
 
-    dict_join_epoch( d, NULL, &(locate->epoch) );
+    locate->epoch = dict_join_epoch( d );
 
     return locate;
 }
