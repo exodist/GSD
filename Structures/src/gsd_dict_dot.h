@@ -12,16 +12,47 @@
 
 #include "gsd_dict_api.h"
 #include "gsd_dict_structures.h"
+#include <stdarg.h>
 
-#define DOT_BUFFER_SIZE 256
+#define DOT_BUFFER_INC 1024
 
-int dict_dump_dot_start( dot *dt );
-int dict_dump_dot_slink( dot *dt, int s1, int s2 );
-int dict_dump_dot_slotn( dot *dt, int s, node *n );
-int dict_dump_dot_node( dot *dt, char *line, node *n, char *label );
-int dict_dump_dot_write( dot *dt, char *add, size_t add_size, int bfn );
-int dict_dump_dot_epochs( dot *dt, dict *d, set *s );
-int dict_dump_dot_subgraph_start( dot *dt );
-int dict_dump_dot_subgraph_end( dot *dt );
+typedef struct dot dot;
+struct dot {
+    set      *set;
+    dict_dot *decode;
+
+    node **nodes;
+    size_t nodes_size;
+    size_t nodes_idx;
+
+    char *epochs;
+    char *slots;
+    char *refs;
+    char *end;
+
+    size_t epochs_size;
+    size_t slots_size;
+    size_t refs_size;
+    size_t end_size;
+
+    size_t epochs_length;
+    size_t slots_length;
+    size_t refs_length;
+    size_t end_length;
+};
+
+char *dict_dump_node_label( void *meta, void *key, void *value );
+char *dict_do_dump_dot( dict *d, set *s, dict_dot decode );
+
+int dict_dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
+
+int dict_dot_print_epochs( dot *d, char *format, ... );
+int dict_dot_print_slots( dot *d, char *format, ... );
+int dict_dot_print_refs( dot *d, char *format, ... );
+int dict_dot_print_end( dot *d, char *format, ... );
+
+int dict_dump_dot_epochs( dict *d, dot *dd );
+int dict_dump_dot_slots( dict *d, dot *dd );
+int dict_dump_dot_end( dict *d, dot *dd );
 
 #endif

@@ -13,7 +13,7 @@ int compare( dict_settings *settings, void *key1, void *key2 ) {
     return 0;
 }
 
-char *show( void *key, void *val ) {
+char *show( void *meta, void *key, void *val ) {
     int64_t k = key ? *(int64_t*)key : -1;
     int64_t v = val ? *(int64_t*)val : -1;
     char *buffer = malloc( 20 );
@@ -84,11 +84,9 @@ int main() {
     dict_reference( d, &k[3905], d, &k[2401] );
 
 
-    char *buffer;
-    int ret = dict_dump_dot( d, &buffer, show );
-    if ( ret ) { printf( "Error\n" ); }
+    char *dot = dict_dump_dot( d, show );
 
-    printf( "%s\n", buffer );
+    printf( "%s\n", dot );
 
-    return ret;
+    return 0;
 }

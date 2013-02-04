@@ -80,51 +80,16 @@ int dict_merge_refs( dict *from, dict *to );
 
 // -- Informational --
 
-int dict_dump_dot( dict *d, char **buffer, dict_dot *show ) {
+char *dict_dump_dot( dict *d, dict_dot *decode ) {
     epoch *e = dict_join_epoch( d );
     set *s = d->set;
 
-    dot dt = { NULL, NULL, 0, 0, show, NULL, 0 };
+    if( !decode ) decode = dict_dump_node_label;
 
-    int error = dict_dump_dot_start( &dt );
-
-    //if ( !error ) {
-    //    error = dict_dump_dot_epochs( &dt, d, s );
-    //}
-
-    int last = -1;
-    for ( int i = 0; i < s->settings->slot_count && !error; i++ ) {
-        slot *sl = s->slots[i];
-        if ( sl == NULL ) continue;
-        error = dict_dump_dot_slink( &dt, last, i );
-        if ( error ) break;
-        last = i;
-
-        node *n = sl->root;
-        if ( n == NULL ) continue;
-        error = dict_dump_dot_slotn( &dt, i, n );
-        if ( error ) break;
-    }
-
-//    if ( !error ) {
-//        error = dict_dump_dot_subgraph_start( &dt );
-//    }
-    if ( !error ) {
-        error = dict_dump_dot_write( &dt, dt.buffer2, dt.size2, 0 );
-    }
-//    if ( !error ) {
-//        error = dict_dump_dot_subgraph_end( &dt );
-//    }
-
-    if ( !error ) {
-        error = dict_dump_dot_write( &dt, "}", 0, 0 );
-    }
+    char *out = dict_do_dump_dot( d, s, decode );
 
     dict_leave_epoch( d, e );
-
-    *buffer = dt.buffer1;
-
-    return error;
+    return out;
 }
 
 // -- Operation --

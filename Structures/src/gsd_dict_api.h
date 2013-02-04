@@ -54,7 +54,7 @@ typedef void   (dict_ref)( dict *d, dict_settings *s, void *ref, int offset );
 typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( dict_settings *s, void *key1, void *key2 );
 typedef size_t (dict_loc)( dict_settings *s, void *key );
-typedef char * (dict_dot)( void *key, void *val );
+typedef char * (dict_dot)( void *meta, void *key, void *val );
 
 struct dict;
 
@@ -140,7 +140,7 @@ dict_methods *dict_get_methods( dict *d );
 
 // -- Informative --
 
-int dict_dump_dot( dict *d, char **buffer, dict_dot *show );
+char *dict_dump_dot( dict *d, dict_dot *decode );
 
 // -- Operation --
 
