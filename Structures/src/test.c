@@ -14,8 +14,8 @@ int compare( dict_settings *settings, void *key1, void *key2 ) {
     return 0;
 }
 
-char *show( void *meta, void *key, void *val ) {
-    int64_t k = key ? *(int64_t*)key : -1;
+char *show( void *key, void *val ) {
+    int64_t k = *(int64_t*)key;
     int64_t v = val ? *(int64_t*)val : -1;
     char *buffer = malloc( 20 );
     snprintf( buffer, 20, "%li:%li", k, v );
