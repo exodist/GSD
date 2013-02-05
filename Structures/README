@@ -18,24 +18,150 @@ that do not change or add features.
 
 == Features ===
 
- * Designed for concurrency, any numbers of threads can read and write
- * Allows you to handle pathological data by providing alternate meta-data and
-   rebuilding the entire dictionary (This can be used to change a hash seed).
- * Uses a hash table with customizable number of slots
- * Each hash slot uses a binary tree for keys that use the same slot (hash
-   conflicts)
+ * Designed to be highly concurrent:
+   * Any number of threads can read and write.
+   * Transactional model for some operations:
+     - insert: Will fail if key already exists (or if another thread inserted
+       it first)
+     - update: Will fail if key does not already exist
+     - delete: Will fail if key does not exist
+     - dereference: Will fail if there is no reference to remove
+     - cmp_update: Update value with an atomic compare and swap only if
+       the current value is what we expect
+     - cmp_delete: Delete value with an atomic compare and swap only if
+       the current value is what we expect
+     - cmp_dereference: Delete reference to value with atomic swap
+       (unimplimented)
+   * 'update', 'delete', and 'get' operations will never lock, block, or spin.
+   * Optimistic model for insert and removal operations:
+     - An insert is usually simple, but sometimes they require some internal
+       structures to be rebuilt. An insert may spin if an internal structure is
+       being rebuilt in another thread.
+     - A key removal (dereference) can result in a partial rebuild.
+     - You can control when rebuilds are triggered via max_imbalance.
+ * Allows for graceful handling fo pathological data:
+   * When an operation results in a pathological tree, the operation still
+     succeeds, but a DICT_PATHO_ERROR is returned to notify you.
+   * The dictionary can be completely rebuilt with a new configuration in a
+     thread-safe way.
+     - The dictionary stores a 'meta' void pointer for your use. You can use
+       this to store a hash seed for example. On pathological data you can
+       rebuild with a new hash seed.
+     - You can use the rebuild to dynamically adjust the number of hash slots.
+     - You can use the rebuild to adjust the max_imbalance
+ * Internal structure is a hash table, each table slot becomes a binary tree if
+   multiple keys resolve to the same slot (hash conflict).
  * You specify how deep a tree imbalance should be before it is balanced
- * Each slots tree will be independantly balanced if an imbalance is detected
+ * An imbalance in one tree only rebalances that tree, other hash slots are not
+   effected.
  * Can use anything as keys and values
    * You specify how to compare keys (for sorting, for the trees)
    * You specify how to get a slot number (hash key) for a key
    * Can provide a callback for reference counting on keys and values.
- * Can use the 'reference' feature to tie several keys together
-   (updating the value of one key is reflected in all keys)
-   * References can also be made between different dictionaries.
- * Each dictionary can have custom metadata associated with it for use in your
-   compare and update functions.
+   * 'meta' void pointer is passed to your compare and hashing functions
+ * You can link together keys within a dictionary, or even across multiple
+   dictionaries. This means that updating a key in one dictionary can also
+   update other keys in the same dictionary, or even other dictionaries.
+ * Internal structures are garbage collected using a thread-safe combination of
+   reference counting and a custom designed 'epoch' system.
+ * The internal structure of the hash can be dumped to the graphviz DOT format
+   for visualization.
 
 == Overview ==
+
+GSD Dictionary is a dictrionary library. It works as an associative array.
+Under the hood a dictionary is a hash table that degrades to a binary tree when
+there is a hash conflict. You can use anything you want as keys and values, and
+you specify the hashing and compare functions.
+
+== Epoch Garbage Collector ==
+
+Terminology:
+ - Dispose: When we dispose an structure, no operations in any thread will be
+   able to reach that structure moving forward. It is important to note that
+   operations in any thread started before the disposal may still have access
+   to the structure.
+ - Free: This refers to use of free()
+ - Epoch: Epochs are sequential counters of active operations that also track
+   disposals.
+
+=== Internal Structures ===
+
+All internal structures that can be referenced in more than 1 place are
+reference counted. Currently there are only 2 such structures, and both are
+related to storing values. These are only disposed of when their ref count
+reaches 0. Once a ref count reaches 0 nothing is allowed to bring it back up
+above 0. If an operation encounters a situation where it is asked to add a
+reference to a structure with a 0 ref count it will return a transaction error.
+
+Every internal structure has a specific level. At this time it looks like this:
+
+    Dictionary->Set->Slot->[Tree Nodes]->(USRef)->(SRef)
+
+    [] Tree nodes can be nested within eachother, but are never cyclical.
+    () USRef and SRef are reference counted
+
+As the operation delves into the dictionary, it always copies the pointer to
+the item into which it is about to descend, from that point forward it always
+uses its own copy of the pointer. This means if another operation 'disposes' of
+that pointer and replaces it with a new one, the operation will continue to use
+the original one it had.
+
+=== Operations ===
+
+Every operation in the API (see gsd_dict_api.h) will start by joining the
+current epoch. When the api call completes it will finish by leaving the epoch
+that it joined (which may no longer be current). Joining an epoch means
+incrimenting the 'active' counter within that epoch, leaving means decrementing
+it. Changing the 'active' counter is done with an atomic operation.
+
+=== Disposal ===
+
+When an operation decides a structure is no longer needed, it will use an
+atomic swap to update the pointer that references it, once this is done no new
+operation will be able to reach the structure. The structure is then disposed
+of. Disposal of a structure adds a pointer for that structure to an epoch.
+
+=== When is the garbage freed? ===
+
+The 'active' counter of an epoch has 2 special values. '0' means the epoch is
+completely free. '1' means the epoch has ended, no new operations can
+join it. When an operations joins an epoch at '0' it will set it to '2'
+(atomic). If an operations exit from an epoch results in an 'active' count of
+'1', that operation knows that it is the last thread in the epoch, and that no
+other threads can join, it is now safe to free any garbage within the epoch.
+
+=== How do we ensure that an epoch eventually ends? ==
+
+An epoch contains only one garbage slot. When an operation fills a garbage slot
+it sets a new epoch. When a new epoch is set the old epoch will join the new
+one in the same way an operation would join it. From this point forward any new
+operation will join the new epoch instead of the old one. When the old epoch
+reaches 0 (since none will now join it) it will leave the new epoch. This
+ensures that nothing disposed of in the new epoch will free until every
+operation in the old epoch has completed.
+
+=== How many epochs are there? ===
+
+The epoch system is even used in a single threaded environment. Most internal
+operations will result in 1 or less disposals. However the reference operation
+can result in as many as 3 disposals, as a reslt there is a minimum of 4
+epochs. Epochs are allocated as needed, and are never freed, once they are
+created they remain forever. You can specify a limit on epoch creation, it must
+be greater than or equal to 4. You can also specify 0 to allow unlimited
+epochs.
+
+=== What triggers a disposal? ===
+
+A disposal will occur any time a tree needs to be rebalanced. Rebalances can
+occur for any of the following operations:
+
+ * Dereferencing a key
+ * Inserting a key
+ * reconfiguring the dictionary
+ * Referencing will insert up to 2 keys if they don't already exist, it also
+   will usually result in an sref being disposed. This means as many as 3
+   epochs may be needed for a reference operation, which means 4 epochs will be
+   needed in total.
 
 
