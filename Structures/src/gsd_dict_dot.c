@@ -16,21 +16,24 @@ char *dict_dump_node_label( void *meta, void *key, void *value ) {
 }
 
 char *dict_do_dump_dot( dict *d, set *s, dict_dot decode ) {
-    char *out = "Error Building DOT\n";
+    char *out = NULL;
 
     dot dd;
     memset( &dd, 0, sizeof( dot ));
+    dd.decode = decode ? decode : dict_dump_node_label;
 
     if( dict_dump_dot_epochs( d, &dd )) goto CLEANUP;
-    if( dict_dump_dot_slots( d, &dd ) ) goto CLEANUP;
-    if( dict_dump_dot_end( d, &dd )   ) goto CLEANUP;
+    if( dict_dump_dot_slots( d, &dd )) goto CLEANUP;
+    if( dict_dump_dot_end( d, &dd )) goto CLEANUP;
+
+    out = dict_dump_dot_merge( &dd );
 
     CLEANUP:
-    if( dd.nodes  ) free( dd.nodes  );
+    if( dd.nodes )  free( dd.nodes );
     if( dd.epochs ) free( dd.epochs );
-    if( dd.slots  ) free( dd.slots  );
-    if( dd.refs   ) free( dd.refs   );
-    if( dd.end    ) free( dd.end    );
+    if( dd.slots )  free( dd.slots );
+    if( dd.refs )   free( dd.refs );
+    if( dd.end )    free( dd.end );
 
     return out;
 }
@@ -83,12 +86,57 @@ int dict_dot_print( char **buffer, size_t *size, size_t *length, char *format, v
     }
 
     strncpy( *buffer + *length, tmp, add_length );
+    *length = *length + add_length;
 
     return DICT_NO_ERROR;
 }
 
 int dict_dump_dot_epochs( dict *d, dot *dd ) {
 
+    int ret = dict_dot_print_epochs( dd,
+        "node [color=pink,fontcolor=grey,style=dashed,shape=octagon]\n"
+    );
+    if ( ret ) return ret;
+
+    ret = dict_dot_print_epochs( dd, "edge [color=cyan]\n" );
+    if ( ret ) return ret;
+
+    epoch *e = d->epochs;
+    epoch *a = d->epoch;
+    size_t en = 0;
+    while ( e != NULL ) {
+        epoch *dep = e->dep;
+        if ( dep ) {
+            ret = dict_dot_print_epochs( dd,
+                "\"%p\" [label=\"Epoch%i\",color=green,style=solid,shape=doubleoctagon,fontcolor=white]\n",
+                e, en
+            );
+            if ( ret ) return ret;
+            ret = dict_dot_print_epochs( dd, "\"%p\"->\"%p\" [color=yellow]\n", e, dep );
+            if ( ret ) return ret;
+        }
+        else if ( e == a ) {
+            ret = dict_dot_print_epochs( dd,
+                "\"%p\" [label=\"Epoch%i\",color=yellow,style=solid,fontcolor=white]\n",
+                e, en
+            );
+            if ( ret ) return ret;
+        }
+        else {
+            ret = dict_dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, en );
+            if ( ret ) return ret;
+        }
+
+        if ( e->next ) {
+            ret = dict_dot_print_epochs( dd, "\"%p\"->\"%p\"\n", e, e->next );
+            if ( ret ) return ret;
+        }
+
+        e = e->next;
+        en++;
+    }
+
+    return DICT_NO_ERROR;
 }
 
 int dict_dump_dot_slots( dict *d, dot *dd ) {
@@ -96,6 +144,29 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
 }
 
 int dict_dump_dot_end( dict *d, dot *dd ) {
-
+    int ret = dict_dot_print_end( dd,
+        "Dictionary->\"%p\"\nDictionary->S0\n", d->epochs
+    );
+    if ( ret ) return ret;
 }
 
+char *dict_dump_dot_merge( dot *dd ) {
+    char *out = malloc( dd->epochs_length + 10000 );
+    if ( out == NULL ) return NULL;
+
+    char *format = "digraph Memory {\n"
+                   "    ordering=out\n"
+                   "    bgcolor=black\n"
+                   "    node [color=white,fontcolor=white,shape=egg,style=solid]\n"
+                   "    edge [color=cyan,arrowhead=vee]\n"
+                   "    subgraph cluster_memory {\n"
+                   "    graph [style=solid,color=grey]\n"
+                   "        %s\n"
+                   "    }\n"
+                   "    %s\n"
+                   "}\n";
+
+    snprintf( out, dd->epochs_length + 10000, format, dd->epochs, dd->end );
+
+    return out;
+}

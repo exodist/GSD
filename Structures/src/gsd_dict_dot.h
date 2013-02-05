@@ -54,5 +54,6 @@ int dict_dot_print_end( dot *d, char *format, ... );
 int dict_dump_dot_epochs( dict *d, dot *dd );
 int dict_dump_dot_slots( dict *d, dot *dd );
 int dict_dump_dot_end( dict *d, dot *dd );
+char *dict_dump_dot_merge( dot *dd );
 
 #endif

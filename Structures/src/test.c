@@ -1,4 +1,5 @@
 #include "gsd_dict_api.h"
+#include "gsd_dict_epoch.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -83,8 +84,12 @@ int main() {
     dict_set( d, &k[0], &v3 );
     dict_reference( d, &k[3905], d, &k[2401] );
 
-
+    epoch *e = dict_join_epoch( d );
+    sref *sr = malloc( sizeof( sref ));
+    memset( sr, 0, sizeof( sref ));
+    dict_dispose( d, e, NULL, sr, SREF );
     char *dot = dict_dump_dot( d, show );
+    dict_leave_epoch( d, e );
 
     printf( "%s\n", dot );
 
