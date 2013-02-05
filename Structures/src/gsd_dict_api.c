@@ -56,8 +56,8 @@ int dict_create_vb( dict **d, uint8_t el, dict_settings *s, dict_methods *m, cha
         fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
-    if ( l && l < 3 ) {
-        fprintf( stderr, "The epoch limit cannot be less than 3 (except for 0). Called from %s line %zi", f, l );
+    if ( l && l < 4 ) {
+        fprintf( stderr, "The epoch limit cannot be less than 4 (except for 0). Called from %s line %zi", f, l );
         return DICT_API_ERROR;
     }
 
@@ -69,7 +69,7 @@ int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_me
     if ( methods == NULL )      return DICT_API_ERROR;
     if ( methods->cmp == NULL ) return DICT_API_ERROR;
     if ( methods->loc == NULL ) return DICT_API_ERROR;
-    if ( epoch_limit && epoch_limit < 3 ) return DICT_API_ERROR;
+    if ( epoch_limit && epoch_limit < 4 ) return DICT_API_ERROR;
 
     return dict_do_create( d, epoch_limit, settings, methods );
 }
@@ -199,7 +199,7 @@ int dict_dereference( dict *d, void *key ) {
     location *loc = NULL;
     int err = dict_locate( d, key, &loc );
 
-    if ( !err && loc->sref != NULL ) dict_do_deref( d, key, loc, NULL );
+    if ( !err && loc->sref != NULL ) err = dict_do_deref( d, key, loc, NULL );
 
     if ( loc != NULL ) dict_free_location( d, loc );
     return err;

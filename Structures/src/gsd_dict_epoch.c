@@ -14,7 +14,7 @@ epoch *dict_create_epoch() {
 
 void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     epoch *end = e;
-    
+
     while ( 1 ) {
         while( end->dep != NULL ) end = end->dep;
 
@@ -88,36 +88,43 @@ void dict_leave_epoch( dict *d, epoch *e ) {
     size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
 
     if ( nactive == 1 ) { // we are last, time to clean up.
+        // Get references to things that need to be cleaned
+        void *garb = e->garbage;
+        int  gtype = e->gtype;
+        epoch *dep = e->dep;
+
+        // This is safe, if nactive is 1 it means no others are active on this
+        // epoch, and none will ever join
+        e->garbage = NULL;
+        e->dep = NULL;
+
+        // re-open epoch, including memory barrier
+        // We want to be sure the epoch is made available before we free the
+        // garbage and dependancies in case it is expensive to free them, we do
+        // not want the other threads to spin.
+        __sync_bool_compare_and_swap( &(e->active), 1, 0 );
+
         // Free Garbage
-        if ( e->garbage != NULL ) {
-            switch ( e->gtype ) {
+        if ( garb != NULL ) {
+            fprintf( stderr, "Collection\n" );
+            switch ( gtype ) {
                 case SET:
-                    dict_free_set( d, e->garbage );
+                    dict_free_set( d, garb );
                 break;
                 case SLOT:
-                    dict_free_slot( d, e->meta, e->garbage );
+                    dict_free_slot( d, e->meta, garb );
                 break;
                 case NODE:
-                    dict_free_node( d, e->meta, e->garbage );
+                    dict_free_node( d, e->meta, garb );
                 break;
                 case SREF:
-                    dict_free_sref( d, e->meta, e->garbage );
+                    dict_free_sref( d, e->meta, garb );
                 break;
             }
         }
 
-        // This is safe, if nactive is 1 it means no others are active on this
-        // epoch, and none will be
-        e->garbage = NULL;
-
         // dec dep
-        if ( e->dep != NULL ) {
-            dict_leave_epoch( d, e->dep );
-            e->dep = NULL;
-        }
-
-        // re-open epoch
-        __sync_bool_compare_and_swap( &(e->active), 1, 0 );
+        if ( dep != NULL ) dict_leave_epoch( d, dep );
     }
 }
 
