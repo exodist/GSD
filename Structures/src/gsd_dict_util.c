@@ -304,8 +304,9 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     }
 }
 
-void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
+int dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
     sref *r = loc->sref;
+    if ( r == NULL ) return DICT_TRANS_FAIL;
 
     if ( swap != NULL ) {
         int success = 0;
@@ -313,10 +314,7 @@ void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
             size_t sc = swap->refcount;
 
             // If ref count goes to zero we cannot use it.
-            if ( sc == 0 ) {
-                swap = NULL;
-                break;
-            }
+            if ( sc == 0 ) return DICT_TRANS_FAIL;
 
             success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
         }
@@ -330,6 +328,8 @@ void dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
     if ( count == 0 ) {
         dict_dispose( d, loc->epoch, loc->set->settings->meta, r, SREF );
     }
+
+    return DICT_NO_ERROR;
 }
 
 set *dict_create_set( dict_settings *settings ) {

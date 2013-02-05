@@ -22,7 +22,7 @@ int dict_do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict
 
 int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
-void dict_do_deref( dict *d, void *key, location *loc, sref *swap );
+int dict_do_deref( dict *d, void *key, location *loc, sref *swap );
 
 set *dict_create_set( dict_settings *settings );
 
