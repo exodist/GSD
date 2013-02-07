@@ -18,9 +18,9 @@
 
 typedef struct nl nl;
 struct nl {
-    node *node;
-    nl   *next;
-    int  null;
+    node  *node;
+    nl    *next;
+    size_t null;
 };
 
 typedef struct dot dot;
@@ -35,19 +35,16 @@ struct dot {
     char *slots;
     char *level;
     char *refs;
-    char *end;
 
     size_t epochs_size;
     size_t slots_size;
     size_t level_size;
     size_t refs_size;
-    size_t end_size;
 
     size_t epochs_length;
     size_t slots_length;
     size_t level_length;
     size_t refs_length;
-    size_t end_length;
 };
 
 char *dict_dump_node_label( void *key, void *value );
@@ -59,11 +56,15 @@ int dict_dot_print_epochs( dot *d, char *format, ... );
 int dict_dot_print_slots( dot *d, char *format, ... );
 int dict_dot_print_level( dot *d, char *format, ... );
 int dict_dot_print_refs( dot *d, char *format, ... );
-int dict_dot_print_end( dot *d, char *format, ... );
 
 int dict_dump_dot_epochs( dict *d, dot *dd );
 int dict_dump_dot_slots( dict *d, dot *dd );
 int dict_dump_dot_end( dict *d, dot *dd );
 char *dict_dump_dot_merge( dot *dd );
+
+int dict_dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );
+size_t dict_dump_dot_ref_loc( dict_settings *s, void *key );
+int dict_dump_dot_ref_free_handler( void *key, void *value, void *args );
+int dict_dump_dot_ref_handler( void *key, void *value, void *args );
 
 #endif
