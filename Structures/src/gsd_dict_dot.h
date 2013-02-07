@@ -20,7 +20,7 @@ typedef struct nl nl;
 struct nl {
     node  *node;
     nl    *next;
-    size_t null;
+    size_t nid;
 };
 
 typedef struct dot dot;
@@ -30,6 +30,11 @@ struct dot {
 
     size_t first_slot;
     int first_slot_set;
+
+    nl *nl_end;
+    nl *nl_start;
+    dict *ref_tracker;
+    size_t null_counter;
 
     char *epochs;
     char *slots;

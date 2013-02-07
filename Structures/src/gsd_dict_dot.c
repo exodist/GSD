@@ -4,6 +4,15 @@
 #include <stdio.h>
 #include <string.h>
 
+// Used for 'refs' mapping
+dict_settings dset = { 11, 3, NULL };
+dict_methods dmet = {
+    dict_dump_dot_ref_cmp,
+    dict_dump_dot_ref_loc,
+    NULL,
+    NULL,
+};
+
 char *dict_dump_node_label( void *key, void *value ) {
     char *out = malloc( 60 );
     if ( out == NULL ) return NULL;
@@ -136,53 +145,45 @@ int dict_dump_dot_epochs( dict *d, dot *dd ) {
     return DICT_NO_ERROR;
 }
 
-int dict_dump_dot_slots_add_node( nl **start, nl **end, void *n, int null ) {
+int dict_dump_dot_slots_add_node( dot *dd, void *n, int nid ) {
     nl *new = malloc( sizeof( nl ));
     if ( new == NULL ) return DICT_MEM_ERROR;
     new->node = n;
     new->next = NULL;
-    new->null = null;
+    new->nid = nid;
 
-    if ( *start == NULL ) *start = new;
-    if ( *end   != NULL ) (*end)->next = new;
-    *end = new;
+    if ( dd->nl_start == NULL ) dd->nl_start = new;
+    if ( dd->nl_end   != NULL ) dd->nl_end->next = new;
+    dd->nl_end = new;
 
     return DICT_NO_ERROR;
 }
 
-int IN = 0;
+dict *dict_dump_dot_create_refs() {
+    dict *refs;
+    if( dict_create( &refs, 4, &dset, &dmet )) {
+        if ( refs != NULL ) dict_free( &refs );
+        return NULL;
+    }
+
+    return refs;
+}
 
 int dict_dump_dot_slots( dict *d, dot *dd ) {
     set *s = d->set;
 
-    int ret = dict_dot_print_slots( dd, "node [color=green,fontcolor=cyan,shape=rectangle]\n" );
-    if ( ret ) return ret;
-    ret = dict_dot_print_slots( dd, "edge [color=yellow,arrowhead=none]\n" );
-    if ( ret ) return ret;
-
-    nl *nl_start = NULL;
-    nl *nl_end = NULL;
-
-    dict_settings dset = { 11, 3, NULL };
-    dict_methods dmet = {
-        dict_dump_dot_ref_cmp,
-        dict_dump_dot_ref_loc,
-        NULL,
-        NULL,
-    };
-
-    dict *refs;
-    if( dict_create( &refs, 4, &dset, &dmet ))
-        return DICT_INT_ERROR;
-
-    size_t nc = 1;
+    int ret = 0;
+    dd->null_counter = 1;
+    dd->ref_tracker = dict_dump_dot_create_refs();
+    if ( dd->ref_tracker == NULL ) return DICT_MEM_ERROR;
+    
     for ( size_t i = 0; i < s->settings->slot_count; i++ ) {
         if ( s->slots[i] == NULL ) continue;
 
-        if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, s->slots[i]->root, 0 ))
+        if( dict_dump_dot_slots_add_node( dd, s->slots[i]->root, 0 ))
             goto DUMP_DOT_SLOTS_CLEANUP;
 
-        if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, NULL, 0 ))
+        if( dict_dump_dot_slots_add_node( dd, NULL, 0 ))
             goto DUMP_DOT_SLOTS_CLEANUP;
 
         if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
@@ -198,12 +199,17 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
         ret = dict_dot_print_slots( dd, ghead, i );
         if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-        while ( nl_start != NULL ) {
-            if ( nl_start->null ) {
-                ret = dict_dot_print_slots( dd, "\"null%zi\" [color=grey,style=dashed,label=NULL]\n", nl_start->null );
+        while ( dd->nl_start != NULL ) {
+            node *n = dd->nl_start->node;
+            if ( dd->nl_start->nid ) {
+                ret = dict_dot_print_slots(
+                    dd,
+                    "\"null%zi\" [color=grey,style=dashed,label=NULL]\n",
+                    dd->nl_start->nid
+                );
                 if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
             }
-            else if ( nl_start->node == NULL ) {
+            else if ( n == NULL ) {
                 ret = dict_dot_print_level( dd, "}\n" );
                 if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
@@ -213,85 +219,84 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
                 memset( dd->level, 0, dd->level_length );
                 dd->level_length = 0;
 
-                if ( nl_start->next ) {
+                if ( dd->nl_start->next ) {
                     ret = dict_dot_print_level( dd, "{rank=same; " );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
-                    if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, NULL, 0 ))
+                    if( dict_dump_dot_slots_add_node( dd, NULL, 0 ))
                         goto DUMP_DOT_SLOTS_CLEANUP;
                 }
             }
             else { // Real node
-                sref *sr = nl_start->node->usref->sref;
+                sref *sr = n->usref->sref;
                 size_t ref_count = sr ? sr->refcount : 0;
 
                 if ( ref_count > 1 ) {
                     // Get existing if any
                     void *next = NULL;
-                    ret = dict_get( refs, sr, &next );
-                    if ( ret ) fprintf( stderr, "FAIL: %i, %i\n", __LINE__, ret );
+                    ret = dict_get( dd->ref_tracker, sr, &next );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
                     nl *us = malloc( sizeof( nl ));
-                    us->node = nl_start->node;
+                    us->node = n;
                     us->next = next;
-                    us->null = 0;
-                    ret = dict_set( refs, sr, us );
+                    us->nid  = 0;
+                    ret = dict_set( dd->ref_tracker, sr, us );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
                 }
 
-                ret = dict_dot_print_level( dd, "\"%p\" ", nl_start->node );
+                ret = dict_dot_print_level( dd, "\"%p\" ", n );
                 if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
                 // print node with name
                 char *name = dd->decode(
-                    nl_start->node->key,
-                    nl_start->node->usref->sref ? nl_start->node->usref->sref->value : NULL
+                    n->key,
+                    n->usref->sref ? n->usref->sref->value : NULL
                 );
                 char *style = ref_count > 0
                     ? ref_count > 1 ? ",peripheries=2"
                                     : sr->value ? ""
                                                 : ",color=red,style=dashed"
                     : ",color=pink,style=dashed";
-                ret = dict_dot_print_slots( dd, "\"%p\" [label=\"%s\"%s]\n", nl_start->node, name, style );
+                ret = dict_dot_print_slots( dd, "\"%p\" [label=\"%s\"%s]\n", n, name, style );
                 if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
                 // print node to right
-                if ( nl_start->node->right ) {
-                    ret = dict_dot_print_slots( dd, "\"%p\"->\"%p\"\n", nl_start->node, nl_start->node->right );
+                if ( n->right ) {
+                    ret = dict_dot_print_slots( dd, "\"%p\"->\"%p\"\n", n, n->right );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-                    if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, nl_start->node->right, 0 ))
+                    if( dict_dump_dot_slots_add_node( dd, n->right, 0 ))
                         goto DUMP_DOT_SLOTS_CLEANUP;
                 }
-                else if ( nl_start->node->left ) {
-                    size_t tnc = nc++;
-                    ret = dict_dot_print_slots( dd, "\"%p\"->\"null%zi\"\n", nl_start->node, tnc );
+                else if ( n->left ) {
+                    size_t nid = dd->null_counter++;
+                    ret = dict_dot_print_slots( dd, "\"%p\"->\"null%zi\"\n", n, nid );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-                    if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, NULL, tnc ))
+                    if( dict_dump_dot_slots_add_node( dd, NULL, nid ))
                         goto DUMP_DOT_SLOTS_CLEANUP;
                 }
 
                 // print node to left
-                if ( nl_start->node->left ) {
-                    ret = dict_dot_print_slots( dd, "\"%p\"->\"%p\"\n", nl_start->node, nl_start->node->left );
+                if ( n->left ) {
+                    ret = dict_dot_print_slots( dd, "\"%p\"->\"%p\"\n", n, n->left );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-                    if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, nl_start->node->left, 0 ))
+                    if( dict_dump_dot_slots_add_node( dd, n->left, 0 ))
                         goto DUMP_DOT_SLOTS_CLEANUP;
                 }
-                else if ( nl_start->node->right ) {
-                    size_t tnc = nc++;
-                    ret = dict_dot_print_slots( dd, "\"%p\"->\"null%zi\"\n", nl_start->node, tnc );
+                else if ( n->right ) {
+                    size_t nid = dd->null_counter++;
+                    ret = dict_dot_print_slots( dd, "\"%p\"->\"null%zi\"\n", n, nid );
                     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-                    if( dict_dump_dot_slots_add_node( &nl_start, &nl_end, NULL, tnc ))
+                    if( dict_dump_dot_slots_add_node( dd, NULL, nid ))
                         goto DUMP_DOT_SLOTS_CLEANUP;
                 }
             }
 
-            nl *done = nl_start;
-            nl_start = nl_start->next;
+            nl *done = dd->nl_start;
+            dd->nl_start = dd->nl_start->next;
             free( done );
         }
 
@@ -332,7 +337,7 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
     ret = dict_dot_print_level( dd, "}\n" );
     if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-    dict_iterate( refs, dict_dump_dot_ref_handler, dd );
+    dict_iterate( dd->ref_tracker, dict_dump_dot_ref_handler, dd );
     if ( dd->refs == NULL ) {
         dd->refs = malloc( 1 );
         dd->refs[0] = '\0';
@@ -340,13 +345,13 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
 
     DUMP_DOT_SLOTS_CLEANUP:
 
-    if ( refs != NULL ) {
-        dict_iterate( refs, dict_dump_dot_ref_free_handler, NULL );
-        dict_free( &refs );
+    if ( dd->ref_tracker != NULL ) {
+        dict_iterate( dd->ref_tracker, dict_dump_dot_ref_free_handler, NULL );
+        dict_free( &(dd->ref_tracker) );
     }
-    while ( nl_start != NULL ) {
-        nl *done = nl_start;
-        nl_start = nl_start->next;
+    while ( dd->nl_start != NULL ) {
+        nl *done = dd->nl_start;
+        dd->nl_start = dd->nl_start->next;
         free( done );
     }
 
@@ -366,6 +371,8 @@ char *dict_dump_dot_merge( dot *dd ) {
                    "    }\n"
                    "    subgraph cluster_slots {\n"
                    "        graph [style=solid,color=grey]\n"
+                   "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
+                   "        edge [color=yellow,arrowhead=none]\n"
                    "%s\n"
                    "%s\n"
                    "    }\n"
