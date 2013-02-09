@@ -1,7 +1,7 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
-#include "gsd_dict_dot.h"
+#include "structures.h"
+#include "dot.h"
 #include <stdio.h>
 #include <string.h>
 

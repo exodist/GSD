@@ -1,6 +1,6 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_epoch.h"
+#include "epoch.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

@@ -1,8 +1,8 @@
-#include "gsd_dict_balance.h"
-#include "gsd_dict_structures.h"
-#include "gsd_dict_util.h"
-#include "gsd_dict_epoch.h"
-#include "gsd_dict_free.h"
+#include "balance.h"
+#include "structures.h"
+#include "util.h"
+#include "epoch.h"
+#include "free.h"
 #include <stdio.h>
 #include <string.h>
 

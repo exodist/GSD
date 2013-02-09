@@ -1,9 +1,9 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
-#include "gsd_dict_location.h"
-#include "gsd_dict_epoch.h"
-#include "gsd_dict_balance.h"
+#include "structures.h"
+#include "location.h"
+#include "epoch.h"
+#include "balance.h"
 #include <string.h>
 
 location *dict_create_location( dict *d ) {

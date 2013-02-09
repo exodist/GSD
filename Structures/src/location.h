@@ -7,16 +7,15 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_EPOCH_H
-#define GSD_DICT_EPOCH_H
+#ifndef GSD_DICT_LOCATION_H
+#define GSD_DICT_LOCATION_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
+#include "structures.h"
 
-epoch *dict_create_epoch();
-void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type );
-epoch *dict_join_epoch( dict *d );
-void dict_leave_epoch( dict *d, epoch *e );
+location *dict_create_location( dict *d );
+int dict_locate( dict *d, void *key, location **locate );
+void dict_free_location( dict *d, location *locate );
 
 #endif

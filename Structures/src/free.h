@@ -7,15 +7,16 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_LOCATION_H
-#define GSD_DICT_LOCATION_H
+#ifndef GSD_DICT_FREE_H
+#define GSD_DICT_FREE_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
+#include "structures.h"
 
-location *dict_create_location( dict *d );
-int dict_locate( dict *d, void *key, location **locate );
-void dict_free_location( dict *d, location *locate );
+void dict_free_set( dict *d, set *s );
+void dict_free_slot( dict *d, void *meta, slot *s );
+void dict_free_node( dict *d, void *meta, node *n );
+void dict_free_sref( dict *d, void *meta, sref *r );
 
 #endif

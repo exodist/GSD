@@ -12,7 +12,7 @@
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
+#include "structures.h"
 #include <stdarg.h>
 
 #define DOT_BUFFER_INC 1024

@@ -7,16 +7,19 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_FREE_H
-#define GSD_DICT_FREE_H
+#ifndef GSD_DICT_BALANCE_H
+#define GSD_DICT_BALANCE_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
+#include "structures.h"
+#include <stdint.h>
 
-void dict_free_set( dict *d, set *s );
-void dict_free_slot( dict *d, void *meta, slot *s );
-void dict_free_node( dict *d, void *meta, node *n );
-void dict_free_sref( dict *d, void *meta, sref *r );
+extern const void *RBLD;
+
+int rebalance( dict *d, location *loc );
+size_t rebalance_node( node *n, node ***all, size_t *size, size_t count );
+int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal );
+int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal );
 
 #endif

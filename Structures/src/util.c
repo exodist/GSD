@@ -1,11 +1,11 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_util.h"
-#include "gsd_dict_structures.h"
-#include "gsd_dict_balance.h"
-#include "gsd_dict_location.h"
-#include "gsd_dict_free.h"
-#include "gsd_dict_epoch.h"
+#include "util.h"
+#include "structures.h"
+#include "balance.h"
+#include "location.h"
+#include "free.h"
+#include "epoch.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>

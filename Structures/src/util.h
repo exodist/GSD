@@ -12,7 +12,7 @@
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
+#include "structures.h"
 #include <stdint.h>
 
 uint8_t max_bit( uint64_t num );

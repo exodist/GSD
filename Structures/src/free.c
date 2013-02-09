@@ -1,9 +1,9 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "gsd_dict_structures.h"
-#include "gsd_dict_free.h"
-#include "gsd_dict_epoch.h"
-#include "gsd_dict_balance.h"
+#include "structures.h"
+#include "free.h"
+#include "epoch.h"
+#include "balance.h"
 
 void dict_free_set( dict *d, set *s ) {
     for ( int i = 0; i < s->settings->slot_count; i++ ) {
