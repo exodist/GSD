@@ -38,17 +38,23 @@ struct dot {
 
     char *epochs;
     char *slots;
-    char *level;
+    char *nodes;
+    char *node_level;
+    char *slot_level;
     char *refs;
 
     size_t epochs_size;
     size_t slots_size;
-    size_t level_size;
+    size_t nodes_size;
+    size_t node_level_size;
+    size_t slot_level_size;
     size_t refs_size;
 
     size_t epochs_length;
     size_t slots_length;
-    size_t level_length;
+    size_t nodes_length;
+    size_t node_level_length;
+    size_t slot_level_length;
     size_t refs_length;
 };
 
@@ -59,12 +65,13 @@ int dict_dot_print( char **buffer, size_t *size, size_t *length, char *format, v
 
 int dict_dot_print_epochs( dot *d, char *format, ... );
 int dict_dot_print_slots( dot *d, char *format, ... );
-int dict_dot_print_level( dot *d, char *format, ... );
+int dict_dot_print_nodes( dot *d, char *format, ... );
+int dict_dot_print_node_level( dot *d, char *format, ... );
+int dict_dot_print_slot_level( dot *d, char *format, ... );
 int dict_dot_print_refs( dot *d, char *format, ... );
 
 int dict_dump_dot_epochs( dict *d, dot *dd );
 int dict_dump_dot_slots( dict *d, dot *dd );
-int dict_dump_dot_end( dict *d, dot *dd );
 char *dict_dump_dot_merge( dot *dd );
 
 int dict_dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );
