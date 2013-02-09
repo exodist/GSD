@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_FREE_H
-#define GSD_DICT_FREE_H
+#ifndef FREE_H
+#define FREE_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"

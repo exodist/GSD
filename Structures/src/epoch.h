@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_EPOCH_H
-#define GSD_DICT_EPOCH_H
+#ifndef EPOCH_H
+#define EPOCH_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"

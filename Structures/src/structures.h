@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef GSD_DICT_STRUCTURES_H
-#define GSD_DICT_STRUCTURES_H
+#ifndef STRUCTURES_H
+#define STRUCTURES_H
 
 #include <stdint.h>
 #include <stdio.h>
