@@ -5,3 +5,9 @@
 * On deref rebuild subtree from deref node, swap into place.
 * Merging
 * dict_reconfigure()
+* Triggers on references that can block an update
+  - rereference( d, key, trigger, trigger_arg, value )
+  - insert_trigger( d, key, trigger, trigger_arg, value );
+  - reinsert( d, key, value ) *remove reference, make new one, set value*
+  - deref_trigger_arg *For refcounting trigger args*
+

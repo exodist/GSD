@@ -32,9 +32,8 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     usref *ur = n->usref;
     sref *sr = ur->sref;
     if ( sr != NULL && sr != RBLD ) {
-        void *item = sr->value;
-        if ( item != NULL ) {
-            stop = h( n->key, item, args );
+        if ( sr->value != NULL ) {
+            stop = h( n->key, sr->value, args );
             if ( stop ) return stop;
         }
     }

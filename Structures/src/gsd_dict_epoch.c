@@ -106,7 +106,6 @@ void dict_leave_epoch( dict *d, epoch *e ) {
 
         // Free Garbage
         if ( garb != NULL ) {
-            fprintf( stderr, "Collection\n" );
             switch ( gtype ) {
                 case SET:
                     dict_free_set( d, garb );

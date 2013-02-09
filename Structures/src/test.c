@@ -1,4 +1,5 @@
 #include "gsd_dict_api.h"
+#include "gsd_dict_epoch.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +15,7 @@ int compare( dict_settings *settings, void *key1, void *key2 ) {
 }
 
 char *show( void *key, void *val ) {
-    int64_t k = key ? *(int64_t*)key : -1;
+    int64_t k = *(int64_t*)key;
     int64_t v = val ? *(int64_t*)val : -1;
     char *buffer = malloc( 20 );
     snprintf( buffer, 20, "%li:%li", k, v );
@@ -83,12 +84,14 @@ int main() {
     dict_set( d, &k[0], &v3 );
     dict_reference( d, &k[3905], d, &k[2401] );
 
+    epoch *e = dict_join_epoch( d );
+    sref *sr = malloc( sizeof( sref ));
+    memset( sr, 0, sizeof( sref ));
+    dict_dispose( d, e, NULL, sr, SREF );
+    char *dot = dict_dump_dot( d, show );
+    dict_leave_epoch( d, e );
 
-    char *buffer;
-    int ret = dict_dump_dot( d, &buffer, show );
-    if ( ret ) { printf( "Error\n" ); }
+    printf( "%s\n", dot );
 
-    printf( "%s\n", buffer );
-
-    return ret;
+    return 0;
 }

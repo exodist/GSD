@@ -140,7 +140,7 @@ dict_methods *dict_get_methods( dict *d );
 
 // -- Informative --
 
-int dict_dump_dot( dict *d, char **buffer, dict_dot *show );
+char *dict_dump_dot( dict *d, dict_dot *decode );
 
 // -- Operation --
 
