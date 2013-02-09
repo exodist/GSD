@@ -1,3 +1,8 @@
+* Better error handling
+* Better API
+* Remove Utility.h/c
+* Add fnv_hash
+
 * Update 'REF TODO' spots in code to do what they say
 * cmp_dereference
 * Put dict_methods in dict_settings
