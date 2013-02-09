@@ -4,7 +4,7 @@
  * intended to be used by programs that use GSD Dictionary.
  *
  * The code in this header can change at any time with no warning. You should
- * only use the gsd_dict_api.h header file in external programs.
+ * only use the include/gsd_dict.h header file in external programs.
 \*/
 
 #ifndef GSD_DICT_STRUCTURES_H
@@ -12,7 +12,8 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "gsd_dict_api.h"
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
 
 typedef struct slot  slot;
 typedef struct node  node;

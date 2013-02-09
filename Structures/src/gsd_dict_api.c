@@ -1,4 +1,5 @@
-#include "gsd_dict_api.h"
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
 #include "gsd_dict_balance.h"
 #include "gsd_dict_dot.h"
 #include "gsd_dict_epoch.h"

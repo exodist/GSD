@@ -4,13 +4,14 @@
  * intended to be used by programs that use GSD Dictionary.
  *
  * The code in this header can change at any time with no warning. You should
- * only use the gsd_dict_api.h header file in external programs.
+ * only use the include/gsd_dict.h header file in external programs.
 \*/
 
 #ifndef GSD_DICT_FREE_H
 #define GSD_DICT_FREE_H
 
-#include "gsd_dict_api.h"
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
 #include "gsd_dict_structures.h"
 
 void dict_free_set( dict *d, set *s );
