@@ -7,16 +7,23 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef FREE_H
-#define FREE_H
+#ifndef ALLOC_H
+#define ALLOC_H
 
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
 #include "structures.h"
 
+// source file also has these, from the main API
+// int dict_create( ... );
+// int dict_free( ... );
+
 void dict_free_set( dict *d, set *s );
 void dict_free_slot( dict *d, void *meta, slot *s );
 void dict_free_node( dict *d, void *meta, node *n );
 void dict_free_sref( dict *d, void *meta, sref *r );
+
+int dict_do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+set *dict_create_set( dict_settings *settings );
 
 #endif

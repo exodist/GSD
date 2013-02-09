@@ -10,9 +10,22 @@
 #ifndef LOCATION_H
 #define LOCATION_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
+#include "structure.h"
+
+typedef struct location location;
+
+struct location {
+    epoch  *epoch;
+    set    *set;        // st
+    size_t  slotn;      // sltn
+    uint8_t slotn_set;  // sltns
+    slot   *slot;       // slt
+    size_t  height;
+    node   *parent;
+    node   *node;       // found
+    usref  *usref;      // itemp
+    sref   *sref;       // item
+};
 
 location *dict_create_location( dict *d );
 int dict_locate( dict *d, void *key, location **locate );

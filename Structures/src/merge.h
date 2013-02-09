@@ -7,14 +7,9 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef MERGE_H
+#define MERGE_H
 
 #include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
-#include <stdint.h>
-
-uint8_t max_bit( uint64_t num );
 
 #endif

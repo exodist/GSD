@@ -5,6 +5,28 @@
 #include <stdio.h>
 #include <string.h>
 
+//-------------------
+// These functions are defined in gsd_dict.h
+// They are publicly exposed functions.
+// Changing how these work requires a major version bump.
+//-------------------
+
+char *dict_dump_dot( dict *d, dict_dot *decode ) {
+    epoch *e = dict_join_epoch( d );
+    set *s = d->set;
+
+    if( !decode ) decode = dict_dump_node_label;
+
+    char *out = dict_do_dump_dot( d, s, decode );
+
+    dict_leave_epoch( d, e );
+    return out;
+}
+
+//------------------------------------------------
+// Nothing below here is publicly exposed.
+//------------------------------------------------
+
 // Used for 'refs' mapping
 dict_settings dset = { 11, 3, NULL };
 dict_methods dmet = {
@@ -13,6 +35,7 @@ dict_methods dmet = {
     NULL,
     NULL,
 };
+
 
 char *dict_dump_node_label( void *key, void *value ) {
     char *out = malloc( 60 );

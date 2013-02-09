@@ -7,14 +7,11 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef OPERATIONS_H
+#define OPERATIONS_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
-#include <stdint.h>
+int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
-uint8_t max_bit( uint64_t num );
+int dict_do_deref( dict *d, void *key, location *loc, sref *swap );
 
 #endif
