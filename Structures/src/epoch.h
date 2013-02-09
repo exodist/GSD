@@ -10,9 +10,25 @@
 #ifndef EPOCH_H
 #define EPOCH_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
+#include <stdlib.h>
+
+typedef struct dict  dict;
+
+typedef struct epoch epoch;
+struct epoch {
+    /*\
+     * epoch count of 0 means free
+     * epoch count of 1 means needs to be cleared (not joinable)
+     * epoch count of >1 means active
+    \*/
+    size_t active;
+    void  *garbage;
+    void  *meta;
+    enum  { SET, SLOT, NODE, SREF } gtype;
+
+    epoch *dep;
+    epoch *next;
+};
 
 epoch *dict_create_epoch();
 void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type );

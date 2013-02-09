@@ -10,9 +10,8 @@
 #ifndef BALANCE_H
 #define BALANCE_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
+#include "structure.h"
+#include "location.h"
 #include <stdint.h>
 
 extern const void *RBLD;

@@ -1,10 +1,12 @@
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
-#include "epoch.h"
-#include "alloc.h"
 #include <unistd.h>
 #include <string.h>
+
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
+
+#include "structure.h"
+#include "epoch.h"
+#include "alloc.h"
 
 epoch *dict_create_epoch() {
     epoch *new = malloc( sizeof( epoch ));

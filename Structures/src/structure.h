@@ -10,14 +10,19 @@
 #ifndef STRUCTURE_H
 #define STRUCTURE_H
 
+#include "epoch.h"
+#include "include/gsd_dict.h"
+
 typedef struct dict  dict;
-typedef struct epoch epoch;
 typedef struct set   set;
 typedef struct slot  slot;
 typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
 typedef struct sref  sref;
+
+// This is from include/gsd_dict.h
+int dict_iterate( dict *d, dict_handler *h, void *args );
 
 struct dict {
     set *set;
@@ -28,21 +33,6 @@ struct dict {
     epoch *epoch;
     uint8_t epoch_limit;
     uint8_t epoch_count;
-};
-
-struct epoch {
-    /*\
-     * epoch count of 0 means free
-     * epoch count of 1 means needs to be cleared (not joinable)
-     * epoch count of >1 means active
-    \*/
-    size_t active;
-    void  *garbage;
-    void  *meta;
-    enum  { SET, SLOT, NODE, SREF } gtype;
-
-    epoch *dep;
-    epoch *next;
 };
 
 struct set {
@@ -78,3 +68,4 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
 
 
 #endif
+

@@ -1,9 +1,11 @@
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
-#include "dot.h"
 #include <stdio.h>
 #include <string.h>
+
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
+
+#include "structure.h"
+#include "dot.h"
 
 //-------------------
 // These functions are defined in gsd_dict.h

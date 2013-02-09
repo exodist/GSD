@@ -1,3 +1,9 @@
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
+
+#include "settings.h"
+#include "structure.h"
+
 //-------------------
 // These functions are defined in gsd_dict.h
 // They are publicly exposed functions.

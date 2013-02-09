@@ -10,13 +10,11 @@
 #ifndef ALLOC_H
 #define ALLOC_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
+#include "structure.h"
 
-// source file also has these, from the main API
-// int dict_create( ... );
-// int dict_free( ... );
+// Also in include/gsd_dict.h
+int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+int dict_free( dict **dr );
 
 void dict_free_set( dict *d, set *s );
 void dict_free_slot( dict *d, void *meta, slot *s );

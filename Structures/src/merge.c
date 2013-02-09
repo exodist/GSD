@@ -1,3 +1,5 @@
+#include "structure.h"
+
 //-------------------
 // These functions are defined in gsd_dict.h
 // They are publicly exposed functions.

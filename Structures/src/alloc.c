@@ -1,6 +1,10 @@
+#include <unistd.h>
+#include <string.h>
+
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "structures.h"
+
+#include "structure.h"
 #include "alloc.h"
 #include "epoch.h"
 #include "balance.h"

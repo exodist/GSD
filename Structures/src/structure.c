@@ -1,3 +1,8 @@
+#include "include/gsd_dict.h"
+#include "include/gsd_dict_return.h"
+
+#include "structure.h"
+#include "balance.h"
 
 //-------------------
 // These functions are defined in gsd_dict.h

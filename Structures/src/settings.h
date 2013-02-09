@@ -7,11 +7,13 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef MERGE_H
-#define MERGE_H
+#ifndef SETTINGS_H
+#define SETTINGS_H
 
-// These are also in include/gsd_dict.h
-int dict_merge( dict *from, dict *to );
-int dict_merge_refs( dict *from, dict *to );
+// These are from include/gsd_dict.h
+dict_settings *dict_get_settings( dict *d );
+dict_methods *dict_get_methods( dict *d );
+int dict_reconfigure( dict *d, dict_settings *settings );
+
 
 #endif

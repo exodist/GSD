@@ -1,10 +1,12 @@
+#include <string.h>
+
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
-#include "structures.h"
-#include "location.h"
+
 #include "epoch.h"
+#include "structure.h"
+#include "location.h"
 #include "balance.h"
-#include <string.h>
 
 location *dict_create_location( dict *d ) {
     location *locate = malloc( sizeof( location ));

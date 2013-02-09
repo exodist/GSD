@@ -10,9 +10,6 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
 #include <stdint.h>
 
 uint8_t max_bit( uint64_t num );

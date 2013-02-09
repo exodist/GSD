@@ -1,3 +1,14 @@
+#include "string.h"
+#include "unistd.h"
+
+#include "include/gsd_dict_return.h"
+
+#include "operations.h"
+#include "structure.h"
+#include "balance.h"
+#include "alloc.h"
+#include "util.h"
+
 //-------------------
 // These functions are defined in gsd_dict.h
 // They are publicly exposed functions.

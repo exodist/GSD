@@ -10,9 +10,8 @@
 #ifndef DOT_H
 #define DOT_H
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-#include "structures.h"
+#include "epoch.h"
+#include "structure.h"
 #include <stdarg.h>
 
 #define DOT_BUFFER_INC 1024
@@ -58,6 +57,9 @@ struct dot {
     size_t slot_level_length;
     size_t refs_length;
 };
+
+// Also in include/gsd_dict.h
+char *dict_dump_dot( dict *d, dict_dot *decode );
 
 char *dict_dump_node_label( void *key, void *value );
 char *dict_do_dump_dot( dict *d, set *s, dict_dot decode );
