@@ -73,13 +73,6 @@ struct dict_settings {
 
 // -- Creation and meta data --
 
-// This macro can be used to create a dict that gives you more verbose errors
-// if you use it incorrectly.
-// Note: 'l' must either be 0, or greater than 3
-#define dict_create_verbose( a, b, c, d ) dict_create_vb( a, b, c, d, __FILE__, __LINE__ )
-int dict_create_vb( dict **d, uint8_t el, dict_settings *s, dict_methods *m, char *f, size_t l );
-
-// This is the normal way to create a dict that does not write any output
 // Note: 'epoch_limit' must be 0 or greater than 3
 int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
 

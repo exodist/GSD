@@ -15,14 +15,6 @@
 
 // -- Creation and meta data --
 
-dict_settings *dict_get_settings( dict *d ) {
-    return d->set->settings;
-}
-
-dict_methods *dict_get_methods( dict *d ) {
-    return d->methods;
-}
-
 int dict_free( dict **dr ) {
     dict *d = *dr;
     *dr = NULL;
@@ -38,31 +30,6 @@ int dict_free( dict **dr ) {
     free( d );
 
     return DICT_NO_ERROR;
-}
-
-int dict_create_vb( dict **d, uint8_t el, dict_settings *s, dict_methods *m, char *f, size_t l ) {
-    if ( s == NULL ) {
-        fprintf( stderr, "Settings may not be NULL. Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
-    if ( m == NULL ) {
-        fprintf( stderr, "Methods may not be NULL. Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
-    if ( m->cmp == NULL ) {
-        fprintf( stderr, "The 'cmp' method may not be NULL. Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
-    if ( m->loc == NULL ) {
-        fprintf( stderr, "The 'loc' method may not be NULL. Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
-    if ( l && l < 4 ) {
-        fprintf( stderr, "The epoch limit cannot be less than 4 (except for 0). Called from %s line %zi", f, l );
-        return DICT_API_ERROR;
-    }
-
-    return dict_do_create( d, el, s, m );
 }
 
 int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
