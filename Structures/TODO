@@ -1,10 +1,10 @@
 * Update 'REF TODO' spots in code to do what they say
 * cmp_dereference
 * Put dict_methods in dict_settings
-* Rewrite DOT compiler, it sucks.
 * On deref rebuild subtree from deref node, swap into place.
 * Merging
 * dict_reconfigure()
+* Bulk insert/set
 * Triggers on references that can block an update
   - rereference( d, key, trigger, trigger_arg, value )
   - insert_trigger( d, key, trigger, trigger_arg, value );
