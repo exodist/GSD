@@ -2,6 +2,8 @@
 * Better API
 * Remove Utility.h/c
 * Add fnv_hash
+* Create structure.h, retire structures.h
+* Rename .c files
 
 * Update 'REF TODO' spots in code to do what they say
 * cmp_dereference
