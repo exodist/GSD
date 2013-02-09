@@ -1,7 +1,7 @@
 #include "include/gsd_dict.h"
 #include "include/gsd_dict_return.h"
 #include "structures.h"
-#include "free.h"
+#include "alloc.h"
 #include "epoch.h"
 #include "balance.h"
 

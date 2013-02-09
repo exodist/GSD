@@ -2,7 +2,7 @@
 #include "include/gsd_dict_return.h"
 #include "structures.h"
 #include "epoch.h"
-#include "free.h"
+#include "alloc.h"
 #include <unistd.h>
 #include <string.h>
 

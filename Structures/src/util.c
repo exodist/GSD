@@ -4,7 +4,7 @@
 #include "structures.h"
 #include "balance.h"
 #include "location.h"
-#include "free.h"
+#include "alloc.h"
 #include "epoch.h"
 #include <stdlib.h>
 #include <stdint.h>

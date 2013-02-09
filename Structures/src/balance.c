@@ -2,7 +2,7 @@
 #include "structures.h"
 #include "util.h"
 #include "epoch.h"
-#include "free.h"
+#include "alloc.h"
 #include <stdio.h>
 #include <string.h>
 

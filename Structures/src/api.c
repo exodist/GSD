@@ -3,7 +3,7 @@
 #include "balance.h"
 #include "dot.h"
 #include "epoch.h"
-#include "free.h"
+#include "alloc.h"
 #include "location.h"
 #include "structures.h"
 #include "util.h"
