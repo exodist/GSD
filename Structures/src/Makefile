@@ -17,5 +17,5 @@ clean:
 dottest: libGSDDict.so
 	$(GCC) $(CFLAGS) -I. -L. test/dot.c -lGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
-	dot -v -Tx11 /tmp/temp.dot
+	dot -Tx11 /tmp/testdot.dot
 

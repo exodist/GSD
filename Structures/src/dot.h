@@ -16,13 +16,6 @@
 
 #define DOT_BUFFER_INC 1024
 
-typedef struct nl nl;
-struct nl {
-    node  *node;
-    nl    *next;
-    size_t nid;
-};
-
 typedef struct dot dot;
 struct dot {
     set      *set;
@@ -31,8 +24,7 @@ struct dot {
     size_t first_slot;
     int first_slot_set;
 
-    nl *nl_end;
-    nl *nl_start;
+    nlist *nl;
     dict *ref_tracker;
     size_t null_counter;
 

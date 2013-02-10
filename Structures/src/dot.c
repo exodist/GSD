@@ -5,6 +5,7 @@
 #include "include/gsd_dict_return.h"
 
 #include "structure.h"
+#include "node_list.h"
 #include "dot.h"
 
 //-------------------
@@ -28,6 +29,8 @@ char *dict_dump_dot( dict *d, dict_dot *decode ) {
 //------------------------------------------------
 // Nothing below here is publicly exposed.
 //------------------------------------------------
+
+node NODE_SEP  = { 0 };
 
 // Used for 'refs' mapping
 dict_settings dset = { 11, 3, NULL };
@@ -53,6 +56,8 @@ char *dict_do_dump_dot( dict *d, set *s, dict_dot decode ) {
     dot dd;
     memset( &dd, 0, sizeof( dot ));
     dd.decode = decode ? decode : dict_dump_node_label;
+    dd.nl = nlist_create();
+    if ( dd.nl == NULL ) goto DO_DUMP_DOT_CLEANUP;
 
     if( dict_dump_dot_epochs( d, &dd )) goto DO_DUMP_DOT_CLEANUP;
     if( dict_dump_dot_slots( d, &dd ))  goto DO_DUMP_DOT_CLEANUP;
@@ -189,20 +194,6 @@ int dict_dump_dot_epochs( dict *d, dot *dd ) {
     return DICT_NO_ERROR;
 }
 
-int dict_dump_dot_slots_add_node( dot *dd, void *n, int nid ) {
-    nl *new = malloc( sizeof( nl ));
-    if ( new == NULL ) return DICT_MEM_ERROR;
-    new->node = n;
-    new->next = NULL;
-    new->nid = nid;
-
-    if ( dd->nl_start == NULL ) dd->nl_start = new;
-    if ( dd->nl_end   != NULL ) dd->nl_end->next = new;
-    dd->nl_end = new;
-
-    return DICT_NO_ERROR;
-}
-
 dict *dict_dump_dot_create_refs() {
     dict *refs;
     if( dict_create( &refs, 4, &dset, &dmet )) {
@@ -236,19 +227,21 @@ int dict_dump_dot_slots_node( dot *dd, node *n ) {
     sref *sr = n->usref->sref;
     size_t ref_count = sr ? sr->refcount : 0;
 
-    if ( ref_count > 1 ) {
-        // Get existing if any
-        void *next = NULL;
-        ret = dict_get( dd->ref_tracker, sr, &next );
-        if ( ret ) return ret;
+    //if ( ref_count > 1 ) {
+    //    // Find the list of nodes for this ref;
+    //    nlist *nl = NULL;
+    //    ret = dict_get( dd->ref_tracker, sr, (void **)&nl );
+    //    if ( ret ) return ret;
 
-        nl *us = malloc( sizeof( nl ));
-        us->node = n;
-        us->next = next;
-        us->nid  = 0;
-        ret = dict_set( dd->ref_tracker, sr, us );
-        if ( ret ) return ret;
-    }
+    //    if ( nl == NULL ) {
+    //        nl = nlist_create();
+    //        if ( nl == NULL ) return DICT_MEM_ERROR;
+    //        ret = dict_set( dd->ref_tracker, sr, nl );
+    //    }
+
+    //    ret = nlist_push( nl, n );
+    //    if ( ret ) return ret;
+    //}
 
     ret = dict_dot_print_node_level( dd, "\"%p\" ", n );
     if ( ret ) return ret;
@@ -273,15 +266,7 @@ int dict_dump_dot_slots_node( dot *dd, node *n ) {
         ret = dict_dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->right );
         if ( ret ) return ret;
 
-        ret = dict_dump_dot_slots_add_node( dd, n->right, 0 );
-        if ( ret ) return ret;
-    }
-    else if ( n->left ) {
-        size_t nid = dd->null_counter++;
-        ret = dict_dot_print_nodes( dd, "\"%p\"->\"null%zi\"\n", n, nid );
-        if ( ret ) return ret;
-
-        ret = dict_dump_dot_slots_add_node( dd, NULL, nid );
+        ret = nlist_push( dd->nl, n->right );
         if ( ret ) return ret;
     }
 
@@ -290,15 +275,7 @@ int dict_dump_dot_slots_node( dot *dd, node *n ) {
         ret = dict_dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->left );
         if ( ret ) return ret;
 
-        ret = dict_dump_dot_slots_add_node( dd, n->left, 0 );
-        if ( ret ) return ret;
-    }
-    else if ( n->right ) {
-        size_t nid = dd->null_counter++;
-        ret = dict_dot_print_nodes( dd, "\"%p\"->\"null%zi\"\n", n, nid );
-        if ( ret ) return ret;
-
-        ret = dict_dump_dot_slots_add_node( dd, NULL, nid );
+        ret = nlist_push( dd->nl, n->left );
         if ( ret ) return ret;
     }
 
@@ -306,10 +283,10 @@ int dict_dump_dot_slots_node( dot *dd, node *n ) {
 }
 
 int dict_dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
-    int ret = dict_dump_dot_slots_add_node( dd, sl->root, 0 );
+    int ret = nlist_push( dd->nl, sl->root );
     if ( ret ) return ret;
 
-    ret = dict_dump_dot_slots_add_node( dd, NULL, 0 );
+    ret = nlist_push( dd->nl, &NODE_SEP );
     if ( ret ) return ret;
 
     ret = dict_dot_print_node_level( dd, "{rank=same; " );
@@ -323,20 +300,10 @@ int dict_dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
     ret = dict_dot_print_nodes( dd, ghead, id );
     if ( ret ) return ret;
 
-    while ( dd->nl_start != NULL ) {
-        node *n = dd->nl_start->node;
-
-        // If we have a NULL node to print
-        if ( dd->nl_start->nid ) {
-            ret = dict_dot_print_nodes(
-                dd,
-                "\"null%zi\" [color=grey,style=dashed,label=NULL]\n",
-                dd->nl_start->nid
-            );
-            if ( ret ) return ret;
-        }
+    node *n = nlist_shift( dd->nl );
+    while ( n != NULL ) {
         // We need to change levels, end the rank set
-        else if ( n == NULL ) {
+        if ( n == &NODE_SEP ) {
             ret = dict_dot_print_node_level( dd, "}\n" );
             if ( ret ) return ret;
 
@@ -347,10 +314,10 @@ int dict_dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
             dd->node_level_length = 0;
 
             // If more nodes remain, we need to start a new rank set.
-            if ( dd->nl_start->next ) {
+            if ( dd->nl->first ) {
                 ret = dict_dot_print_node_level( dd, "{rank=same; " );
                 if ( ret ) return ret;
-                ret = dict_dump_dot_slots_add_node( dd, NULL, 0 );
+                ret = nlist_push( dd->nl, &NODE_SEP );
                 if ( ret ) return ret;
             }
         }
@@ -360,9 +327,7 @@ int dict_dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
             if ( ret ) return ret;
         }
 
-        nl *done = dd->nl_start;
-        dd->nl_start = dd->nl_start->next;
-        free( done );
+        n = nlist_shift( dd->nl );
     }
 
     return dict_dot_print_nodes( dd, "}\n" );
@@ -404,14 +369,11 @@ int dict_dump_dot_slots( dict *d, dot *dd ) {
 
     DUMP_DOT_SLOTS_CLEANUP:
 
+    if ( dd->nl != NULL ) nlist_free( &(dd->nl) );
+
     if ( dd->ref_tracker != NULL ) {
         dict_iterate( dd->ref_tracker, dict_dump_dot_ref_free_handler, NULL );
         dict_free( &(dd->ref_tracker) );
-    }
-    while ( dd->nl_start != NULL ) {
-        nl *done = dd->nl_start;
-        dd->nl_start = dd->nl_start->next;
-        free( done );
     }
 
     return ret;
@@ -471,21 +433,18 @@ size_t dict_dump_dot_ref_loc( dict_settings *s, void *key ) {
 }
 
 int dict_dump_dot_ref_free_handler( void *key, void *value, void *args ) {
-    nl *mnl = value;
-    while ( mnl != NULL ) {
-        nl *goner = mnl;
-        mnl = mnl->next;
-        free( goner );
-    }
+    nlist *nl = value;
+    if ( value != NULL ) nlist_free( &nl );
     return 0;
 }
 
 int dict_dump_dot_ref_handler( void *key, void *value, void *args ) {
-    nl *first = value;
+    nlist *nl = value;
     dot *dd = args;
 
+    nlist_item *first = nl->first;
     while ( first != NULL ) {
-        nl *pair = first->next;
+        nlist_item *pair = first->next;
         while ( pair != NULL ) {
             int ret = dict_dot_print_refs( dd, "\"%p\"->\"%p\"\n", first->node, pair->node );
             if ( ret ) return ret;
