@@ -13,15 +13,14 @@
 #include "structure.h"
 
 // Also in include/gsd_dict.h
-int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
-int dict_free( dict **dr );
+int do_free( dict **dr );
 
-void dict_free_set( dict *d, set *s );
-void dict_free_slot( dict *d, void *meta, slot *s );
-void dict_free_node( dict *d, void *meta, node *n );
-void dict_free_sref( dict *d, void *meta, sref *r );
+void free_set( dict *d, set *s );
+void free_slot( dict *d, void *meta, slot *s );
+void free_node( dict *d, void *meta, node *n );
+void free_sref( dict *d, void *meta, sref *r );
 
-int dict_do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
-set *dict_create_set( dict_settings *settings );
+int do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+set *create_set( dict_settings *settings );
 
 #endif

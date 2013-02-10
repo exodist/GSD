@@ -30,9 +30,9 @@ struct epoch {
     epoch *next;
 };
 
-epoch *dict_create_epoch();
-void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type );
-epoch *dict_join_epoch( dict *d );
-void dict_leave_epoch( dict *d, epoch *e );
+epoch *create_epoch();
+void dispose( dict *d, epoch *e, void *meta, void *garbage, int type );
+epoch *join_epoch( dict *d );
+void leave_epoch( dict *d, epoch *e );
 
 #endif

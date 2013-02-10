@@ -10,10 +10,9 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-// These are from include/gsd_dict.h
-dict_settings *dict_get_settings( dict *d );
-dict_methods *dict_get_methods( dict *d );
-int dict_reconfigure( dict *d, dict_settings *settings );
+dict_settings *get_settings( dict *d );
+dict_methods *get_methods( dict *d );
+int reconfigure( dict *d, dict_settings *settings );
 
 
 #endif

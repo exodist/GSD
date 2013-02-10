@@ -12,6 +12,7 @@
 
 #include "epoch.h"
 #include "structure.h"
+#include "node_list.h"
 #include <stdarg.h>
 
 #define DOT_BUFFER_INC 1024
@@ -51,27 +52,27 @@ struct dot {
 };
 
 // Also in include/gsd_dict.h
-char *dict_dump_dot( dict *d, dict_dot *decode );
+char *dump_dot( dict *d, dict_dot *decode );
 
-char *dict_dump_node_label( void *key, void *value );
-char *dict_do_dump_dot( dict *d, set *s, dict_dot decode );
+char *dump_node_label( void *key, void *value );
+char *do_dump_dot( dict *d, set *s, dict_dot decode );
 
-int dict_dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
+int dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
 
-int dict_dot_print_epochs( dot *d, char *format, ... );
-int dict_dot_print_slots( dot *d, char *format, ... );
-int dict_dot_print_nodes( dot *d, char *format, ... );
-int dict_dot_print_node_level( dot *d, char *format, ... );
-int dict_dot_print_slot_level( dot *d, char *format, ... );
-int dict_dot_print_refs( dot *d, char *format, ... );
+int dot_print_epochs( dot *d, char *format, ... );
+int dot_print_slots( dot *d, char *format, ... );
+int dot_print_nodes( dot *d, char *format, ... );
+int dot_print_node_level( dot *d, char *format, ... );
+int dot_print_slot_level( dot *d, char *format, ... );
+int dot_print_refs( dot *d, char *format, ... );
 
-int dict_dump_dot_epochs( dict *d, dot *dd );
-int dict_dump_dot_slots( dict *d, dot *dd );
-char *dict_dump_dot_merge( dot *dd );
+int dump_dot_epochs( dict *d, dot *dd );
+int dump_dot_slots( dict *d, dot *dd );
+char *dump_dot_merge( dot *dd );
 
-int dict_dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );
-size_t dict_dump_dot_ref_loc( dict_settings *s, void *key );
-int dict_dump_dot_ref_free_handler( void *key, void *value, void *args );
-int dict_dump_dot_ref_handler( void *key, void *value, void *args );
+int dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );
+size_t dump_dot_ref_loc( dict_settings *s, void *key );
+int dump_dot_ref_free_handler( void *key, void *value, void *args );
+int dump_dot_ref_handler( void *key, void *value, void *args );
 
 #endif

@@ -22,7 +22,7 @@ typedef struct usref usref;
 typedef struct sref  sref;
 
 // This is from include/gsd_dict.h
-int dict_iterate( dict *d, dict_handler *h, void *args );
+int iterate( dict *d, dict_handler *h, void *args );
 
 struct dict {
     set *set;
@@ -64,7 +64,7 @@ struct sref {
     void   *value;
 };
 
-int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args );
+int iterate_node( dict *d, node *n, dict_handler *h, void *args );
 
 
 #endif

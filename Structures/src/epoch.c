@@ -8,14 +8,14 @@
 #include "epoch.h"
 #include "alloc.h"
 
-epoch *dict_create_epoch() {
+epoch *create_epoch() {
     epoch *new = malloc( sizeof( epoch ));
     if ( new == NULL ) return NULL;
     memset( new, 0, sizeof( epoch ));
     return new;
 }
 
-void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
+void dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     epoch *end = e;
 
     while ( 1 ) {
@@ -41,7 +41,7 @@ void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
 
             // No next epoch, try to create one
             if ( d->epoch_count < d->epoch_limit || !d->epoch_limit ) {
-                epoch *make = dict_create_epoch();
+                epoch *make = create_epoch();
                 if ( make != NULL ) {
                     new->next = make;
                     new = make;
@@ -60,7 +60,7 @@ void dict_dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     }
 }
 
-epoch *dict_join_epoch( dict *d ) {
+epoch *join_epoch( dict *d ) {
     int success = 0;
     epoch *e = NULL;
 
@@ -87,7 +87,7 @@ epoch *dict_join_epoch( dict *d ) {
     return e;
 }
 
-void dict_leave_epoch( dict *d, epoch *e ) {
+void leave_epoch( dict *d, epoch *e ) {
     size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
 
     if ( nactive == 1 ) { // we are last, time to clean up.
@@ -111,22 +111,22 @@ void dict_leave_epoch( dict *d, epoch *e ) {
         if ( garb != NULL ) {
             switch ( gtype ) {
                 case SET:
-                    dict_free_set( d, garb );
+                    free_set( d, garb );
                 break;
                 case SLOT:
-                    dict_free_slot( d, e->meta, garb );
+                    free_slot( d, e->meta, garb );
                 break;
                 case NODE:
-                    dict_free_node( d, e->meta, garb );
+                    free_node( d, e->meta, garb );
                 break;
                 case SREF:
-                    dict_free_sref( d, e->meta, garb );
+                    free_sref( d, e->meta, garb );
                 break;
             }
         }
 
         // dec dep
-        if ( dep != NULL ) dict_leave_epoch( d, dep );
+        if ( dep != NULL ) leave_epoch( d, dep );
     }
 }
 

@@ -10,8 +10,8 @@
 // Changing how these work requires a major version bump.
 //-------------------
 
-int dict_iterate( dict *d, dict_handler *h, void *args ) {
-    epoch *e = dict_join_epoch( d );
+int iterate( dict *d, dict_handler *h, void *args ) {
+    epoch *e = join_epoch( d );
     set *s = d->set;
     int stop = DICT_NO_ERROR;
 
@@ -20,11 +20,11 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
         if ( sl == NULL ) continue;
         node *n = sl->root;
         if ( n == NULL ) continue;
-        stop = dict_iterate_node( d, n, h, args );
+        stop = iterate_node( d, n, h, args );
         if ( stop ) break;
     }
 
-    dict_leave_epoch( d, e );
+    leave_epoch( d, e );
     return stop;
 }
 
@@ -32,11 +32,11 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
 // Nothing below here is publicly exposed.
 //------------------------------------------------
 
-int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
+int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     int stop = 0;
 
     if ( n->left != NULL && n->left != RBLD ) {
-        stop = dict_iterate_node( d, n->left, h, args );
+        stop = iterate_node( d, n->left, h, args );
         if ( stop ) return stop;
     }
 
@@ -50,7 +50,7 @@ int dict_iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     }
 
     if ( n->right != NULL && n->right != RBLD ) {
-        stop = dict_iterate_node( d, n->right, h, args );
+        stop = iterate_node( d, n->right, h, args );
         if ( stop ) return stop;
     }
 

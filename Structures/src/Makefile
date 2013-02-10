@@ -14,6 +14,10 @@ clean:
 	rm -rf test*.run
 	rm -rf libGSDDict.so*
 
+gdbdottest: libGSDDict.so
+	$(GCC) $(CFLAGS) -I. -L. test/dot.c -lGSDDict -otestdot.run
+	LD_LIBRARY_PATH="." gdb ./testdot.run
+
 dottest: libGSDDict.so
 	$(GCC) $(CFLAGS) -I. -L. test/dot.c -lGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot

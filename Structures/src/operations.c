@@ -15,9 +15,9 @@
 // Changing how these work requires a major version bump.
 //-------------------
 
-int dict_get( dict *d, void *key, void **val ) {
+int op_get( dict *d, void *key, void **val ) {
     location *loc = NULL;
-    int err = dict_locate( d, key, &loc );
+    int err = locate_key( d, key, &loc );
 
     if ( !err ) {
         if ( loc->sref == NULL ) {
@@ -29,66 +29,66 @@ int dict_get( dict *d, void *key, void **val ) {
     }
 
     // Free our locator
-    if ( loc != NULL ) dict_free_location( d, loc );
+    if ( loc != NULL ) free_location( d, loc );
 
     return err;
 }
 
-int dict_set( dict *d, void *key, void *val ) {
+int op_set( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 1, 1, &locator );
+    int err = do_set( d, key, NULL, val, 1, 1, &locator );
     if ( locator != NULL ) {
-        dict_free_location( d, locator );
+        free_location( d, locator );
     }
     return err;
 }
 
-int dict_insert( dict *d, void *key, void *val ) {
+int op_insert( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 0, 1, &locator );
+    int err = do_set( d, key, NULL, val, 0, 1, &locator );
     if ( locator != NULL ) {
-        dict_free_location( d, locator );
+        free_location( d, locator );
     }
     return err;
 }
 
-int dict_update( dict *d, void *key, void *val ) {
+int op_update( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, val, 1, 0, &locator );
-    if ( locator != NULL ) dict_free_location( d, locator );
+    int err = do_set( d, key, NULL, val, 1, 0, &locator );
+    if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
-int dict_delete( dict *d, void *key ) {
+int op_delete( dict *d, void *key ) {
     location *locator = NULL;
-    int err = dict_do_set( d, key, NULL, NULL, 1, 0, &locator );
-    if ( locator != NULL ) dict_free_location( d, locator );
+    int err = do_set( d, key, NULL, NULL, 1, 0, &locator );
+    if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
-int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
+int op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
     if ( old_val == NULL ) return DICT_API_ERROR;
     location *locator = NULL;
-    int err = dict_do_set( d, key, old_val, new_val, 1, 0, &locator );
-    if ( locator != NULL ) dict_free_location( d, locator );
+    int err = do_set( d, key, old_val, new_val, 1, 0, &locator );
+    if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
-int dict_cmp_delete( dict *d, void *key, void *old_val ) {
+int op_cmp_delete( dict *d, void *key, void *old_val ) {
     location *locator = NULL;
-    int err = dict_do_set( d, key, old_val, NULL, 1, 0, &locator );
-    if ( locator != NULL ) dict_free_location( d, locator );
+    int err = do_set( d, key, old_val, NULL, 1, 0, &locator );
+    if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
-int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
+int op_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     location *oloc = NULL;
     location *dloc = NULL;
 
     // Find item in orig, insert if necessary
-    int err1 = dict_do_set( orig, okey, NULL, NULL, 0, 1, &oloc );
+    int err1 = do_set( orig, okey, NULL, NULL, 0, 1, &oloc );
     // Find item in dest, insert if necessary
-    int err2 = dict_do_set( dest, dkey, NULL, NULL, 0, 1, &dloc );
+    int err2 = do_set( dest, dkey, NULL, NULL, 0, 1, &dloc );
 
     // Ignore rebalance errors.. might want to readdress this.
     if ( err1 > 100 ) err1 = 0;
@@ -99,11 +99,11 @@ int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     if ( err2 == DICT_TRANS_FAIL ) err2 = 0;
 
     if ( !err1 && !err2 ) {
-        dict_do_deref( dest, dkey, dloc, oloc->usref->sref );
+        do_deref( dest, dkey, dloc, oloc->usref->sref );
     }
 
-    if ( oloc != NULL ) dict_free_location( orig, oloc );
-    if ( dloc != NULL ) dict_free_location( dest, dloc );
+    if ( oloc != NULL ) free_location( orig, oloc );
+    if ( dloc != NULL ) free_location( dest, dloc );
 
     if ( err1 ) return err1;
     if ( err2 ) return err2;
@@ -111,13 +111,13 @@ int dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     return DICT_NO_ERROR;
 }
 
-int dict_dereference( dict *d, void *key ) {
+int op_dereference( dict *d, void *key ) {
     location *loc = NULL;
-    int err = dict_locate( d, key, &loc );
+    int err = locate_key( d, key, &loc );
 
-    if ( !err && loc->sref != NULL ) err = dict_do_deref( d, key, loc, NULL );
+    if ( !err && loc->sref != NULL ) err = do_deref( d, key, loc, NULL );
 
-    if ( loc != NULL ) dict_free_location( d, loc );
+    if ( loc != NULL ) free_location( d, loc );
     return err;
 }
 
@@ -125,7 +125,7 @@ int dict_dereference( dict *d, void *key ) {
 // Nothing below here is publicly exposed.
 //------------------------------------------------
 
-int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator ) {
+int do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator ) {
     // If these get created we want to hold on to them until the last iteration
     // in case they are needed instead of building them each loop.
     // As such they need to be freed anywhere that returns without referencing
@@ -135,10 +135,10 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     location *loc;
 
     while( 1 ) {
-        int err = dict_locate( d, key, locator );
+        int err = locate_key( d, key, locator );
         if ( err ) {
-            if ( new_node != NULL ) dict_free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
+            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
             return err;
         }
         loc = *locator;
@@ -146,8 +146,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         // Existing sref, safe to update even in a rebuild
         if ( loc->sref != NULL ) {
             // We will not need new_node or new_sref anymore.
-            if ( new_node != NULL ) dict_free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
+            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
 
             // If there is a value already, cand we can't override, transaction
             // cannot occur.
@@ -179,8 +179,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
 
         // If we have no item, and cannot create, transaction fail.
         if ( !create ) {
-            if ( new_node != NULL ) dict_free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
+            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
             return DICT_TRANS_FAIL;
         }
 
@@ -198,7 +198,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         if ( loc->node != NULL && loc->node != RBLD ) {
             int success = __sync_bool_compare_and_swap( &(loc->node->usref->sref), NULL, new_sref );
             if ( success ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->set->settings->meta, new_node );
+                if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
                 loc->sref = new_sref;
 
                 // REF TODO: Trigger Change
@@ -215,7 +215,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         if ( new_node == NULL ) {
             new_node = malloc( sizeof( node ));
             if ( new_node == NULL ) {
-                if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return DICT_MEM_ERROR;
             }
             memset( new_node, 0, sizeof( node ));
@@ -223,8 +223,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
             // REF TODO: key gains a ref
             new_node->usref = malloc( sizeof( usref ));
             if ( new_node->usref == NULL ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+                if ( new_node != NULL ) free_node( d, loc->set, new_node );
+                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return DICT_MEM_ERROR;
             }
             new_node->usref->sref = new_sref;
@@ -234,15 +234,15 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
         if ( loc->slot == NULL ) {
             // No slot, and no slot number? something fishy!
             if ( !loc->slotn_set ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+                if ( new_node != NULL ) free_node( d, loc->set, new_node );
+                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return DICT_INT_ERROR;
             }
 
             slot *new_slot = malloc( sizeof( slot ));
             if ( new_slot == NULL ) {
-                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+                if ( new_node != NULL ) free_node( d, loc->set, new_node );
+                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return DICT_MEM_ERROR;
             }
             memset( new_slot, 0, sizeof( slot ));
@@ -288,8 +288,8 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
                 branch = &(loc->parent->right);
             }
             else { // This should not be possible.
-                if ( new_node != NULL ) dict_free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) dict_free_sref( d, loc->set->settings->meta, new_sref );
+                if ( new_node != NULL ) free_node( d, loc->set, new_node );
+                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return DICT_API_ERROR;
             }
 
@@ -344,7 +344,7 @@ int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int
     }
 }
 
-int dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
+int do_deref( dict *d, void *key, location *loc, sref *swap ) {
     sref *r = loc->sref;
     if ( r == NULL ) return DICT_TRANS_FAIL;
 
@@ -366,7 +366,7 @@ int dict_do_deref( dict *d, void *key, location *loc, sref *swap ) {
     // Lower ref count of old sref, dispose of sref if count hits 0
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
     if ( count == 0 ) {
-        dict_dispose( d, loc->epoch, loc->set->settings->meta, r, SREF );
+        dispose( d, loc->epoch, loc->set->settings->meta, r, SREF );
     }
 
     return DICT_NO_ERROR;

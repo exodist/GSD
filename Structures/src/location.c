@@ -8,24 +8,24 @@
 #include "location.h"
 #include "balance.h"
 
-location *dict_create_location( dict *d ) {
+location *create_location( dict *d ) {
     location *locate = malloc( sizeof( location ));
     if ( locate == NULL ) return NULL;
     memset( locate, 0, sizeof( location ));
 
-    locate->epoch = dict_join_epoch( d );
+    locate->epoch = join_epoch( d );
 
     return locate;
 }
 
-void dict_free_location( dict *d, location *locate ) {
-    dict_leave_epoch( d, locate->epoch );
+void free_location( dict *d, location *locate ) {
+    leave_epoch( d, locate->epoch );
     free( locate );
 }
 
-int dict_locate( dict *d, void *key, location **locate ) {
+int locate_key( dict *d, void *key, location **locate ) {
     if ( *locate == NULL ) {
-        *locate = dict_create_location( d );
+        *locate = create_location( d );
         if ( *locate == NULL ) return DICT_MEM_ERROR;
     }
     location *lc = *locate;

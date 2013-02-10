@@ -27,8 +27,8 @@ struct location {
     sref   *sref;       // item
 };
 
-location *dict_create_location( dict *d );
-int dict_locate( dict *d, void *key, location **locate );
-void dict_free_location( dict *d, location *locate );
+location *create_location( dict *d );
+int locate_key( dict *d, void *key, location **locate );
+void free_location( dict *d, location *locate );
 
 #endif
