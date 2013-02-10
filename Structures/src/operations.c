@@ -1,7 +1,7 @@
 #include "string.h"
 #include "unistd.h"
 
-#include "include/gsd_dict_return.h"
+#include "include/gsd_dict_return_old.h"
 
 #include "operations.h"
 #include "structure.h"
