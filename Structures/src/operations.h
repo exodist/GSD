@@ -14,21 +14,21 @@
 #include "structure.h"
 
 // START include/gsd_dict.h declarations
-int dict_cmp_delete( dict *d, void *key, void *old_val );
-int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
-int dict_delete( dict *d, void *key );
-int dict_dereference( dict *d, void *key );
-int dict_get( dict *d, void *key, void **val );
-int dict_insert( dict *d, void *key, void *val );
-int dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
-int dict_set( dict *d, void *key, void *val );
-int dict_update( dict *d, void *key, void *val );
+int op_cmp_delete( dict *d, void *key, void *old_val );
+int op_cmp_update( dict *d, void *key, void *old_val, void *new_val );
+int op_delete( dict *d, void *key );
+int op_dereference( dict *d, void *key );
+int op_get( dict *d, void *key, void **val );
+int op_insert( dict *d, void *key, void *val );
+int op_reference( dict *orig, void *okey, dict *dest, void *dkey );
+int op_set( dict *d, void *key, void *val );
+int op_update( dict *d, void *key, void *val );
 // END
 
 
-int dict_do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
+int do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
 
-int dict_do_deref( dict *d, void *key, location *loc, sref *swap );
+int do_deref( dict *d, void *key, location *loc, sref *swap );
 
 #endif
 

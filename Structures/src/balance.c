@@ -38,10 +38,10 @@ int rebalance( dict *d, location *loc ) {
 
     // swap
     if (!ret && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
-        dict_dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
+        dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
     }
     else {
-        dict_free_slot( d, loc->set->settings->meta, ns );
+        free_slot( d, loc->set->settings->meta, ns );
     }
 
     free( all );
