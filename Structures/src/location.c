@@ -23,7 +23,7 @@ void free_location( dict *d, location *locate ) {
     free( locate );
 }
 
-int locate( dict *d, void *key, location **locate ) {
+int locate_key( dict *d, void *key, location **locate ) {
     if ( *locate == NULL ) {
         *locate = create_location( d );
         if ( *locate == NULL ) return DICT_MEM_ERROR;

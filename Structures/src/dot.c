@@ -362,7 +362,7 @@ int dump_dot_slots( dict *d, dot *dd ) {
 
     if ( dd->ref_tracker != NULL ) {
         iterate( dd->ref_tracker, dump_dot_ref_free_handler, NULL );
-        free( &(dd->ref_tracker) );
+        do_free( &(dd->ref_tracker) );
     }
 
     return ret;

@@ -17,7 +17,7 @@
 
 int op_get( dict *d, void *key, void **val ) {
     location *loc = NULL;
-    int err = locate( d, key, &loc );
+    int err = locate_key( d, key, &loc );
 
     if ( !err ) {
         if ( loc->sref == NULL ) {
@@ -113,7 +113,7 @@ int op_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
 
 int op_dereference( dict *d, void *key ) {
     location *loc = NULL;
-    int err = locate( d, key, &loc );
+    int err = locate_key( d, key, &loc );
 
     if ( !err && loc->sref != NULL ) err = do_deref( d, key, loc, NULL );
 
@@ -135,7 +135,7 @@ int do_set( dict *d, void *key, void *old_val, void *val, int override, int crea
     location *loc;
 
     while( 1 ) {
-        int err = locate( d, key, locator );
+        int err = locate_key( d, key, locator );
         if ( err ) {
             if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
             if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
