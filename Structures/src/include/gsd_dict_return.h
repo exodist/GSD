@@ -3,6 +3,27 @@
 
 #include <stdint.h>
 
+/* dict_stat: a return type
+ * Most operations on the dictionary return a 'dict_stat'. A dict stat in a
+ * union, it can be treated as an integer (.num) or as a bit-field structure
+ * (.bit).
+ *
+ * If the numeric value is 0, that means there were no problems, the operation
+ * completed successfully.
+ *
+ * Field explanation
+ * fail  - If this is true the operation failed, if it is false then the
+ *         operation succeeded. The contents of other fields have no effect
+ *         here, even if there was an error you can trust that if this field is
+ *         false that your operation succeeded.
+ * rebal - Set to true when the error occured during a rebalance AFTER the
+ *         operation succeeded.
+ * error - The type of error that occured, 0 means no error occured.
+ *
+ * message_idx - Do not use directly, used by dict_stat_message() to find the
+ *               error message string.
+\*/
+
 typedef union {
     // For quick checks, if .num == 0 you know everything is good if it is not
     // 0 then you need to check deeper to see if it was a failure, error, or
