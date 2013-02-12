@@ -10,6 +10,7 @@
 #ifndef NODE_LIST_H
 #define NODE_LIST_H
 
+#include "error.h"
 #include "structure.h"
 
 /* NOTE: nlist is not concurrent-safe!
@@ -33,7 +34,7 @@ struct nlist_item {
 
 nlist *nlist_create();
 
-int nlist_push( nlist *nl, node *n );
+rstat nlist_push( nlist *nl, node *n );
 
 node *nlist_shift( nlist *nl );
 

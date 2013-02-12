@@ -1,8 +1,5 @@
 #include <string.h>
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-
 #include "epoch.h"
 #include "structure.h"
 #include "location.h"
@@ -23,10 +20,10 @@ void free_location( dict *d, location *locate ) {
     free( locate );
 }
 
-int locate_key( dict *d, void *key, location **locate ) {
+rstat locate_key( dict *d, void *key, location **locate ) {
     if ( *locate == NULL ) {
         *locate = create_location( d );
-        if ( *locate == NULL ) return DICT_MEM_ERROR;
+        if ( *locate == NULL ) return rstat_mem;
     }
     location *lc = *locate;
 
@@ -62,7 +59,7 @@ int locate_key( dict *d, void *key, location **locate ) {
             lc->node  = NULL;
             lc->usref  = NULL;
             lc->sref   = NULL;
-            return DICT_NO_ERROR;
+            return rstat_ok;
         }
 
         lc->slot = slt;
@@ -75,7 +72,7 @@ int locate_key( dict *d, void *key, location **locate ) {
             lc->node = NULL;
             lc->usref = NULL;
             lc->sref  = NULL;
-            return DICT_NO_ERROR;
+            return rstat_ok;
         }
     }
 
@@ -97,7 +94,7 @@ int locate_key( dict *d, void *key, location **locate ) {
                     lc->sref = NULL;
                 }
 
-                return DICT_NO_ERROR;
+                return rstat_ok;
             break;
             case -1:
                 lc->height++;
@@ -108,7 +105,7 @@ int locate_key( dict *d, void *key, location **locate ) {
                 n = n->right;
             break;
             default:
-                return DICT_API_ERROR;
+                return error( 1, 0, DICT_API_MISUSE, 10 );
             break;
         }
 
@@ -119,7 +116,7 @@ int locate_key( dict *d, void *key, location **locate ) {
     }
 
     lc->sref = NULL;
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
 

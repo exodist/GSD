@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "include/gsd_dict_return.h"
-
 #include "node_list.h"
 
 nlist *nlist_create() {
@@ -12,9 +10,9 @@ nlist *nlist_create() {
     return out;
 }
 
-int nlist_push( nlist *nl, node *n ) {
+rstat nlist_push( nlist *nl, node *n ) {
     nlist_item *i = malloc( sizeof( nlist_item ));
-    if ( i == NULL ) return DICT_MEM_ERROR;
+    if ( i == NULL ) return rstat_mem;
     i->node = n;
     i->next = NULL;
 
@@ -22,7 +20,7 @@ int nlist_push( nlist *nl, node *n ) {
     if ( nl->last != NULL )  nl->last->next = i;
     nl->last = i;
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
 node *nlist_shift( nlist *nl ) {

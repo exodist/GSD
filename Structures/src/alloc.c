@@ -1,15 +1,13 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-
 #include "structure.h"
 #include "alloc.h"
 #include "epoch.h"
 #include "balance.h"
+#include "error.h"
 
-int do_free( dict **dr ) {
+rstat do_free( dict **dr ) {
     dict *d = *dr;
     *dr = NULL;
 
@@ -23,7 +21,7 @@ int do_free( dict **dr ) {
     if ( d->set != NULL ) free_set( d, d->set );
     free( d );
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
 void free_set( dict *d, set *s ) {
@@ -86,18 +84,20 @@ set *create_set( dict_settings *settings ) {
     return out;
 }
 
-int do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
-    if ( settings == NULL )     return DICT_API_ERROR;
-    if ( methods == NULL )      return DICT_API_ERROR;
-    if ( methods->cmp == NULL ) return DICT_API_ERROR;
-    if ( methods->loc == NULL ) return DICT_API_ERROR;
-    if ( epoch_limit && epoch_limit < 4 ) return DICT_API_ERROR;
+rstat do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
+    if ( settings == NULL )     return error( 1, 0, DICT_API_MISUSE, 5 );
+    if ( methods == NULL )      return error( 1, 0, DICT_API_MISUSE, 6 );
+    if ( methods->cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7 );
+    if ( methods->loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8 );
+
+    if ( epoch_limit && epoch_limit < 4 )
+        return error( 1, 0, DICT_API_MISUSE, 9 );
 
     if( !settings->slot_count    ) settings->slot_count    = 256;
     if( !settings->max_imbalance ) settings->max_imbalance = 3;
 
     dict *out = malloc( sizeof( dict ));
-    if ( out == NULL ) return DICT_MEM_ERROR;
+    if ( out == NULL ) return rstat_mem;
     memset( out, 0, sizeof( dict ));
 
     out->epoch_limit = epoch_limit;
@@ -106,26 +106,26 @@ int do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_meth
     out->epoch_count = 2;
     if ( out->epochs == NULL ) {
         free( out );
-        return DICT_MEM_ERROR;
+        return rstat_mem;
     }
 
     out->epochs->next = create_epoch();
     if ( out->epochs->next == NULL ) {
         free( out->epochs );
         free( out );
-        return DICT_MEM_ERROR;
+        return rstat_mem;
     }
 
     out->set = create_set( settings );
     if ( out->set == NULL ) {
         free( out->epochs );
         free( out );
-        return DICT_MEM_ERROR;
+        return rstat_mem;
     }
 
     out->methods = methods;
 
     *d = out;
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }

@@ -2,47 +2,58 @@
 #define GSD_DICT_ERROR_H
 
 #include <stdint.h>
-#include <stdlib.h>
 
-/* Return codes:
- * CODE < 0 - Fatal, cannot trust the dictionary after one of these
- * CODE = 0 - Success, nothing wrong
- * CODE > 0 - Action failed, but otherwise dictionary is fine
+/* dict_stat: a return type
+ * Most operations on the dictionary return a 'dict_stat'. A dict stat in a
+ * union, it can be treated as an integer (.num) or as a bit-field structure
+ * (.bit).
+ *
+ * If the numeric value is 0, that means there were no problems, the operation
+ * completed successfully.
+ *
+ * Field explanation
+ * fail  - If this is true the operation failed, if it is false then the
+ *         operation succeeded. The contents of other fields have no effect
+ *         here, even if there was an error you can trust that if this field is
+ *         false that your operation succeeded.
+ * rebal - Set to true when the error occured during a rebalance AFTER the
+ *         operation succeeded.
+ * error - The type of error that occured, 0 means no error occured.
+ *
+ * message_idx - Do not use directly, used by dict_stat_message() to find the
+ *               error message string.
 \*/
 
-//        Error Name   Code  Fatal? Description
-// These are explosions
-#define DICT_INT_ERROR  -2 /* Y   Internal Error                              */
-#define DICT_API_ERROR  -1 /* Y   API was used incorrectly                    */
-// These are varying levels of success
-#define DICT_NO_ERROR    0 /* N   Success, no error                           */
-#define DICT_PATHO_ERROR 1 /* N   Operation would result in pathological tree */
-// These are graceful failures 
-#define DICT_MEM_ERROR   2 /* N   Out of memory,                              */
-#define DICT_TRANS_FAIL  3 /* N   Transaction failed                          */
-#define DICT_UNIMP_ERROR 4 /* N   Operation not implemented                   */
+typedef union {
+    // For quick checks, if .num == 0 you know everything is good if it is not
+    // 0 then you need to check deeper to see if it was a failure, error, or
+    // rebalance error.
+    uint32_t num;
 
-/* PATHO error is returned either when rebalancing a tree doesn't actually
- * balance it, or if one tree is significantly taller than its neighbors. Both
- * cases imply pathological data is being fed to your dictionary. A PATHO error
- * does NOT mean your operation failed.
- */
+    struct {
+        // Set to true if the operation failed. A failure is not the same as an
+        // error. For example an insert will fail if the key is already in the
+        // hash, this is desired behavior for a transactional system.
+        unsigned int fail : 8;
 
-/* If the action triggered a rebalance this will be added to the return code,
- * if the return code is >= 100 it means that your action succeded, but
- * triggered a rebalance, the return code for the rebalance is
- *    (code - DICT_RBAL)
- *
- * If the rebalance fails your dictionary is uneffected and will still work
- * properly, it just won't be balanced until another insert triggers the
- * rebalance over again.
- *
- * NOTE1: It is still a good idea to abort on a fatal error (1000 > c > 100)
- * NOTE2: Do not ignore DICT_PATHO_ERROR, doing so will have drastic effects on
- *        performance. It occurs when rebalancing still results in an
- *        unbalanced tree, which means rebalances will happen frequently.
- *        Someone is probably exploiting a flaw in your program.
- */
-#define DICT_RBAL 1000
+        // Set to true only if there was an error during rebalance
+        unsigned int rebal : 8;
+
+        // Category or type of error
+        enum {
+            DICT_NO_ERROR = 0,
+            DICT_PATHOLOGICAL,
+            DICT_OUT_OF_MEMORY,
+            DICT_API_MISUSE,
+            DICT_UNIMPLEMENTED,
+            DICT_UNKNOWN
+        } error : 8;
+
+        // Index for error text
+        unsigned int message_idx : 8;
+    } bit;
+} dict_stat;
+
+char *dict_stat_message( dict_stat *s );
 
 #endif

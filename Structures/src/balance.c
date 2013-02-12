@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "include/gsd_dict_return.h"
-
 #include "epoch.h"
 #include "structure.h"
 #include "balance.h"
@@ -12,10 +10,10 @@
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
-int rebalance( dict *d, location *loc ) {
+rstat rebalance( dict *d, location *loc ) {
     // Attempt to create rebalance slot, or return
     slot *ns = malloc( sizeof( slot ));
-    if ( ns == NULL ) return DICT_MEM_ERROR;
+    if ( ns == NULL ) return rstat_mem;
     memset( ns, 0, sizeof( slot ));
 
     // Create balance_pair array
@@ -23,21 +21,21 @@ int rebalance( dict *d, location *loc ) {
     node **all = malloc( sizeof( node * ) * size );
     if ( all == NULL ) {
         free( ns );
-        return DICT_MEM_ERROR;
+        return rstat_mem;
     }
     memset( all, 0, size * sizeof( node * ));
 
     // Iterate nodes, add to array, block new branches
     size_t count = rebalance_node( loc->slot->root, &all, &size, 0 );
-    if ( count == 0 ) return DICT_MEM_ERROR;
+    if ( count == 0 ) return rstat_mem;
     ns->count = count;
 
     // insert nodes
     size_t ideal = max_bit( count );
-    int ret = rebalance_insert_list( d, loc->set, ns, all, 0, count - 1, ideal );
+    rstat ret = rebalance_insert_list( d, loc->set, ns, all, 0, count - 1, ideal );
 
     // swap
-    if (!ret && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
+    if (!ret.bit.error && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
         dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
     }
     else {
@@ -74,7 +72,7 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
     return count;
 }
 
-int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
+rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     size_t height = 0;
     node **put_here = &(s->root);
     while ( *put_here != NULL ) {
@@ -87,15 +85,15 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
             put_here = &((*put_here)->right);
         }
         else {
-            return DICT_API_ERROR;
+            return error( 1, 0, DICT_API_MISUSE, 10 );
         }
     }
 
     if ( height > ideal + st->settings->max_imbalance )
-        return DICT_PATHO_ERROR;
+        return rstat_patho;
 
     node *new_node = malloc( sizeof( node ));
-    if ( new_node == NULL ) return DICT_MEM_ERROR;
+    if ( new_node == NULL ) return rstat_mem;
     memset( new_node, 0, sizeof( node ));
 
     int success = 0;
@@ -106,7 +104,7 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     }
     if ( n->usref->sref == NULL || n->usref->sref->refcount < 1 ) {
         free( new_node );
-        return DICT_NO_ERROR;
+        return rstat_ok;
     }
 
     // REF TODO: key gains a ref
@@ -114,10 +112,10 @@ int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     new_node->usref = n->usref;
 
     *put_here = new_node;
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
-int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal ) {
+rstat rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal ) {
     if ( start == end ) return rebalance_insert( d, st, s, all[start], ideal );
 
     size_t total = end - start;
@@ -125,11 +123,11 @@ int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, 
     size_t center = total % 2 ? start + half + 1
                               : start + half;
 
-    int res = rebalance_insert( d, st, s, all[center], ideal );
-    if ( res ) return res;
+    rstat res = rebalance_insert( d, st, s, all[center], ideal );
+    if ( res.num ) return res;
 
     res = rebalance_insert_list( d, st, s, all, start, center - 1, ideal );
-    if ( res ) return res;
+    if ( res.num ) return res;
 
     if ( center == end ) return res;
     res = rebalance_insert_list( d, st, s, all, center + 1, end, ideal );

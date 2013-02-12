@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "include/gsd_dict.h"
-#include "include/gsd_dict_return.h"
-
 #include "structure.h"
 #include "node_list.h"
 #include "dot.h"
@@ -48,8 +45,8 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     dd.nl = nlist_create();
     if ( dd.nl == NULL ) goto DO_DUMP_DOT_CLEANUP;
 
-    if( dump_dot_epochs( d, &dd )) goto DO_DUMP_DOT_CLEANUP;
-    if( dump_dot_slots( d, &dd ))  goto DO_DUMP_DOT_CLEANUP;
+    if( dump_dot_epochs( d, &dd ).num) goto DO_DUMP_DOT_CLEANUP;
+    if( dump_dot_slots( d, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
 
     out = dump_dot_merge( &dd );
 
@@ -64,55 +61,55 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     return out;
 }
 
-int dot_print_epochs( dot *d, char *format, ... ) {
+rstat dot_print_epochs( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->epochs), &(d->epochs_size), &(d->epochs_length), format, args );
+    rstat out = dot_print( &(d->epochs), &(d->epochs_size), &(d->epochs_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print_slots( dot *d, char *format, ... ) {
+rstat dot_print_slots( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->slots), &(d->slots_size), &(d->slots_length), format, args );
+    rstat out = dot_print( &(d->slots), &(d->slots_size), &(d->slots_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print_nodes( dot *d, char *format, ... ) {
+rstat dot_print_nodes( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->nodes), &(d->nodes_size), &(d->nodes_length), format, args );
+    rstat out = dot_print( &(d->nodes), &(d->nodes_size), &(d->nodes_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print_node_level( dot *d, char *format, ... ) {
+rstat dot_print_node_level( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->node_level), &(d->node_level_size), &(d->node_level_length), format, args );
+    rstat out = dot_print( &(d->node_level), &(d->node_level_size), &(d->node_level_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print_slot_level( dot *d, char *format, ... ) {
+rstat dot_print_slot_level( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->slot_level), &(d->slot_level_size), &(d->slot_level_length), format, args );
+    rstat out = dot_print( &(d->slot_level), &(d->slot_level_size), &(d->slot_level_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print_refs( dot *d, char *format, ... ) {
+rstat dot_print_refs( dot *d, char *format, ... ) {
     va_list args;
     va_start( args, format );
-    int out = dot_print( &(d->refs), &(d->refs_size), &(d->refs_length), format, args );
+    rstat out = dot_print( &(d->refs), &(d->refs_size), &(d->refs_length), format, args );
     va_end( args );
     return out;
 }
 
-int dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args ) {
+rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args ) {
     // Get the new content
     char tmp[DOT_BUFFER_INC];
     int add_length = vsnprintf( tmp, DOT_BUFFER_INC, format, args );
@@ -122,7 +119,7 @@ int dot_print( char **buffer, size_t *size, size_t *length, char *format, va_lis
         size_t new = *size;
         while ( new < req ) new += DOT_BUFFER_INC;
         char *nb = realloc( *buffer, new );
-        if ( nb == NULL ) return DICT_MEM_ERROR;
+        if ( nb == NULL ) return rstat_mem;
         *buffer = nb;
         memset( *buffer + *length, 0, new - *size );
         *size = new;
@@ -132,18 +129,18 @@ int dot_print( char **buffer, size_t *size, size_t *length, char *format, va_lis
     strncpy( start, tmp, add_length );
     *length += add_length;
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
-int dump_dot_epochs( dict *d, dot *dd ) {
+rstat dump_dot_epochs( dict *d, dot *dd ) {
 
-    int ret = dot_print_epochs( dd,
+    rstat ret = dot_print_epochs( dd,
         "node [color=pink,fontcolor=grey,style=dashed,shape=octagon]\n"
     );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     ret = dot_print_epochs( dd, "edge [color=cyan]\n" );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     epoch *e = d->epochs;
     epoch *a = d->epoch;
@@ -155,37 +152,37 @@ int dump_dot_epochs( dict *d, dot *dd ) {
                 "\"%p\" [label=\"Epoch%i\",color=green,style=solid,shape=doubleoctagon,fontcolor=white]\n",
                 e, en
             );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
             ret = dot_print_epochs( dd, "\"%p\"->\"%p\" [color=yellow]\n", e, dep );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
         }
         else if ( e == a ) {
             ret = dot_print_epochs( dd,
                 "\"%p\" [label=\"Epoch%i\",color=yellow,style=solid,fontcolor=white]\n",
                 e, en
             );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
         }
         else {
             ret = dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, en );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
         }
 
         if ( e->next ) {
             ret = dot_print_epochs( dd, "\"%p\"->\"%p\"\n", e, e->next );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
         }
 
         e = e->next;
         en++;
     }
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
 dict *dump_dot_create_refs() {
     dict *refs;
-    if( do_create( &refs, 4, &dset, &dmet )) {
+    if( do_create( &refs, 4, &dset, &dmet ).num ) {
         if ( refs != NULL ) do_free( &refs );
         return NULL;
     }
@@ -193,11 +190,11 @@ dict *dump_dot_create_refs() {
     return refs;
 }
 
-int dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
-    int ret;
+rstat dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
+    rstat ret;
     if ( dd->first_slot_set ) {
         ret = dot_print_slots( dd, "S%zi->S%zi\n", previous, id );
-        if ( ret ) return ret;
+        if ( ret.num ) return ret;
     }
     else {
         dd->first_slot = id;
@@ -205,13 +202,13 @@ int dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
     }
 
     ret = dot_print_slots( dd, "S%zi->\"%p\" [color=blue]\n", id, sl->root );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     return dot_print_slot_level( dd, "S%zi ", id );
 }
 
-int dump_dot_slots_node( dot *dd, node *n ) {
-    int ret;
+rstat dump_dot_slots_node( dot *dd, node *n ) {
+    rstat ret;
 
     sref *sr = n->usref->sref;
     size_t ref_count = sr ? sr->refcount : 0;
@@ -220,20 +217,20 @@ int dump_dot_slots_node( dot *dd, node *n ) {
     //    // Find the list of nodes for this ref;
     //    nlist *nl = NULL;
     //    ret = get( dd->ref_tracker, sr, (void **)&nl );
-    //    if ( ret ) return ret;
+    //    if ( ret.num ) return ret;
 
     //    if ( nl == NULL ) {
     //        nl = nlist_create();
-    //        if ( nl == NULL ) return DICT_MEM_ERROR;
+    //        if ( nl == NULL ) return rstat_mem;
     //        ret = set( dd->ref_tracker, sr, nl );
     //    }
 
     //    ret = nlist_push( nl, n );
-    //    if ( ret ) return ret;
+    //    if ( ret.num ) return ret;
     //}
 
     ret = dot_print_node_level( dd, "\"%p\" ", n );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     // print node with name
     char *name = dd->decode(
@@ -248,38 +245,38 @@ int dump_dot_slots_node( dot *dd, node *n ) {
         : ",color=pink,style=dashed";
 
     ret = dot_print_nodes( dd, "\"%p\" [label=\"%s\"%s]\n", n, name, style );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     // print node to right
     if ( n->right ) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->right );
-        if ( ret ) return ret;
+        if ( ret.num ) return ret;
 
         ret = nlist_push( dd->nl, n->right );
-        if ( ret ) return ret;
+        if ( ret.num ) return ret;
     }
 
     // print node to left
     if ( n->left ) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->left );
-        if ( ret ) return ret;
+        if ( ret.num ) return ret;
 
         ret = nlist_push( dd->nl, n->left );
-        if ( ret ) return ret;
+        if ( ret.num ) return ret;
     }
 
-    return DICT_NO_ERROR;
+    return rstat_ok;
 }
 
-int dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
-    int ret = nlist_push( dd->nl, sl->root );
-    if ( ret ) return ret;
+rstat dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
+    rstat ret = nlist_push( dd->nl, sl->root );
+    if ( ret.num ) return ret;
 
     ret = nlist_push( dd->nl, &NODE_SEP );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     ret = dot_print_node_level( dd, "{rank=same; " );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     char *ghead = "subgraph cluster_s%zi {\n"
                   "graph [style=invisible]\n"
@@ -287,17 +284,17 @@ int dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
                   "edge [color=cyan,arrowhead=vee]\n";
 
     ret = dot_print_nodes( dd, ghead, id );
-    if ( ret ) return ret;
+    if ( ret.num ) return ret;
 
     node *n = nlist_shift( dd->nl );
     while ( n != NULL ) {
         // We need to change levels, end the rank set
         if ( n == &NODE_SEP ) {
             ret = dot_print_node_level( dd, "}\n" );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
 
             ret = dot_print_nodes( dd, "%s\n", dd->node_level );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
 
             memset( dd->node_level, 0, dd->node_level_length );
             dd->node_level_length = 0;
@@ -305,15 +302,15 @@ int dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
             // If more nodes remain, we need to start a new rank set.
             if ( dd->nl->first ) {
                 ret = dot_print_node_level( dd, "{rank=same; " );
-                if ( ret ) return ret;
+                if ( ret.num ) return ret;
                 ret = nlist_push( dd->nl, &NODE_SEP );
-                if ( ret ) return ret;
+                if ( ret.num ) return ret;
             }
         }
         // Real node
         else {
             ret = dump_dot_slots_node( dd, n );
-            if ( ret ) return ret;
+            if ( ret.num ) return ret;
         }
 
         n = nlist_shift( dd->nl );
@@ -322,33 +319,33 @@ int dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
     return dot_print_nodes( dd, "}\n" );
 }
 
-int dump_dot_slots( dict *d, dot *dd ) {
+rstat dump_dot_slots( dict *d, dot *dd ) {
     set *s = d->set;
 
-    int ret = 0;
+    rstat ret = rstat_ok;
     dd->null_counter = 1;
     dd->ref_tracker = dump_dot_create_refs();
-    if ( dd->ref_tracker == NULL ) return DICT_MEM_ERROR;
+    if ( dd->ref_tracker == NULL ) return rstat_mem;
 
     ret = dot_print_slot_level( dd, "{rank=same; " );
-    if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
+    if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
     size_t previous = 0;
     for ( size_t i = 0; i < s->settings->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
 
-        if( dump_dot_slots_slot( dd, sl, i, previous ))
-            goto DUMP_DOT_SLOTS_CLEANUP;
+        ret = dump_dot_slots_slot( dd, sl, i, previous );
+        if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
-        if( dump_dot_slots_nodes( dd, sl, i ))
-            goto DUMP_DOT_SLOTS_CLEANUP;
+        ret = dump_dot_slots_nodes( dd, sl, i );
+        if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
         previous = i;
     }
 
     ret = dot_print_slot_level( dd, "}\n" );
-    if ( ret ) goto DUMP_DOT_SLOTS_CLEANUP;
+    if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
     iterate( dd->ref_tracker, dump_dot_ref_handler, dd );
     if ( dd->refs == NULL ) {
@@ -435,13 +432,13 @@ int dump_dot_ref_handler( void *key, void *value, void *args ) {
     while ( first != NULL ) {
         nlist_item *pair = first->next;
         while ( pair != NULL ) {
-            int ret = dot_print_refs( dd, "\"%p\"->\"%p\"\n", first->node, pair->node );
-            if ( ret ) return ret;
+            rstat ret = dot_print_refs( dd, "\"%p\"->\"%p\"\n", first->node, pair->node );
+            if ( ret.num ) return 1;
             pair = pair->next;
         }
         first = first->next;
     }
 
-    return DICT_NO_ERROR;
+    return 0;
 }
 
