@@ -10,8 +10,10 @@
 #ifndef MERGE_H
 #define MERGE_H
 
+#include "error.h"
+
 // These are also in include/gsd_dict.h
-int merge( dict *from, dict *to );
-int merge_refs( dict *from, dict *to );
+rstat merge( dict *from, dict *to );
+rstat merge_refs( dict *from, dict *to );
 
 #endif

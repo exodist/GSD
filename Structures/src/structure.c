@@ -1,19 +1,12 @@
 #include "include/gsd_dict.h"
-#include "include/gsd_dict_return_old.h"
 
 #include "structure.h"
 #include "balance.h"
 
-//-------------------
-// These functions are defined in gsd_dict.h
-// They are publicly exposed functions.
-// Changing how these work requires a major version bump.
-//-------------------
-
 int iterate( dict *d, dict_handler *h, void *args ) {
     epoch *e = join_epoch( d );
     set *s = d->set;
-    int stop = DICT_NO_ERROR;
+    int stop = 0;
 
     for ( int i = 0; i < s->settings->slot_count; i++ ) {
         slot *sl = s->slots[i];
@@ -27,10 +20,6 @@ int iterate( dict *d, dict_handler *h, void *args ) {
     leave_epoch( d, e );
     return stop;
 }
-
-//------------------------------------------------
-// Nothing below here is publicly exposed.
-//------------------------------------------------
 
 int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     int stop = 0;
@@ -54,6 +43,6 @@ int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
         if ( stop ) return stop;
     }
 
-    return DICT_NO_ERROR;
+    return stop;
 }
 

@@ -11,6 +11,7 @@
 #define UTIL_H
 
 #include <stdint.h>
+#include "error.h"
 
 uint8_t max_bit( uint64_t num );
 

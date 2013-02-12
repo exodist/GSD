@@ -12,6 +12,7 @@
 
 #include "epoch.h"
 #include "include/gsd_dict.h"
+#include "error.h"
 
 typedef struct dict  dict;
 typedef struct set   set;
@@ -20,9 +21,6 @@ typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
 typedef struct sref  sref;
-
-// This is from include/gsd_dict.h
-int iterate( dict *d, dict_handler *h, void *args );
 
 struct dict {
     set *set;
@@ -63,6 +61,8 @@ struct sref {
     size_t  refcount;
     void   *value;
 };
+
+int iterate( dict *d, dict_handler *h, void *args );
 
 int iterate_node( dict *d, node *n, dict_handler *h, void *args );
 

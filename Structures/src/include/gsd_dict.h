@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "gsd_dict_return.h"
+
 typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
@@ -74,15 +76,15 @@ struct dict_settings {
 // -- Creation and meta data --
 
 // Note: 'epoch_limit' must be 0 or greater than 3
-int dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
 
 // Copying and cloning
-int dict_merge( dict *from, dict *to );
-int dict_merge_refs( dict *from, dict *to );
+dict_stat dict_merge( dict *from, dict *to );
+dict_stat dict_merge_refs( dict *from, dict *to );
 
 // Used to free a dict structure.
 // Does not free your keys, values, meta, or methods.
-int dict_free( dict **d );
+dict_stat dict_free( dict **d );
 
 // Used to access your settings
 dict_settings *dict_get_settings( dict *d );
@@ -99,38 +101,36 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-int dict_reconfigure( dict *d, dict_settings *settings );
+dict_stat dict_reconfigure( dict *d, dict_settings *settings );
 
 // Get never blocks
 // Set will insert or update as necessary
 // Insert may block in a rebuild or rebalance, fails if key is present
-// (DICT_EXIST_ERROR)
-// Update never blocks, but fails if the key is not present (DICT_EXIST_ERROR)
 // delete removes the value for a key, key will not show in iterations
-int dict_get( dict *d, void *key, void **val );
-int dict_set( dict *d, void *key, void *val );
-int dict_insert( dict *d, void *key, void *val );
-int dict_update( dict *d, void *key, void *val );
-int dict_delete( dict *d, void *key );
+dict_stat dict_get( dict *d, void *key, void **val );
+dict_stat dict_set( dict *d, void *key, void *val );
+dict_stat dict_insert( dict *d, void *key, void *val );
+dict_stat dict_update( dict *d, void *key, void *val );
+dict_stat dict_delete( dict *d, void *key );
 
 // cmp_update is just like update() except that you can tell it to only set the
 // new value if the old value is what you specify, useful in a threaded program
 // to implement a primitive form of transaction for a specific key.
 // cmp_delete is just like delete, but it only removes the value if it is what
 // you expect.
-int dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
-int dict_cmp_delete( dict *d, void *key, void *old_val );
-int dict_cmp_dereference( dict *fromd, void *fromk, dict *cmpd, void *cmpk );
+dict_stat dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
+dict_stat dict_cmp_delete( dict *d, void *key, void *old_val );
+dict_stat dict_cmp_dereference( dict *fromd, void *fromk, dict *cmpd, void *cmpk );
 
 // reference allows you to "tie" a key in one dictionary to a key in another
 // dictionary.
 // dereference allows you to "untie" the key in a dictionary. It can also be
 // used on any key to fully remove it from the dictionary, which is something
 // delete does not do.
-int dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
-int dict_dereference( dict *d, void *key );
+dict_stat dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
+dict_stat dict_dereference( dict *d, void *key );
 
 // handler can return false to break loop
-int dict_iterate( dict *d, dict_handler *h, void *args );
+dict_stat dict_iterate( dict *d, dict_handler *h, void *args );
 
 #endif

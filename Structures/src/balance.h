@@ -10,15 +10,17 @@
 #ifndef BALANCE_H
 #define BALANCE_H
 
+#include <stdint.h>
+
 #include "structure.h"
 #include "location.h"
-#include <stdint.h>
+#include "error.h"
 
 extern const void *RBLD;
 
-int rebalance( dict *d, location *loc );
+rstat rebalance( dict *d, location *loc );
 size_t rebalance_node( node *n, node ***all, size_t *size, size_t count );
-int rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal );
-int rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal );
+rstat rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal );
+rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal );
 
 #endif

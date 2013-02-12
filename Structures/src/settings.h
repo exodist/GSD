@@ -10,9 +10,12 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include "include/gsd_dict.h"
+#include "error.h"
+
 dict_settings *get_settings( dict *d );
 dict_methods *get_methods( dict *d );
-int reconfigure( dict *d, dict_settings *settings );
+rstat reconfigure( dict *d, dict_settings *settings );
 
 
 #endif

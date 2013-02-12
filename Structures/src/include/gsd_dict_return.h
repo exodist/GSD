@@ -29,11 +29,9 @@ typedef union {
         } error : 8;
 
         // Index for error text
-        uint16_t message_idx : 8;
+        unsigned int message_idx : 8;
     } bit;
 } dict_stat;
-
-extern char *dict_messages[];
 
 char *dict_stat_message( dict_stat *s );
 

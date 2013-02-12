@@ -10,6 +10,7 @@
 #ifndef LOCATION_H
 #define LOCATION_H
 
+#include "error.h"
 #include "structure.h"
 
 typedef struct location location;
@@ -28,7 +29,7 @@ struct location {
 };
 
 location *create_location( dict *d );
-int locate_key( dict *d, void *key, location **locate );
+rstat locate_key( dict *d, void *key, location **locate );
 void free_location( dict *d, location *locate );
 
 #endif

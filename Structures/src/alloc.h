@@ -11,16 +11,17 @@
 #define ALLOC_H
 
 #include "structure.h"
+#include "error.h"
 
 // Also in include/gsd_dict.h
-int do_free( dict **dr );
+rstat do_free( dict **dr );
 
 void free_set( dict *d, set *s );
 void free_slot( dict *d, void *meta, slot *s );
 void free_node( dict *d, void *meta, node *n );
 void free_sref( dict *d, void *meta, sref *r );
 
-int do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+rstat do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
 set *create_set( dict_settings *settings );
 
 #endif

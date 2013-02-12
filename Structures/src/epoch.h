@@ -11,6 +11,7 @@
 #define EPOCH_H
 
 #include <stdlib.h>
+#include "error.h"
 
 typedef struct dict  dict;
 

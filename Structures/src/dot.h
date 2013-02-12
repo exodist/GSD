@@ -10,10 +10,12 @@
 #ifndef DOT_H
 #define DOT_H
 
+#include <stdarg.h>
+
 #include "epoch.h"
 #include "structure.h"
 #include "node_list.h"
-#include <stdarg.h>
+#include "error.h"
 
 #define DOT_BUFFER_INC 1024
 
@@ -57,17 +59,17 @@ char *dump_dot( dict *d, dict_dot *decode );
 char *dump_node_label( void *key, void *value );
 char *do_dump_dot( dict *d, set *s, dict_dot decode );
 
-int dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
+rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
 
-int dot_print_epochs( dot *d, char *format, ... );
-int dot_print_slots( dot *d, char *format, ... );
-int dot_print_nodes( dot *d, char *format, ... );
-int dot_print_node_level( dot *d, char *format, ... );
-int dot_print_slot_level( dot *d, char *format, ... );
-int dot_print_refs( dot *d, char *format, ... );
+rstat dot_print_epochs( dot *d, char *format, ... );
+rstat dot_print_slots( dot *d, char *format, ... );
+rstat dot_print_nodes( dot *d, char *format, ... );
+rstat dot_print_node_level( dot *d, char *format, ... );
+rstat dot_print_slot_level( dot *d, char *format, ... );
+rstat dot_print_refs( dot *d, char *format, ... );
 
-int dump_dot_epochs( dict *d, dot *dd );
-int dump_dot_slots( dict *d, dot *dd );
+rstat dump_dot_epochs( dict *d, dot *dd );
+rstat dump_dot_slots( dict *d, dot *dd );
 char *dump_dot_merge( dot *dd );
 
 int dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );
