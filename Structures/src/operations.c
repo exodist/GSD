@@ -159,9 +159,16 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 if ( !success ) return rstat_trans;
             }
 
-            // REF TODO: Trigger Change
-            // REF TODO: val gains a ref
-            // REF TODO: old_val loses a ref (if not null)
+            if ( d->methods->change )
+                d->methods->change( d, loc->set->settings->meta, key, old_val, val );
+
+            if ( d->methods->ref ) {
+                if ( val && val != RBLD )
+                    d->methods->ref( d, loc->set->settings->meta, val, 1 );
+
+                if ( old_val && old_val != RBLD )
+                    d->methods->ref( d, loc->set->settings->meta, old_val, -1 );
+            }
 
             return rstat_ok;
         }
@@ -180,7 +187,9 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
             memset( new_sref, 0, sizeof( sref ));
             new_sref->value = val;
             new_sref->refcount = 1;
-            // REF TODO: val gains a ref
+
+            if ( d->methods->ref && val && val != RBLD )
+                d->methods->ref( d, loc->set->settings->meta, val, 1 );
         }
 
         // Existing derefed node, lets give it the new ref to revive it
@@ -190,7 +199,8 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
                 loc->sref = new_sref;
 
-                // REF TODO: Trigger Change
+                if ( d->methods->change )
+                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
 
                 return rstat_ok;
             }
@@ -209,7 +219,9 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
             }
             memset( new_node, 0, sizeof( node ));
             new_node->key = key;
-            // REF TODO: key gains a ref
+
+            if ( d->methods->ref ) d->methods->ref( d, loc->set->settings->meta, key, 1 );
+
             new_node->usref = malloc( sizeof( usref ));
             if ( new_node->usref == NULL ) {
                 if ( new_node != NULL ) free_node( d, loc->set, new_node );
@@ -255,7 +267,8 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 loc->usref = new_node->usref;
                 loc->sref  = new_node->usref->sref;
 
-                // REF TODO: Trigger Change
+                if ( d->methods->change )
+                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
 
                 return rstat_ok;
             }
@@ -299,7 +312,8 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 loc->usref = new_node->usref;
                 loc->sref  = new_node->usref->sref;
 
-                // REF TODO: Trigger Change
+                if ( d->methods->change )
+                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
 
                 // We add 1 to represent the new node, location does not do it
                 // for us.

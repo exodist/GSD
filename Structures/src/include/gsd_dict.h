@@ -10,8 +10,8 @@ typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
 
-typedef void   (dict_change)( dict *d, dict_settings *s, void *key, void *old_val, void *new_val );
-typedef void   (dict_ref)( dict *d, dict_settings *s, void *ref, int offset );
+typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
+typedef void   (dict_ref)( dict *d, void *meta, void *ref, int offset );
 typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( dict_settings *s, void *key1, void *key2 );
 typedef size_t (dict_loc)( dict_settings *s, void *key );
