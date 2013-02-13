@@ -245,6 +245,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
         : ",color=pink,style=dashed";
 
     ret = dot_print_nodes( dd, "\"%p\" [label=\"%s\"%s]\n", n, name, style );
+    free( name );
     if ( ret.num ) return ret;
 
     // print node to right

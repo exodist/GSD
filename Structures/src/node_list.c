@@ -18,6 +18,7 @@ rstat nlist_push( nlist *nl, node *n ) {
 
     if ( nl->first == NULL ) nl->first = i;
     if ( nl->last != NULL )  nl->last->next = i;
+
     nl->last = i;
 
     return rstat_ok;
@@ -28,6 +29,8 @@ node *nlist_shift( nlist *nl ) {
 
     nlist_item *i = nl->first;
     nl->first = i->next;
+    if ( nl->first == NULL)
+        nl->last = NULL;
     node *out = i->node;
 
     free( i );

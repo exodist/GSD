@@ -94,6 +94,10 @@ int main() {
     leave_epoch( d, e );
 
     printf( "%s\n", dot );
+    free( dot );
+    dict_free( &d );
+    free( m );
+    free( s );
 
     return 0;
 }

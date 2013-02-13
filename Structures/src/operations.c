@@ -216,6 +216,7 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
                 return rstat_mem;
             }
+            new_node->usref->refcount = 1;
             new_node->usref->sref = new_sref;
         }
 

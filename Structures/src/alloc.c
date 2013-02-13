@@ -19,8 +19,16 @@ rstat do_free( dict **dr ) {
     }
 
     if ( d->set != NULL ) free_set( d, d->set );
-    free( d );
 
+    e = d->epochs;
+    d->epochs = NULL;
+    while ( e != NULL ) {
+        epoch *goner = e;
+        e = e->next;
+        free( goner );
+    }
+
+    free( d );
     return rstat_ok;
 }
 
@@ -28,6 +36,7 @@ void free_set( dict *d, set *s ) {
     for ( int i = 0; i < s->settings->slot_count; i++ ) {
         if ( s->slots[i] != NULL ) free_slot( d, s->settings->meta, s->slots[i] );
     }
+    free( s->slots );
     free( s );
 }
 
