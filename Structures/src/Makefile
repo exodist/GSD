@@ -38,3 +38,7 @@ dottest: libGSDDict.so
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
 	dot -Tx11 /tmp/testdot.dot
 
+stresstest: libGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/stress.c -lGSDDict -oteststress.run
+	LD_LIBRARY_PATH="." ./teststress.run
+
