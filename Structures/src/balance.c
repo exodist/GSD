@@ -107,7 +107,9 @@ rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
         return rstat_ok;
     }
 
-    // REF TODO: key gains a ref
+    if ( d->methods->ref )
+        d->methods->ref( d, st->settings->meta, n->key, 1 );
+
     new_node->key   = n->key;
     new_node->usref = n->usref;
 

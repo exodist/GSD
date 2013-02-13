@@ -62,15 +62,15 @@ void free_node( dict *d, void *meta, node *n ) {
         free( n->usref );
     }
 
-    // REF TODO: key loses a ref
+    if ( d->methods->ref )
+        d->methods->ref( d, meta, n->key, -1 );
 
     free( n );
 }
 
 void free_sref( dict *d, void *meta, sref *r ) {
-    // REF TODO: value loses a ref
-    //if ( r->value != NULL && r->value != RBLD && d->methods->ref_del != NULL )
-    //    d->methods->ref_del( d, meta, r->value );
+    if ( r->value && r->value != RBLD && d->methods->ref )
+        d->methods->ref( d, meta, r->value, -1 );
 
     free( r );
 }
