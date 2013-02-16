@@ -130,7 +130,7 @@ dict_stat dict_cmp_dereference( dict *fromd, void *fromk, dict *cmpd, void *cmpk
 dict_stat dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
 dict_stat dict_dereference( dict *d, void *key );
 
-// handler can return false to break loop
-dict_stat dict_iterate( dict *d, dict_handler *h, void *args );
+// handler can return true to break loop
+int dict_iterate( dict *d, dict_handler *h, void *args );
 
 #endif

@@ -43,6 +43,7 @@ struct slot {
     size_t  count;
     uint8_t ideal_height;
     uint8_t rebuild;
+    uint8_t patho;
 };
 
 struct node {

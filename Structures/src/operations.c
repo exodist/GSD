@@ -1,5 +1,6 @@
 #include "string.h"
 #include "unistd.h"
+#include "stdio.h"
 
 #include "operations.h"
 #include "structure.h"
@@ -17,6 +18,8 @@ rstat op_get( dict *d, void *key, void **val ) {
         }
         else {
             *val = loc->sref->value;
+            if ( d->methods->ref )
+                d->methods->ref( d, loc->set->settings->meta, *val, 1 );
         }
     }
 
@@ -138,37 +141,41 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
             if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
             if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
 
-            // If there is a value already, cand we can't override, transaction
+            // If there is a value already, and we can't override, transaction
             // cannot occur.
             if ( loc->sref->value != NULL && !override )
                 return rstat_trans;
 
+            if ( d->methods->ref && val )
+                d->methods->ref( d, loc->set->settings->meta, val, 1 );
+
             int success = 0;
-            if ( old_val == NULL ) {
+            void *ov = old_val;
+            if ( ov == NULL ) {
                 // Replace the current value, use an atomic swap to ensure we
                 // update the ref count of the value we remove.
                 while ( !success ) {
-                    old_val = loc->sref->value;
-                    success = __sync_bool_compare_and_swap( &(loc->sref->value), old_val, val );
+                    ov = loc->sref->value;
+                    success = __sync_bool_compare_and_swap( &(loc->sref->value), ov, val );
                 }
             }
             else {
                 // If we have 'old_val' it means we only want to place the new
                 // value if the old_value is what we expect
                 success = __sync_bool_compare_and_swap( &(loc->sref->value), old_val, val );
-                if ( !success ) return rstat_trans;
+                if ( !success ) {
+                    if ( d->methods->ref && val )
+                        dispose( d, loc->epoch, loc->set->settings->meta, ov, REF );
+
+                    return rstat_trans;
+                }
             }
 
             if ( d->methods->change )
-                d->methods->change( d, loc->set->settings->meta, key, old_val, val );
+                d->methods->change( d, loc->set->settings->meta, key, ov, val );
 
-            if ( d->methods->ref ) {
-                if ( val && val != RBLD )
-                    d->methods->ref( d, loc->set->settings->meta, val, 1 );
-
-                if ( old_val && old_val != RBLD )
-                    d->methods->ref( d, loc->set->settings->meta, old_val, -1 );
-            }
+            if ( d->methods->ref && ov )
+                dispose( d, loc->epoch, loc->set->settings->meta, ov, REF );
 
             return rstat_ok;
         }
@@ -279,6 +286,11 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
             continue;
         }
 
+        if ( loc->parent == RBLD ) {
+            sleep( 0 );
+            continue;
+        }
+
         // We didn't find an existing node, but we did find the nearest parent.
         node **branch = NULL;
         if ( loc->node == NULL && loc->parent != NULL ) {
@@ -320,27 +332,35 @@ rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int cr
                 size_t  height  = loc->height + 1;
                 uint8_t max_imb = loc->set->settings->max_imbalance;
 
-                // Check if we are balanced with our neighbors
-                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->settings->slot_count];
-                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->settings->slot_count];
-                if (( n1 == NULL && ideal > max_imb ) || ( n1 && ideal > max_imb + n1->ideal_height ))
-                    return rstat_patho;
-                if (( n2 == NULL && ideal > max_imb ) || ( n2 && ideal > max_imb + n2->ideal_height ))
-                    return rstat_patho;
-
+                if ( loc->slot->patho ) {
+                    return rstat_ok;
+                }
                 // Check if we have an internal imbalance
                 if ( height > ideal + max_imb && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
                     rstat ret = rebalance( d, loc );
-                    loc->slot->rebuild = 0;
+                    __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
 
-                    if ( ret.num == rstat_patho.num )
-                        return ret;
+                    if ( loc->slot->patho ) {
+                        return rstat_patho;
+                    }
 
                     if ( ret.num ) {
                         ret.bit.fail = 0;
                         ret.bit.rebal = 1;
                         return ret;
                     }
+                }
+
+                //// Check if we are balanced with our neighbors
+                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->settings->slot_count];
+                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->settings->slot_count];
+                if (( n1 == NULL && ideal > 50 ) || ( n1 && ideal > 50 + n1->ideal_height )) {
+                    printf( "\nPatho: %zi+\n", loc->slotn );
+                    return rstat_patho;
+                }
+                if (( n2 == NULL && ideal > 50 ) || ( n2 && ideal > 50 + n2->ideal_height )) {
+                    printf( "\nPatho: %zi-\n", loc->slotn );
+                    return rstat_patho;
                 }
 
                 return rstat_ok;
@@ -369,6 +389,9 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
 
     // Swap old sref with new sref, skip if sref has changed already
     __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap );
+
+    if ( d->methods->change )
+        d->methods->change( d, loc->set->settings->meta, key, r->value, swap ? swap->value : NULL );
 
     // Lower ref count of old sref, dispose of sref if count hits 0
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );

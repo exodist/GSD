@@ -42,7 +42,7 @@ typedef union {
         // Category or type of error
         enum {
             DICT_NO_ERROR = 0,
-            DICT_PATHOLOGICAL,
+            DICT_PATHOLOGICAL = 1,
             DICT_OUT_OF_MEMORY,
             DICT_API_MISUSE,
             DICT_UNIMPLEMENTED,
@@ -54,6 +54,6 @@ typedef union {
     } bit;
 } dict_stat;
 
-char *dict_stat_message( dict_stat *s );
+char *dict_stat_message( dict_stat s );
 
 #endif

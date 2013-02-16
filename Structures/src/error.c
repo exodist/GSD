@@ -20,13 +20,13 @@ char *error_messages[MESSAGE_COUNT] = {
     /* 11 */ "NULL can not be used as the 'old value' in compare and swap"
 };
 
-char *dict_stat_message( dict_stat *s ) {
+char *dict_stat_message( dict_stat s ) {
     return error_message( s );
 }
 
-char *error_message( rstat *s ) {
-    assert( s->bit.message_idx < MESSAGE_COUNT );
-    return error_messages[s->bit.message_idx];
+char *error_message( rstat s ) {
+    assert( s.bit.message_idx < MESSAGE_COUNT );
+    return error_messages[s.bit.message_idx];
 }
 
 rstat error( uint8_t fail, uint8_t rebal, uint8_t cat, uint8_t midx ) {

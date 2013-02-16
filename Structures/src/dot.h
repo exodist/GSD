@@ -69,7 +69,7 @@ rstat dot_print_slot_level( dot *d, char *format, ... );
 rstat dot_print_refs( dot *d, char *format, ... );
 
 rstat dump_dot_epochs( dict *d, dot *dd );
-rstat dump_dot_slots( dict *d, dot *dd );
+rstat dump_dot_slots( set *s, dot *dd );
 char *dump_dot_merge( dot *dd );
 
 int dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 );

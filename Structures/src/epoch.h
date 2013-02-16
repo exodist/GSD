@@ -15,6 +15,7 @@
 
 typedef struct dict  dict;
 
+typedef struct trash trash;
 typedef struct epoch epoch;
 struct epoch {
     /*\
@@ -23,12 +24,17 @@ struct epoch {
      * epoch count of >1 means active
     \*/
     size_t active;
-    void  *garbage;
-    void  *meta;
-    enum  { SET, SLOT, NODE, SREF } gtype;
+    trash  *trash;
 
     epoch *dep;
     epoch *next;
+};
+
+struct trash {
+    void *meta;
+    void *ptr;
+    enum { SET, SLOT, NODE, SREF, REF } gtype;
+    trash *next;
 };
 
 epoch *create_epoch();

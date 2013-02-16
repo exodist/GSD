@@ -10,7 +10,7 @@ typedef dict_stat rstat;
 
 extern char *error_messages[];
 
-char *error_message( dict_stat *s );
+char *error_message( dict_stat s );
 rstat error( uint8_t fail, uint8_t rebal, uint8_t cat, uint8_t midx );
 
 extern rstat rstat_ok;

@@ -11,6 +11,7 @@ const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
 rstat rebalance( dict *d, location *loc ) {
+    return rstat_ok;
     // Attempt to create rebalance slot, or return
     slot *ns = malloc( sizeof( slot ));
     if ( ns == NULL ) return rstat_mem;
@@ -90,7 +91,7 @@ rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
     }
 
     if ( height > ideal + st->settings->max_imbalance )
-        return rstat_patho;
+        s->patho = 1;
 
     node *new_node = malloc( sizeof( node ));
     if ( new_node == NULL ) return rstat_mem;

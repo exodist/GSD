@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "structure.h"
 #include "node_list.h"
 #include "dot.h"
 #include "alloc.h"
+#include "balance.h"
 
 node NODE_SEP  = { 0 };
 // Used for 'refs' mapping
@@ -45,8 +47,8 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     dd.nl = nlist_create();
     if ( dd.nl == NULL ) goto DO_DUMP_DOT_CLEANUP;
 
+    //if( dump_dot_slots( s, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
     if( dump_dot_epochs( d, &dd ).num) goto DO_DUMP_DOT_CLEANUP;
-    if( dump_dot_slots( d, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
 
     out = dump_dot_merge( &dd );
 
@@ -111,8 +113,21 @@ rstat dot_print_refs( dot *d, char *format, ... ) {
 
 rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args ) {
     // Get the new content
+    //char *tmp = NULL;
+    //size_t add_length = 0;
+    //size_t bsize = 0;
+    //while ( add_length == 0 || add_length >= bsize - 1 ) {
+    //    bsize += DOT_BUFFER_INC;
+    //    if ( tmp != NULL ) free( tmp );
+    //    tmp = malloc( bsize );
+    //    memset( tmp, 0, bsize );
+    //    if ( tmp == NULL ) return rstat_mem;
+    //    add_length = vsnprintf( tmp, bsize, format, args );
+    //}
     char tmp[DOT_BUFFER_INC];
     int add_length = vsnprintf( tmp, DOT_BUFFER_INC, format, args );
+    if ( add_length >= DOT_BUFFER_INC - 1 )
+        return rstat_mem;
 
     size_t req = *length + add_length + 1;
     if ( *size < req ) {
@@ -208,9 +223,11 @@ rstat dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
 }
 
 rstat dump_dot_slots_node( dot *dd, node *n ) {
+    assert( n != RBLD );
     rstat ret;
 
-    sref *sr = n->usref->sref;
+    usref *ur = n->usref;
+    sref *sr = ur->sref;
     size_t ref_count = sr ? sr->refcount : 0;
 
     //if ( ref_count > 1 ) {
@@ -232,6 +249,10 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     ret = dot_print_node_level( dd, "\"%p\" ", n );
     if ( ret.num ) return ret;
 
+    if ( n->usref->sref ) {
+        assert( n->usref->sref->value != n );
+        char *x = n->usref->sref->value;
+    }
     // print node with name
     char *name = dd->decode(
         n->key,
@@ -249,7 +270,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     if ( ret.num ) return ret;
 
     // print node to right
-    if ( n->right ) {
+    if ( n->right && n->right != RBLD ) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->right );
         if ( ret.num ) return ret;
 
@@ -258,7 +279,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     }
 
     // print node to left
-    if ( n->left ) {
+    if ( n->left && n->left != RBLD ) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->left );
         if ( ret.num ) return ret;
 
@@ -308,7 +329,6 @@ rstat dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
                 if ( ret.num ) return ret;
             }
         }
-        // Real node
         else {
             ret = dump_dot_slots_node( dd, n );
             if ( ret.num ) return ret;
@@ -320,9 +340,7 @@ rstat dump_dot_slots_nodes( dot *dd, slot *sl, size_t id ) {
     return dot_print_nodes( dd, "}\n" );
 }
 
-rstat dump_dot_slots( dict *d, dot *dd ) {
-    set *s = d->set;
-
+rstat dump_dot_slots( set *s, dot *dd ) {
     rstat ret = rstat_ok;
     dd->null_counter = 1;
     dd->ref_tracker = dump_dot_create_refs();
@@ -335,7 +353,8 @@ rstat dump_dot_slots( dict *d, dot *dd ) {
     for ( size_t i = 0; i < s->settings->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
-
+        if ( sl->root == RBLD ) continue;
+        
         ret = dump_dot_slots_slot( dd, sl, i, previous );
         if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
@@ -377,19 +396,19 @@ char *dump_dot_merge( dot *dd ) {
                    "        graph [style=solid,color=grey]\n"
                    "%s\n"
                    "    }\n"
-                   "    subgraph cluster_slots {\n"
-                   "        graph [style=solid,color=grey]\n"
-                   "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
-                   "        edge [color=yellow,arrowhead=none]\n"
-                   "%s\n"
-                   "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
-                   "        edge [color=yellow,arrowhead=none]\n"
-                   "%s\n"
-                   "%s\n"
-                   "%s\n"
-                   "    }\n"
-                   "    edge [constraint=none,dir=none,arrowhead=none,style=dotted,color=green]\n"
-                   "%s\n"
+                   //"    subgraph cluster_slots {\n"
+                   //"        graph [style=solid,color=grey]\n"
+                   //"        node [color=green,fontcolor=cyan,shape=rectangle]\n"
+                   //"        edge [color=yellow,arrowhead=none]\n"
+                   //"%s\n"
+                   //"        node [color=green,fontcolor=cyan,shape=rectangle]\n"
+                   //"        edge [color=yellow,arrowhead=none]\n"
+                   //"%s\n"
+                   //"%s\n"
+                   //"%s\n"
+                   //"    }\n"
+                   //"    edge [constraint=none,dir=none,arrowhead=none,style=dotted,color=green]\n"
+                   //"%s\n"
                    "}\n";
 
     size_t size = strlen( format )
@@ -403,7 +422,14 @@ char *dump_dot_merge( dot *dd ) {
     char *out = malloc( size );
     if ( out == NULL ) return NULL;
 
-    snprintf( out, size, format, dd->epochs, dd->nodes, dd->slots, dd->node_level, dd->slot_level, dd->refs );
+    snprintf( out, size, format,
+        dd->epochs
+        //dd->nodes,
+        //dd->slots,
+        //dd->node_level,
+        //dd->slot_level,
+        //dd->refs
+    );
 
     return out;
 }

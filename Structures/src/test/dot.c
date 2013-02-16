@@ -59,7 +59,10 @@ int main() {
         x %= 4000;
 
         if ( x < 0 ) x *= -1;
-        dict_set( d, &k[x], &v );
+        dict_stat s = dict_set( d, &k[x], &v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+        }
         int64_t *g = NULL;
         dict_get( d, &k[x], (void **)&g );
         assert( g == &v );

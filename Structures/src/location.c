@@ -29,7 +29,12 @@ rstat locate_key( dict *d, void *key, location **locate ) {
 
     // The set has been swapped start over.
     if ( lc->set != NULL && lc->set != d->set ) {
-        memset( lc, 0, sizeof( location ));
+        lc->set     = NULL;
+        lc->slot    = NULL;
+        lc->parent  = NULL;
+        lc->node    = NULL;
+        lc->usref   = NULL;
+        lc->sref    = NULL;
     }
 
     if ( lc->set == NULL ) {
@@ -44,10 +49,10 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     // If the slot has been swapped use the new one (resets decendant values)
     if ( lc->slot != NULL && lc->slot != lc->set->slots[lc->slotn] ) {
         lc->slot    = NULL;
-        lc->parent = NULL;
-        lc->node  = NULL;
-        lc->usref  = NULL;
-        lc->sref   = NULL;
+        lc->parent  = NULL;
+        lc->node    = NULL;
+        lc->usref   = NULL;
+        lc->sref    = NULL;
     }
 
     if ( lc->slot == NULL ) {

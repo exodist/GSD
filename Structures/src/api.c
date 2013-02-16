@@ -69,7 +69,7 @@ rstat dict_dereference( dict *d, void *key ) {
     return op_dereference( d, key );
 }
 
-rstat dict_iterate( dict *d, dict_handler *h, void *args ) {
-    return dict_iterate( d, h, args );
+int dict_iterate( dict *d, dict_handler *h, void *args ) {
+    return iterate( d, h, args );
 }
 

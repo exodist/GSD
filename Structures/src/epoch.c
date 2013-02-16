@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <string.h>
+#include <assert.h>
 
 #include "structure.h"
 #include "epoch.h"
@@ -17,7 +18,12 @@ void dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
     epoch *end = e;
 
     while ( 1 ) {
-        while( end->dep != NULL ) end = end->dep;
+        size_t counter = 0;
+        while( end->dep != NULL ) {
+            end = end->dep;
+            // Check for cycles
+            assert( counter++ < 2 + d->epoch_count );
+        }
 
         // Claim the garbage slot, or try again
         if (!__sync_bool_compare_and_swap( &(end->garbage), NULL, garbage )) {
@@ -29,11 +35,11 @@ void dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
         end->meta  = meta;
 
         // Find the first free epoch
-        epoch *new = d->epochs;
-        while ( new->active ) {
+        epoch *ready = d->epochs;
+        while ( ready->active ) {
             // if there is a next epoch, iterate to it
-            if ( new->next != NULL ) {
-                new = new->next;
+            if ( ready->next != NULL ) {
+                ready = ready->next;
                 continue;
             }
 
@@ -41,19 +47,27 @@ void dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
             if ( d->epoch_count < d->epoch_limit || !d->epoch_limit ) {
                 epoch *make = create_epoch();
                 if ( make != NULL ) {
-                    new->next = make;
-                    new = make;
+                    ready->next = make;
+                    ready = make;
+                    assert(
+                        __sync_bool_compare_and_swap(
+                            &(d->epoch_count),
+                            d->epoch_count,
+                            d->epoch_count + 1
+                        )
+                    );
+
                     break;
                 }
             }
 
             // Can't create a new epoch, start search over
-            new = d->epochs;
+            ready = d->epochs;
         }
 
-        end->dep = new;
-        new->active = 2;
-        __sync_bool_compare_and_swap( &(d->epoch), end, new );
+        ready->active = 2;
+        assert( __sync_bool_compare_and_swap( &(end->dep), NULL, ready ));
+        assert( __sync_bool_compare_and_swap( &(d->epoch), end, ready ));
         return;
     }
 }
@@ -119,6 +133,9 @@ void leave_epoch( dict *d, epoch *e ) {
                 break;
                 case SREF:
                     free_sref( d, e->meta, garb );
+                break;
+                case REF:
+                    d->methods->ref( d, e->meta, garb, -1 );
                 break;
             }
         }
