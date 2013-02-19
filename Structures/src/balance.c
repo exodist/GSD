@@ -11,50 +11,74 @@ const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
 rstat rebalance( dict *d, location *loc ) {
-    return rstat_ok;
-    // Attempt to create rebalance slot, or return
-    slot *ns = malloc( sizeof( slot ));
-    if ( ns == NULL ) return rstat_mem;
-    memset( ns, 0, sizeof( slot ));
+    if( !__sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 ))
+        return rstat_ok;
+
+    rstat out = rstat_ok;
 
     // Create balance_pair array
     size_t size = loc->slot->count + 100;
     node **all = malloc( sizeof( node * ) * size );
     if ( all == NULL ) {
-        free( ns );
-        return rstat_mem;
-    }
+        out = rstat_mem;
+        goto REBALANCE_CLEANUP;
+    };
     memset( all, 0, size * sizeof( node * ));
 
     // Iterate nodes, add to array, block new branches
-    size_t count = rebalance_node( loc->slot->root, &all, &size, 0 );
-    if ( count == 0 ) return rstat_mem;
+    size_t count = rebalance_add_node( loc->slot->root, &all, &size, 0 );
+    if ( count == 0 ) {
+        out = rstat_mem;
+        goto REBALANCE_CLEANUP;
+    }
     ns->count = count;
+
+    slot *ns = NULL;
 
     // insert nodes
     size_t ideal = max_bit( count );
-    rstat ret = rebalance_insert_list( d, loc->set, ns, all, 0, count - 1, ideal );
+    out = rebalance_insert_list( d, loc->set, &ns, all, 0, count - 1, ideal );
+    free( all );
+
+    if ( out.bit.error && ns )
+        goto REBALANCE_CLEANUP;
 
     // swap
-    if (!ret.bit.error && __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), loc->slot, ns )) {
-        dispose( d, loc->epoch, loc->set->settings->meta, loc->slot, SLOT );
-    }
-    else {
-        free_slot( d, loc->set->settings->meta, ns );
+    slot *old_slot = loc->slot;
+    int success = __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), old_slot, ns );
+
+    if ( success ) {
+        dispose( d, loc->epoch, (trash *)old_slot ); 
+        return rstat_ok;
     }
 
-    free( all );
-    return ret;
+    REBALANCE_CLEANUP:
+    rebalance_unblock( loc->slot->root );
+    if ( ns )  dispose( d, loc->epoch, (trash *)ns ); 
+    if ( all ) free( all );
+    __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
+    return out;
 }
 
-size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
+void rebalance_unblock( node *n ) {
+    __sync_bool_compare_and_swap( &(n->right), RBLD, NULL );
+    if ( n->right != NULL ) rebalance_unblock( n->right );
 
+    __sync_bool_compare_and_swap( &(n->usref->sref), RBLD, NULL );
+
+    __sync_bool_compare_and_swap( &(n->left), RBLD, NULL );
+    if ( n->left != NULL ) rebalance_unblock( n->left );
+}
+
+size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
     // If right is NULL we block it off with RBLD, otherwise recurse
     __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
-    if ( n->right != RBLD ) count = rebalance_node( n->right, all, size, count );
+    if ( n->right != RBLD ) count = rebalance_add_node( n->right, all, size, count );
 
+    // Mark a node with no sref as rebuild
     __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
 
+    // If this node has an sref, add to the list.
     if ( n->usref->sref != RBLD ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
@@ -68,57 +92,61 @@ size_t rebalance_node( node *n, node ***all, size_t *size, size_t count ) {
 
     // If left is NULL we block it off with RBLD, otherwise recurse
     __sync_bool_compare_and_swap( &(n->left), NULL, RBLD );
-    if ( n->left != RBLD ) count = rebalance_node( n->left, all, size, count );
+    if ( n->left != RBLD ) count = rebalance_add_node( n->left, all, size, count );
 
     return count;
 }
 
-rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal ) {
-    size_t height = 0;
-    node **put_here = &(s->root);
-    while ( *put_here != NULL ) {
-        height++;
-        int dir = d->methods->cmp( st->settings->meta, n->key, (*put_here)->key );
-        if ( dir == -1 ) { // Left
-            put_here = &((*put_here)->left);
-        }
-        else if ( dir == 1 ) { // Right
-            put_here = &((*put_here)->right);
-        }
-        else {
-            return error( 1, 0, DICT_API_MISUSE, 10 );
-        }
+rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
+    // Copy the key, xtrn structs are not refcounted, they go away with their
+    // container, so for node cloning the xtrn must also be cloned.
+    xtrn *key = create_xtrn( d, n->key->value );
+    if ( !key ) return rstat_mem;
+
+    node *new_node = create_node( key, n->usref );
+    if ( !new_node ) {
+        free_xtrn( key );
+        return rstat_mem;
     }
 
-    if ( height > ideal + st->settings->max_imbalance )
-        s->patho = 1;
-
-    node *new_node = malloc( sizeof( node ));
-    if ( new_node == NULL ) return rstat_mem;
-    memset( new_node, 0, sizeof( node ));
-
-    int success = 0;
-    while ( !success ) {
-        size_t c = n->usref->refcount;
-        if ( c < 1 ) break;
-        success = __sync_bool_compare_and_swap( &(n->usref->refcount), c, c + 1 );
-    }
-    if ( n->usref->sref == NULL || n->usref->sref->refcount < 1 ) {
-        free( new_node );
+    // If this is the root node, create the slot with the new node as root.
+    if ( *s == NULL ) {
+        *s = create_slot( new_node );
+        if ( *s == NULL ) {
+            free_node( new_node );
+            return rstat_mem;
+        }
         return rstat_ok;
     }
 
-    if ( d->methods->ref )
-        d->methods->ref( d, st->settings->meta, n->key, 1 );
+    location *loc = NULL;
+    rstat stat = locate_from_node( d, key->value, &loc, (*s)->root );
+    if ( stat.bit.error || !loc ) {
+        if ( loc ) free_location( d, loc );
+        free_node( new_node );
+        return stat;
+    }
+    if ( !loc->parent || !loc->dir ) {
+        free_location( d, loc );
+        free_node( new_node );
+        return error( 1, 0, DICT_UNKNOWN, 4 );
+    }
 
-    new_node->key   = n->key;
-    new_node->usref = n->usref;
+    if ( dir == -1 ) {
+        loc->parent->left = new_node;
+    }
+    else if ( dir == 1 ) {
+        loc->parent->right = new_node;
+    }
 
-    *put_here = new_node;
+    if ( loc->height > ( ideal + st->settings->max_imbalance ))
+        (*s)->patho = 1;
+
+    free_location( d, loc );
     return rstat_ok;
 }
 
-rstat rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal ) {
+rstat rebalance_insert_list( dict *d, set *st, slot **s, node **all, size_t start, size_t end, size_t ideal ) {
     if ( start == end ) return rebalance_insert( d, st, s, all[start], ideal );
 
     size_t total = end - start;
@@ -135,5 +163,60 @@ rstat rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start
     if ( center == end ) return res;
     res = rebalance_insert_list( d, st, s, all, center + 1, end, ideal );
     return res;
+}
+
+rstat balance_check( dict *d, location *loc, size_t count ) {
+    // If the data is known-pathological, don't bother trying to balance it.
+    if ( loc->slot->patho ) return rstat_patho;
+
+    // Find ideal height
+    uint8_t ideal = max_bit( count );
+
+    // Update the ideal height in the slot.
+    uint8_t old_ideal = loc->slot->ideal_height;
+    while ( ideal > old_ideal && count >= loc->slot->count ) {
+        if( !__sync_bool_compare_and_swap( &(loc->slot->ideal_height), old_ideal, ideal ))
+            old_ideal = loc->slot->ideal_height;
+    }
+
+    size_t  height  = loc->height;
+    uint8_t max_imb = loc->set->settings->max_imbalance;
+
+    // Check if we have an internal imbalance
+    if ( height > (ideal + max_imb) && !loc->slot->rebuild ) {
+        rstat ret = rebalance( d, loc );
+        __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
+
+        if ( ret.bit.error ) {
+            ret.bit.fail  = 0;
+            ret.bit.rebal = 1;
+            return ret;
+        }
+
+        if ( loc->slot->patho ) return rstat_patho;
+    }
+
+    // Check if we are balanced with our neighbors
+    size_t us = loc->slotn;
+    size_t left  = (us - 1) % loc->set->settings->slot_count;
+    size_t right = (us + 1) % loc->set->settings->slot_count;
+    size_t neighbors[2] = { left, right };
+
+    for ( size_t ni; ni < 2; ni++ ) {
+        if ( ni == us ) continue;
+
+        slot *ns = loc->set->slots[ni];
+
+        size_t n_ideal = ns ? ns->ideal_height : 0;
+        if ( ideal > (n_ideal + ( max_imb * 10 ))) {
+            // Do not set slot->patho, this form of pathological simply means
+            // excess nodes are joining this slot, balancing the slot may still
+            // be helpful.
+            // loc->slot->patho = 1;
+            return rstat_patho;
+        }
+    }
+
+    return rstat_ok;
 }
 

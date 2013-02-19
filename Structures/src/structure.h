@@ -14,13 +14,20 @@
 #include "include/gsd_dict.h"
 #include "error.h"
 
+typedef struct trash trash;
 typedef struct dict  dict;
 typedef struct set   set;
 typedef struct slot  slot;
+typedef struct xtrn  xtrn;
 typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
 typedef struct sref  sref;
+
+struct trash {
+    trash *next;
+    enum { OOPS = 0, SET, SLOT, NODE, SREF, XTRN } type;
+};
 
 struct dict {
     set *set;
@@ -34,11 +41,14 @@ struct dict {
 };
 
 struct set {
+    trash  trash;
     slot **slots;
     dict_settings *settings;
+    uint8_t rebuild;
 };
 
 struct slot {
+    trash   trash;
     node   *root;
     size_t  count;
     uint8_t ideal_height;
@@ -46,10 +56,16 @@ struct slot {
     uint8_t patho;
 };
 
+struct xtrn {
+    trash trash;
+    void *value;
+};
+
 struct node {
+    trash trash;
     node  *left;
     node  *right;
-    void  *key;
+    xtrn  *key;
     usref *usref;
 };
 
@@ -59,8 +75,9 @@ struct usref {
 };
 
 struct sref {
+    trash   trash;
     size_t  refcount;
-    void   *value;
+    xtrn   *xtrn;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

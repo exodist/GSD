@@ -17,7 +17,7 @@ rstat op_get( dict *d, void *key, void **val ) {
             *val = NULL;
         }
         else {
-            *val = loc->sref->value;
+            *val = loc->sref->xtrn->value;
             if ( d->methods->ref )
                 d->methods->ref( d, loc->set->settings->meta, *val, 1 );
         }
@@ -31,16 +31,20 @@ rstat op_get( dict *d, void *key, void **val ) {
 
 rstat op_set( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    rstat err = do_set( d, key, NULL, val, 1, 1, &locator );
+    set_spec sp = { 1, 1, NULL };    
+    rstat err = do_set( d, &locator, key, val, &sp );
+
     if ( locator != NULL ) {
         free_location( d, locator );
     }
     return err;
 }
 
+
 rstat op_insert( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    rstat err = do_set( d, key, NULL, val, 0, 1, &locator );
+    set_spec sp = { 1, 0, NULL };    
+    rstat err = do_set( d, &locator, key, val, &sp );
     if ( locator != NULL ) {
         free_location( d, locator );
     }
@@ -49,14 +53,16 @@ rstat op_insert( dict *d, void *key, void *val ) {
 
 rstat op_update( dict *d, void *key, void *val ) {
     location *locator = NULL;
-    rstat err = do_set( d, key, NULL, val, 1, 0, &locator );
+    set_spec sp = { 0, 1, NULL };    
+    rstat err = do_set( d, &locator, key, val, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_delete( dict *d, void *key ) {
     location *locator = NULL;
-    rstat err = do_set( d, key, NULL, NULL, 1, 0, &locator );
+    set_spec sp = { 0, 1, NULL };    
+    rstat err = do_set( d, &locator, key, NULL, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
@@ -64,14 +70,16 @@ rstat op_delete( dict *d, void *key ) {
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
     if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, 11 );
     location *locator = NULL;
-    rstat err = do_set( d, key, old_val, new_val, 1, 0, &locator );
+    set_spec sp = { 0, 1, old_val };    
+    rstat err = do_set( d, &locator, key, new_val, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
     location *locator = NULL;
-    rstat err = do_set( d, key, old_val, NULL, 1, 0, &locator );
+    set_spec sp = { 0, 1, old_val };
+    rstat err = do_set( d, &locator, key, NULL, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
@@ -80,10 +88,12 @@ rstat op_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
     location *oloc = NULL;
     location *dloc = NULL;
 
+    set_spec sp = { 1, 0, NULL };
+
     // Find item in orig, insert if necessary
-    rstat err1 = do_set( orig, okey, NULL, NULL, 0, 1, &oloc );
+    rstat err1 = do_set( orig, &oloc, okey, NULL, &sp );
     // Find item in dest, insert if necessary
-    rstat err2 = do_set( dest, dkey, NULL, NULL, 0, 1, &dloc );
+    rstat err2 = do_set( dest, &dloc, dkey, NULL, &sp );
     rstat ret = rstat_ok;
 
     // Ignore rebalance errors.. might want to readdress this.
@@ -117,260 +127,6 @@ rstat op_dereference( dict *d, void *key ) {
     return err;
 }
 
-rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator ) {
-    // If these get created we want to hold on to them until the last iteration
-    // in case they are needed instead of building them each loop.
-    // As such they need to be freed anywhere that returns without referencing
-    // them anywhere.
-    node *new_node = NULL;
-    sref *new_sref = NULL;
-    location *loc;
-
-    while( 1 ) {
-        rstat err = locate_key( d, key, locator );
-        if ( err.num ) {
-            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-            return err;
-        }
-        loc = *locator;
-
-        // Existing sref, safe to update even in a rebuild
-        if ( loc->sref != NULL ) {
-            // We will not need new_node or new_sref anymore.
-            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-
-            // If there is a value already, and we can't override, transaction
-            // cannot occur.
-            if ( loc->sref->value != NULL && !override )
-                return rstat_trans;
-
-            if ( d->methods->ref && val )
-                d->methods->ref( d, loc->set->settings->meta, val, 1 );
-
-            int success = 0;
-            void *ov = old_val;
-            if ( ov == NULL ) {
-                // Replace the current value, use an atomic swap to ensure we
-                // update the ref count of the value we remove.
-                while ( !success ) {
-                    ov = loc->sref->value;
-                    success = __sync_bool_compare_and_swap( &(loc->sref->value), ov, val );
-                }
-            }
-            else {
-                // If we have 'old_val' it means we only want to place the new
-                // value if the old_value is what we expect
-                success = __sync_bool_compare_and_swap( &(loc->sref->value), old_val, val );
-                if ( !success ) {
-                    if ( d->methods->ref && val )
-                        dispose( d, loc->epoch, loc->set->settings->meta, ov, REF );
-
-                    return rstat_trans;
-                }
-            }
-
-            if ( d->methods->change )
-                d->methods->change( d, loc->set->settings->meta, key, ov, val );
-
-            if ( d->methods->ref && ov )
-                dispose( d, loc->epoch, loc->set->settings->meta, ov, REF );
-
-            return rstat_ok;
-        }
-
-        // If we have no item, and cannot create, transaction fail.
-        if ( !create ) {
-            if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
-            if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-            return rstat_trans;
-        }
-
-        // We need a new sref
-        if ( new_sref == NULL ) {
-            new_sref = malloc( sizeof( sref ));
-            if ( new_sref == NULL ) return rstat_mem;
-            memset( new_sref, 0, sizeof( sref ));
-            new_sref->value = val;
-            new_sref->refcount = 1;
-
-            if ( d->methods->ref && val && val != RBLD )
-                d->methods->ref( d, loc->set->settings->meta, val, 1 );
-        }
-
-        // Existing derefed node, lets give it the new ref to revive it
-        if ( loc->node != NULL && loc->node != RBLD ) {
-            int success = __sync_bool_compare_and_swap( &(loc->node->usref->sref), NULL, new_sref );
-            if ( success ) {
-                if ( new_node != NULL ) free_node( d, loc->set->settings->meta, new_node );
-                loc->sref = new_sref;
-
-                if ( d->methods->change )
-                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
-
-                return rstat_ok;
-            }
-
-            // Something else undeleted the node, start over
-            if ( loc->node->usref->sref != RBLD )
-                continue;
-        }
-
-        // Node does not exist, we need to create it.
-        if ( new_node == NULL ) {
-            new_node = malloc( sizeof( node ));
-            if ( new_node == NULL ) {
-                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-                return rstat_mem;
-            }
-            memset( new_node, 0, sizeof( node ));
-            new_node->key = key;
-
-            if ( d->methods->ref ) d->methods->ref( d, loc->set->settings->meta, key, 1 );
-
-            new_node->usref = malloc( sizeof( usref ));
-            if ( new_node->usref == NULL ) {
-                if ( new_node != NULL ) free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-                return rstat_mem;
-            }
-            new_node->usref->refcount = 1;
-            new_node->usref->sref = new_sref;
-        }
-
-        // Create slot if necessary
-        if ( loc->slot == NULL ) {
-            // No slot, and no slot number? something fishy!
-            if ( !loc->slotn_set ) {
-                if ( new_node != NULL ) free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-                return error( 1, 0, DICT_UNKNOWN, 4 );
-            }
-
-            slot *new_slot = malloc( sizeof( slot ));
-            if ( new_slot == NULL ) {
-                if ( new_node != NULL ) free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-                return rstat_mem;
-            }
-            memset( new_slot, 0, sizeof( slot ));
-            new_slot->root   = new_node;
-            new_slot->count  = 1;
-            new_slot->rebuild = 0;
-
-            // swap into place
-            int success = __sync_bool_compare_and_swap(
-                &(loc->set->slots[loc->slotn]),
-                NULL,
-                new_slot
-            );
-
-            // If the swap took place we have a new slot, node and ref all in
-            // place, job done.
-            if ( success ) {
-                loc->slot = new_slot;
-                loc->node = new_node;
-                loc->usref = new_node->usref;
-                loc->sref  = new_node->usref->sref;
-
-                if ( d->methods->change )
-                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
-
-                return rstat_ok;
-            }
-
-            // Something else created the slot and set it before we
-            // could, free the slot we built :'( then continue.
-            free( new_slot );
-            continue;
-        }
-
-        if ( loc->parent == RBLD ) {
-            sleep( 0 );
-            continue;
-        }
-
-        // We didn't find an existing node, but we did find the nearest parent.
-        node **branch = NULL;
-        if ( loc->node == NULL && loc->parent != NULL ) {
-            // Find the branch to take
-            int dir = d->methods->cmp( loc->set->settings, key, loc->parent->key );
-            if ( dir == -1 ) { // Left
-                branch = &(loc->parent->left);
-            }
-            else if ( dir == 1 ) { // Right
-                branch = &(loc->parent->right);
-            }
-            else { // This should not be possible.
-                if ( new_node != NULL ) free_node( d, loc->set, new_node );
-                if ( new_sref != NULL ) free_sref( d, loc->set->settings->meta, new_sref );
-                return error( 1, 0, DICT_API_MISUSE, 10 );
-            }
-
-            // If we fail to swap the new node into place, this means another
-            // thread beat us to it..
-            if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
-                size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
-                uint8_t ideal = max_bit( count );
-
-                uint8_t old_ideal = loc->slot->ideal_height;
-                while ( ideal > old_ideal && count >= loc->slot->count ) {
-                    if( !__sync_bool_compare_and_swap( &(loc->slot->ideal_height), old_ideal, ideal ))
-                        old_ideal = loc->slot->ideal_height;
-                }
-
-                loc->node = new_node;
-                loc->usref = new_node->usref;
-                loc->sref  = new_node->usref->sref;
-
-                if ( d->methods->change )
-                    d->methods->change( d, loc->set->settings->meta, key, NULL, val );
-
-                // We add 1 to represent the new node, location does not do it
-                // for us.
-                size_t  height  = loc->height + 1;
-                uint8_t max_imb = loc->set->settings->max_imbalance;
-
-                if ( loc->slot->patho ) {
-                    return rstat_ok;
-                }
-                // Check if we have an internal imbalance
-                if ( height > ideal + max_imb && __sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 )) {
-                    rstat ret = rebalance( d, loc );
-                    __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
-
-                    if ( loc->slot->patho ) {
-                        return rstat_patho;
-                    }
-
-                    if ( ret.num ) {
-                        ret.bit.fail = 0;
-                        ret.bit.rebal = 1;
-                        return ret;
-                    }
-                }
-
-                //// Check if we are balanced with our neighbors
-                slot *n1 = loc->set->slots[(loc->slotn + 1) % loc->set->settings->slot_count];
-                slot *n2 = loc->set->slots[(loc->slotn - 1) % loc->set->settings->slot_count];
-                if (( n1 == NULL && ideal > 50 ) || ( n1 && ideal > 50 + n1->ideal_height )) {
-                    printf( "\nPatho: %zi+\n", loc->slotn );
-                    return rstat_patho;
-                }
-                if (( n2 == NULL && ideal > 50 ) || ( n2 && ideal > 50 + n2->ideal_height )) {
-                    printf( "\nPatho: %zi-\n", loc->slotn );
-                    return rstat_patho;
-                }
-
-                return rstat_ok;
-            }
-
-            while ( loc->slot->rebuild > 0 ) sleep(0);
-        }
-    }
-}
-
 rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
     sref *r = loc->sref;
     if ( r == NULL ) return rstat_trans;
@@ -396,8 +152,254 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
     // Lower ref count of old sref, dispose of sref if count hits 0
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
     if ( count == 0 ) {
-        dispose( d, loc->epoch, loc->set->settings->meta, r, SREF );
+        dispose( d, loc->epoch, r );
     }
 
     return rstat_ok;
 }
+
+rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec ) {
+    void *old_val = NULL;
+    int retry = 0;
+
+    while ( 1 ) {
+        rstat stat = locate_key( d, key, locator );
+        if ( stat.num ) return stat;
+        location *loc = *locator;
+
+        // Check for an existing sref, updating srefs is not blocked by a
+        // rebuild.
+        if ( loc->sref ) {
+            // If we get an sref we either update it, or don't. No need to move
+            // on to other steps. It always returns 0 (do not retry).
+            do_set_sref( d, loc, key, val, spec, &old_val, &stat );
+            break;
+        }
+
+        // Fail transaction if spec does not let us insert
+        if ( !spec->insert ) return rstat_trans
+
+        // Yield if we need to wait for a rebuild. Only check this after the
+        // first try.
+        if ( retry && (loc->slot->rebuild || loc->set->rebuild )) {
+            sleep( 0 );
+            continue;
+        }
+
+        // Check for existing usref
+        if ( loc->usref ) {
+            retry = do_set_usref( d, loc, key, val, spec, &stat );
+            if ( retry ) continue;
+            break;
+        }
+
+        // Check for parent node
+        if ( loc->parent ) {
+            retry = do_set_parent( d, loc, key, val, spec, &stat );
+            if ( retry ) continue;
+            break;
+        }
+
+        assert( loc->slotn_set );
+        retry = do_set_slot( d, loc, key, val, spec, &stat );
+        if ( retry ) continue;
+        break;
+    }
+
+    if ( d->methods->change && !stat.bit.fail) {
+        d->methods->change( d, loc->set->settings->meta, key, old_val, val );
+    }
+
+    return stat;
+}
+
+int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat ) {
+    xtrn *new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN );
+    if ( !new_xtrn ) {
+        *stat = rstat_mem;
+        return 0;
+    }
+
+    // If this an atomic swap set
+    if ( spec->swap_from ) {
+        xtrn *current = loc->sref->xtrn;
+        if ( current->value == spec->swap_from->value ) {
+            if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
+                *old_val = current->value;
+                dispose( d, loc->epoch, (trash *)current );
+                *stat = rstat_ok;
+                return 0;
+            }
+        }
+
+        dispose( d, loc->epoch, (trash *)new_xtrn );
+        *stat = rstat_trans;
+        return 0;
+    }
+
+    while (1) {
+        xtrn *current = loc->sref->xtrn;
+
+        // If it is null we need to be able to insert
+        // If it is not null we need to be able to update
+        if (( !current && !spec->insert ) || ( current && !spec->update )) {
+            dispose( d, loc->epoch, (trash *)new_xtrn );
+            *stat = rstat_trans;
+            return 0;
+        }
+
+        if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
+            if ( d->methods->change ) {
+                d->methods->change(
+                    d, loc->set->settings->meta,
+                    key,
+                    current ? current->value : NULL, val
+                );
+            }
+
+            if ( current ) dispose( d, loc->epoch, (trash *)current );
+            *stat = rstat_ok;
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
+    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF );
+    if( !new_sref ) {
+        *stat = rstat_mem;
+        return 0;
+    }
+
+    if ( __sync_bool_compare_and_swap( &(loc->usref->sref), NULL, new_sref )) {
+        *stat = rstat_ok;
+        return 0;
+    }
+
+    // Something else resurrected the node, tell do_set to try again.
+    dispose( d, loc->epoch, (trash *)new_sref );
+    return 1;
+}
+
+int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
+    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE );
+    if ( new_node == NULL ) {
+        stat = rstat_mem;
+        return 0; //do not try again
+    }
+
+    while ( 1 ) {
+        node **branch = NULL;
+        int dir = d->methods->cmp( loc->set->settings, key, loc->parent->key->value );
+        switch( dir ) {
+            case -1:
+                branch = &(loc->parent->left);
+            break;
+            case 1:
+                branch = &(loc->parent->right);
+            break;
+            case 0:
+                dispose( d, loc->epoch, (trash *)new_node );
+                *stat = error( 1, 0, DICT_UNKNOWN, 12 );
+                return 0;
+            break;
+            default:
+                dispose( d, loc->epoch, (trash *)new_node );
+                *stat = error( 1, 0, DICT_API_MISUSE, 10 );
+                return 0;
+            break;
+        }
+
+        // Insert the new node!
+        if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
+            size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
+            loc->node = new_node;
+            loc->usref = new_usref;
+            loc->sref = new_sref;
+            loc->height++;
+            *stat = balance_check( d, loc, count );
+            return 0;
+        }
+
+        // Prepare to try again...
+        stat = locate_key( d, key, &loc );
+        if ( stat.num ) {
+            dispose( d, loc->epoch, (trash *)new_node );
+            return 0;
+        }
+
+        // Matching node has been inserted :-( all that work for nothing,
+        // retry...
+        if ( loc->node ) {
+            dispose( d, loc->epoch, (trash *)new_node );
+            return 1;
+        }
+    }
+}
+
+int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
+    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT );
+    if ( new_slot == NULL ) {
+        stat = rstat_mem;
+        return 0; //do not try again
+    }
+
+    int success = __sync_bool_compare_and_swap(
+        &(loc->set->slots[loc->slotn]),
+        NULL,
+        new_slot
+    );
+
+    // Slot was created by another thread, we need to start over (retry)
+    if ( !success ) {
+        dispose( d, loc->epoch, (trash *)new_slot );
+        return 1;
+    }
+
+    return 0;
+}
+
+void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type ) {
+    xtrn *new_xtrn = create_xtrn( d, val );
+    if ( !new_xtrn ) {
+        return NULL;
+    }
+    if ( type == CREATE_XTRN ) return new_xtrn;
+
+    sref *new_sref = create_sref( new_xtrn );
+    if( !new_sref ) {
+        dispose( d, e, (trash *)new_xtrn );
+        return NULL;
+    }
+    if ( type == CREATE_SREF ) return new_sref;
+
+    usref *new_usref = create_usref( new_sref );
+    if( !new_usref ) {
+        dispose( d, e, (trash *)new_sref );
+        return NULL;
+    }
+
+    xtrn *new_xtrn_key = create_xtrn( d, key );
+    if ( !new_xtrn_key ) {
+        dispose( d, e, (trash *)new_usref );
+        return NULL;
+    }
+
+    node *new_node = create_node( new_xtrn_key, new_usref );
+    if ( !new_node ) {
+        dispose( d, e, (trash *)new_usref );
+        dispose( d, e, (trash *)new_xtrn_key );
+        return NULL;
+    }
+    if ( type == CREATE_NODE ) return new_node;
+
+    node *new_slot = create_slot( new_node );
+    if ( !new_slot ) {
+        dispose( d, e, (trash *)new_node );
+        return NULL;
+    }
+    return new_slot;
+}
+

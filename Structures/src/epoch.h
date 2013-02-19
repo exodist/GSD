@@ -11,11 +11,12 @@
 #define EPOCH_H
 
 #include <stdlib.h>
+
 #include "error.h"
 
 typedef struct dict  dict;
-
 typedef struct trash trash;
+
 typedef struct epoch epoch;
 struct epoch {
     /*\
@@ -30,15 +31,8 @@ struct epoch {
     epoch *next;
 };
 
-struct trash {
-    void *meta;
-    void *ptr;
-    enum { SET, SLOT, NODE, SREF, REF } gtype;
-    trash *next;
-};
-
 epoch *create_epoch();
-void dispose( dict *d, epoch *e, void *meta, void *garbage, int type );
+void dispose( dict *d, epoch *e, void *garbage );
 epoch *join_epoch( dict *d );
 void leave_epoch( dict *d, epoch *e );
 

@@ -14,61 +14,47 @@ epoch *create_epoch() {
     return new;
 }
 
-void dispose( dict *d, epoch *e, void *meta, void *garbage, int type ) {
-    epoch *end = e;
+void dispose( dict *d, epoch *e, trash *garbage ) {
+    // Add the trash to the pile
+    int success = 0;
+    while ( !success ) {
+        trash *first = e->trash;
+        garbage->next = first;
+        success = __sync_bool_compare_and_swap( &(e->trash), first, garbage );
+    }
 
-    while ( 1 ) {
-        size_t counter = 0;
-        while( end->dep != NULL ) {
-            end = end->dep;
-            // Check for cycles
-            assert( counter++ < 2 + d->epoch_count );
-        }
-
-        // Claim the garbage slot, or try again
-        if (!__sync_bool_compare_and_swap( &(end->garbage), NULL, garbage )) {
-            sleep( 0 );
-            continue;
-        }
-
-        end->gtype = type;
-        end->meta  = meta;
-
-        // Find the first free epoch
-        epoch *ready = d->epochs;
-        while ( ready->active ) {
-            // if there is a next epoch, iterate to it
-            if ( ready->next != NULL ) {
-                ready = ready->next;
-                continue;
+    // Try to find a new epoch and put it in place, unless epoch has already changed
+    if ( !e->dep ) {
+        epoch *last = NULL;
+        epoch *next = e->next;
+        while ( next != NULL && next != e ) {
+            // Start from the beginning if we reach the end, then we will cyle
+            // back to e, at which point we abort.
+            if ( next->next == NULL ) {
+                last = next;
+                next = d->epochs;
             }
-
-            // No next epoch, try to create one
-            if ( d->epoch_count < d->epoch_limit || !d->epoch_limit ) {
-                epoch *make = create_epoch();
-                if ( make != NULL ) {
-                    ready->next = make;
-                    ready = make;
-                    assert(
-                        __sync_bool_compare_and_swap(
-                            &(d->epoch_count),
-                            d->epoch_count,
-                            d->epoch_count + 1
-                        )
-                    );
-
-                    break;
-                }
+            else {
+                next = next->next;
             }
-
-            // Can't create a new epoch, start search over
-            ready = d->epochs;
         }
 
-        ready->active = 2;
-        assert( __sync_bool_compare_and_swap( &(end->dep), NULL, ready ));
-        assert( __sync_bool_compare_and_swap( &(d->epoch), end, ready ));
-        return;
+        if ( next == e && ( d->epoch_count < d->epoch_limit || !d->epoch_limit)) {
+            size_t count = __sync_add_and_fetch( &(d->epoch_count), 1 );
+            if ( count > d->epoch_limit ) return;
+            next = create_epoch();
+            if ( next == NULL ) {
+                count = __sync_sub_and_fetch( &(d->epoch_count), 1 );
+                return;
+            }
+            assert( __sync_bool_compare_and_swap( &(last->next), NULL, next );
+        }
+
+        // Set the next epoch
+        if ( next && next != e && __sync_bool_compare_and_swap( &(e->dep), NULL, next )) {
+            assert( __sync_bool_compare_and_swap( &(next->active), 0, 2 ));
+            assert( __sync_bool_compare_and_swap( &(d->epoch), e, next ));
+        }
     }
 }
 
@@ -104,14 +90,13 @@ void leave_epoch( dict *d, epoch *e ) {
 
     if ( nactive == 1 ) { // we are last, time to clean up.
         // Get references to things that need to be cleaned
-        void *garb = e->garbage;
-        int  gtype = e->gtype;
-        epoch *dep = e->dep;
+        trash *garb = e->trash;
+        epoch *dep  = e->dep;
 
         // This is safe, if nactive is 1 it means no others are active on this
         // epoch, and none will ever join
-        e->garbage = NULL;
-        e->dep = NULL;
+        e->trash = NULL;
+        e->dep   = NULL;
 
         // re-open epoch, including memory barrier
         // We want to be sure the epoch is made available before we free the
@@ -120,25 +105,7 @@ void leave_epoch( dict *d, epoch *e ) {
         __sync_bool_compare_and_swap( &(e->active), 1, 0 );
 
         // Free Garbage
-        if ( garb != NULL ) {
-            switch ( gtype ) {
-                case SET:
-                    free_set( d, garb );
-                break;
-                case SLOT:
-                    free_slot( d, e->meta, garb );
-                break;
-                case NODE:
-                    free_node( d, e->meta, garb );
-                break;
-                case SREF:
-                    free_sref( d, e->meta, garb );
-                break;
-                case REF:
-                    d->methods->ref( d, e->meta, garb, -1 );
-                break;
-            }
-        }
+        if ( garb != NULL ) free_trash( d, garb );
 
         // dec dep
         if ( dep != NULL ) leave_epoch( d, dep );

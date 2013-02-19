@@ -14,6 +14,22 @@
 #include "structure.h"
 #include "error.h"
 
+typedef struct set_spec set_spec;
+typedef enum create_type create_type;
+
+struct set_spec {
+    uint8_t  insert;
+    uint8_t  update;
+    xtrn    *swap_from;
+};
+
+enum create_type {
+    CREATE_XTRN,
+    CREATE_SREF,
+    CREATE_NODE,
+    CREATE_SLOT
+};
+
 rstat op_cmp_delete( dict *d, void *key, void *old_val );
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val );
 rstat op_delete( dict *d, void *key );
@@ -24,9 +40,16 @@ rstat op_reference( dict *orig, void *okey, dict *dest, void *dkey );
 rstat op_set( dict *d, void *key, void *val );
 rstat op_update( dict *d, void *key, void *val );
 
-rstat do_set( dict *d, void *key, void *old_val, void *val, int override, int create, location **locator );
-
 rstat do_deref( dict *d, void *key, location *loc, sref *swap );
+
+rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec );
+
+int do_set_sref(   dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat );
+int do_set_usref(  dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
+int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
+int do_set_slot(   dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
+
+void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type );
 
 #endif
 
