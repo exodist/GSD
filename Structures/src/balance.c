@@ -51,13 +51,13 @@ rstat rebalance( dict *d, location *loc ) {
     int success = __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), old_slot, ns );
 
     if ( success ) {
-        dispose( d, loc->epoch, (trash *)old_slot ); 
+        dispose( d, (trash *)old_slot );
         return rstat_ok;
     }
 
     REBALANCE_CLEANUP:
     rebalance_unblock( loc->slot->root );
-    if ( ns )  dispose( d, loc->epoch, (trash *)ns ); 
+    if ( ns )  dispose( d, (trash *)ns );
     if ( all ) free( all );
     __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
     return out;
@@ -108,7 +108,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
 
     node *new_node = create_node( key, n->usref );
     if ( !new_node ) {
-        free_xtrn( d, key );
+        dispose( d, (trash *)key );
         return rstat_mem;
     }
 
@@ -116,7 +116,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     if ( *s == NULL ) {
         *s = create_slot( new_node );
         if ( *s == NULL ) {
-            free_node( d, new_node );
+            dispose( d, (trash *)new_node );
             return rstat_mem;
         }
         return rstat_ok;
@@ -126,7 +126,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     rstat stat = locate_from_node( d, key->value, &loc, st, (*s)->root );
     if ( stat.bit.error ) {
         if ( loc ) free_location( d, loc );
-        free_node( d, new_node );
+        dispose( d, (trash *)new_node );
         return stat;
     }
     assert( loc );

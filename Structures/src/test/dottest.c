@@ -78,10 +78,10 @@ int main() {
         if ( i % 5 == 0 ) {
             int64_t y = rand() % 8;
             if ( x == y ) { y += 1; }
-            dict_reference( d, &k[x], d, &k[y] );
+            //dict_reference( d, &k[x], d, &k[y] );
         }
         if ( i % 7 == 0 ) {
-            dict_dereference( d, &k[x] );
+            //dict_dereference( d, &k[x] );
         }
     }
 

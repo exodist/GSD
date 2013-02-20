@@ -14,19 +14,23 @@ epoch *create_epoch() {
     return new;
 }
 
-void dispose( dict *d, epoch *e, trash *garbage ) {
+void dispose( dict *d, trash *garbage ) {
     if ( garbage == NULL ) return;
+
+    epoch *e = join_epoch( d );
 
     // Add the trash to the pile
     int success = 0;
+    trash *first = NULL;
     while ( !success ) {
-        trash *first = e->trash;
+        first = e->trash;
         garbage->next = first;
         success = __sync_bool_compare_and_swap( &(e->trash), first, garbage );
     }
 
-    // Try to find a new epoch and put it in place, unless epoch has already changed
-    if ( !e->dep ) {
+    // Try to find a new epoch and put it in place, unless epoch has already
+    // changed, or this is the first and only garbage so far.
+    if ( first && !e->dep ) {
         epoch *last = NULL;
         epoch *next = e->next;
         while ( next != NULL && next != e ) {
@@ -43,11 +47,11 @@ void dispose( dict *d, epoch *e, trash *garbage ) {
 
         if ( next == e && ( d->epoch_count < d->epoch_limit || !d->epoch_limit)) {
             size_t count = __sync_add_and_fetch( &(d->epoch_count), 1 );
-            if ( count > d->epoch_limit ) return;
+            if ( count > d->epoch_limit ) goto CLEANUP;
             next = create_epoch();
             if ( next == NULL ) {
                 count = __sync_sub_and_fetch( &(d->epoch_count), 1 );
-                return;
+                goto CLEANUP;
             }
             assert( __sync_bool_compare_and_swap( &(last->next), NULL, next ));
         }
@@ -58,6 +62,9 @@ void dispose( dict *d, epoch *e, trash *garbage ) {
             assert( __sync_bool_compare_and_swap( &(d->epoch), e, next ));
         }
     }
+
+    CLEANUP:
+    leave_epoch( d, e );
 }
 
 epoch *join_epoch( dict *d ) {

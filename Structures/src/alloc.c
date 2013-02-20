@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "structure.h"
 #include "alloc.h"
@@ -83,6 +84,8 @@ void free_node( dict *d, node *n ) {
         sref *r = n->usref->sref;
         if ( r != NULL && r != RBLD ) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
+            // If refcount is SIZE_MAX we almost certainly have an underflow. 
+            assert( count != SIZE_MAX );
             if( count == 0 ) free_sref( d, r );
         }
 
