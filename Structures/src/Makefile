@@ -23,7 +23,7 @@ libGrindGSDDict.so:
 	ln -sd libGrindGSDDict.so.1.0 libGrindGSDDict.so
 
 grinddottest: libGrindGSDDict.so
-	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dot.c -lGrindGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dottest.c -lGrindGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." valgrind --leak-check=full \
 								 --read-var-info=yes \
 								 --track-origins=yes \

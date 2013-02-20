@@ -47,7 +47,7 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     dd.nl = nlist_create();
     if ( dd.nl == NULL ) goto DO_DUMP_DOT_CLEANUP;
 
-    //if( dump_dot_slots( s, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
+    if( dump_dot_slots( s, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
     if( dump_dot_epochs( d, &dd ).num) goto DO_DUMP_DOT_CLEANUP;
 
     out = dump_dot_merge( &dd );
@@ -392,19 +392,19 @@ char *dump_dot_merge( dot *dd ) {
                    "        graph [style=solid,color=grey]\n"
                    "%s\n"
                    "    }\n"
-                   //"    subgraph cluster_slots {\n"
-                   //"        graph [style=solid,color=grey]\n"
-                   //"        node [color=green,fontcolor=cyan,shape=rectangle]\n"
-                   //"        edge [color=yellow,arrowhead=none]\n"
-                   //"%s\n"
-                   //"        node [color=green,fontcolor=cyan,shape=rectangle]\n"
-                   //"        edge [color=yellow,arrowhead=none]\n"
-                   //"%s\n"
-                   //"%s\n"
-                   //"%s\n"
-                   //"    }\n"
-                   //"    edge [constraint=none,dir=none,arrowhead=none,style=dotted,color=green]\n"
-                   //"%s\n"
+                   "    subgraph cluster_slots {\n"
+                   "        graph [style=solid,color=grey]\n"
+                   "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
+                   "        edge [color=yellow,arrowhead=none]\n"
+                   "%s\n"
+                   "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
+                   "        edge [color=yellow,arrowhead=none]\n"
+                   "%s\n"
+                   "%s\n"
+                   "%s\n"
+                   "    }\n"
+                   "    edge [constraint=none,dir=none,arrowhead=none,style=dotted,color=green]\n"
+                   "%s\n"
                    "}\n";
 
     size_t size = strlen( format )
@@ -419,12 +419,12 @@ char *dump_dot_merge( dot *dd ) {
     if ( out == NULL ) return NULL;
 
     snprintf( out, size, format,
-        dd->epochs
-        //dd->nodes,
-        //dd->slots,
-        //dd->node_level,
-        //dd->slot_level,
-        //dd->refs
+        dd->epochs,
+        dd->nodes,
+        dd->slots,
+        dd->node_level,
+        dd->slot_level,
+        dd->refs
     );
 
     return out;

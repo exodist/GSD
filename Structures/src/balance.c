@@ -101,8 +101,6 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
 }
 
 rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
-    static int x = 0;
-    fprintf( stderr, "%i\n", x++ );
     // Copy the key, xtrn structs are not refcounted, they go away with their
     // container, so for node cloning the xtrn must also be cloned.
     xtrn *key = create_xtrn( d, n->key->value );
