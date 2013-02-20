@@ -20,10 +20,10 @@ extern const void *RBLD;
 
 rstat rebalance( dict *d, location *loc );
 size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count );
-rstat rebalance_insert_list( dict *d, set *st, slot *s, node **all, size_t start, size_t end, size_t ideal );
-rstat rebalance_insert( dict *d, set *st, slot *s, node *n, size_t ideal );
+rstat rebalance_insert_list( dict *d, set *st, slot **s, node **all, size_t start, size_t end, size_t ideal );
+rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal );
 
 rstat balance_check( dict *d, location *loc, size_t count );
 
-void rebalance_unblock( slot *s );
+void rebalance_unblock( node *n );
 #endif

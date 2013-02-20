@@ -32,7 +32,7 @@ struct epoch {
 };
 
 epoch *create_epoch();
-void dispose( dict *d, epoch *e, void *garbage );
+void dispose( dict *d, epoch *e, trash *garbage );
 epoch *join_epoch( dict *d );
 void leave_epoch( dict *d, epoch *e );
 

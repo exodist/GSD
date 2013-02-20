@@ -61,7 +61,11 @@ int main() {
         if ( x < 0 ) x *= -1;
         dict_stat s = dict_set( d, &k[x], &v );
         if ( s.bit.error ) {
-            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            fprintf( stderr,
+                "\nERROR: %i, '%s' at '%s' line %zi\n",
+                s.bit.error, dict_stat_message(s),
+                s.bit.file_name, s.bit.line_number
+            );
         }
         int64_t *g = NULL;
         dict_get( d, &k[x], (void **)&g );
@@ -89,12 +93,7 @@ int main() {
     dict_set( d, &k[0], &v3 );
     dict_reference( d, &k[3905], d, &k[2401] );
 
-    epoch *e = join_epoch( d );
-    sref *sr = malloc( sizeof( sref ));
-    memset( sr, 0, sizeof( sref ));
-    dispose( d, e, NULL, sr, SREF );
     char *dot = dict_dump_dot( d, show );
-    leave_epoch( d, e );
 
     printf( "%s\n", dot );
     free( dot );

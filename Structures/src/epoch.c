@@ -15,6 +15,8 @@ epoch *create_epoch() {
 }
 
 void dispose( dict *d, epoch *e, trash *garbage ) {
+    if ( garbage == NULL ) return;
+
     // Add the trash to the pile
     int success = 0;
     while ( !success ) {
@@ -47,7 +49,7 @@ void dispose( dict *d, epoch *e, trash *garbage ) {
                 count = __sync_sub_and_fetch( &(d->epoch_count), 1 );
                 return;
             }
-            assert( __sync_bool_compare_and_swap( &(last->next), NULL, next );
+            assert( __sync_bool_compare_and_swap( &(last->next), NULL, next ));
         }
 
         // Set the next epoch

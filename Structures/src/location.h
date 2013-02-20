@@ -23,7 +23,7 @@ struct location {
     slot    *slot;
     size_t   height;
     node    *parent;
-    int8_t  *dir;
+    int8_t   dir;
     node    *node;
     usref   *usref;
     sref    *sref;
@@ -32,6 +32,6 @@ struct location {
 location *create_location( dict *d );
 rstat locate_key( dict *d, void *key, location **locate );
 void free_location( dict *d, location *locate );
-rstat locate_from_node( dict *d, void *key, location **locate, node *n );
+rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *n );
 
 #endif

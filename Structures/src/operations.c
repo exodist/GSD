@@ -1,6 +1,7 @@
 #include "string.h"
 #include "unistd.h"
 #include "stdio.h"
+#include "assert.h"
 
 #include "operations.h"
 #include "structure.h"
@@ -13,13 +14,13 @@ rstat op_get( dict *d, void *key, void **val ) {
     rstat err = locate_key( d, key, &loc );
 
     if ( !err.num ) {
-        if ( loc->sref == NULL ) {
+        if ( loc->sref == NULL || loc->sref->xtrn == NULL ) {
             *val = NULL;
         }
         else {
             *val = loc->sref->xtrn->value;
             if ( d->methods->ref )
-                d->methods->ref( d, loc->set->settings->meta, *val, 1 );
+                d->methods->ref( d, *val, 1 );
         }
     }
 
@@ -147,12 +148,12 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
     __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap );
 
     if ( d->methods->change )
-        d->methods->change( d, loc->set->settings->meta, key, r->value, swap ? swap->value : NULL );
+        d->methods->change( d, loc->set->settings->meta, key, r->xtrn->value, swap ? swap->xtrn->value : NULL );
 
     // Lower ref count of old sref, dispose of sref if count hits 0
     size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
     if ( count == 0 ) {
-        dispose( d, loc->epoch, r );
+        dispose( d, loc->epoch, (trash *)r );
     }
 
     return rstat_ok;
@@ -161,9 +162,10 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
 rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec ) {
     void *old_val = NULL;
     int retry = 0;
+    rstat stat = rstat_ok;
 
     while ( 1 ) {
-        rstat stat = locate_key( d, key, locator );
+        stat = locate_key( d, key, locator );
         if ( stat.num ) return stat;
         location *loc = *locator;
 
@@ -177,7 +179,7 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
         }
 
         // Fail transaction if spec does not let us insert
-        if ( !spec->insert ) return rstat_trans
+        if ( !spec->insert ) return rstat_trans;
 
         // Yield if we need to wait for a rebuild. Only check this after the
         // first try.
@@ -206,7 +208,9 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
         break;
     }
 
-    if ( d->methods->change && !stat.bit.fail) {
+    location *loc = *locator;
+
+    if ( loc && d->methods->change && !stat.bit.fail ) {
         d->methods->change( d, loc->set->settings->meta, key, old_val, val );
     }
 
@@ -214,10 +218,14 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 }
 
 int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat ) {
-    xtrn *new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN );
-    if ( !new_xtrn ) {
-        *stat = rstat_mem;
-        return 0;
+    xtrn *new_xtrn = NULL;
+
+    if ( val ) {
+        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN );
+        if ( !new_xtrn ) {
+            *stat = rstat_mem;
+            return 0;
+        }
     }
 
     // If this an atomic swap set
@@ -286,7 +294,7 @@ int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, 
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
     node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE );
     if ( new_node == NULL ) {
-        stat = rstat_mem;
+        *stat = rstat_mem;
         return 0; //do not try again
     }
 
@@ -315,17 +323,17 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
         // Insert the new node!
         if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
             size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
-            loc->node = new_node;
-            loc->usref = new_usref;
-            loc->sref = new_sref;
+            loc->node  = new_node;
+            loc->usref = new_node->usref;
+            loc->sref  = new_node->usref->sref;
             loc->height++;
             *stat = balance_check( d, loc, count );
             return 0;
         }
 
         // Prepare to try again...
-        stat = locate_key( d, key, &loc );
-        if ( stat.num ) {
+        *stat = locate_key( d, key, &loc );
+        if ( stat->num ) {
             dispose( d, loc->epoch, (trash *)new_node );
             return 0;
         }
@@ -342,7 +350,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
     slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT );
     if ( new_slot == NULL ) {
-        stat = rstat_mem;
+        *stat = rstat_mem;
         return 0; //do not try again
     }
 
@@ -362,10 +370,13 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
 }
 
 void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type ) {
-    xtrn *new_xtrn = create_xtrn( d, val );
-    if ( !new_xtrn ) {
-        return NULL;
+    xtrn *new_xtrn = NULL;
+    if ( val || type == CREATE_XTRN ) {
+        assert( val );
+        new_xtrn = create_xtrn( d, val );
+        if ( !new_xtrn ) return NULL;
     }
+
     if ( type == CREATE_XTRN ) return new_xtrn;
 
     sref *new_sref = create_sref( new_xtrn );
@@ -395,7 +406,7 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type )
     }
     if ( type == CREATE_NODE ) return new_node;
 
-    node *new_slot = create_slot( new_node );
+    slot *new_slot = create_slot( new_node );
     if ( !new_slot ) {
         dispose( d, e, (trash *)new_node );
         return NULL;

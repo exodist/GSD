@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "epoch.h"
 #include "structure.h"
@@ -31,7 +32,6 @@ rstat rebalance( dict *d, location *loc ) {
         out = rstat_mem;
         goto REBALANCE_CLEANUP;
     }
-    ns->count = count;
 
     slot *ns = NULL;
 
@@ -39,9 +39,12 @@ rstat rebalance( dict *d, location *loc ) {
     size_t ideal = max_bit( count );
     out = rebalance_insert_list( d, loc->set, &ns, all, 0, count - 1, ideal );
     free( all );
+    all = NULL;
 
-    if ( out.bit.error && ns )
+    if ( out.bit.error )
         goto REBALANCE_CLEANUP;
+
+    ns->count = count;
 
     // swap
     slot *old_slot = loc->slot;
@@ -98,6 +101,8 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
 }
 
 rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
+    static int x = 0;
+    fprintf( stderr, "%i\n", x++ );
     // Copy the key, xtrn structs are not refcounted, they go away with their
     // container, so for node cloning the xtrn must also be cloned.
     xtrn *key = create_xtrn( d, n->key->value );
@@ -105,7 +110,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
 
     node *new_node = create_node( key, n->usref );
     if ( !new_node ) {
-        free_xtrn( key );
+        free_xtrn( d, key );
         return rstat_mem;
     }
 
@@ -113,29 +118,27 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     if ( *s == NULL ) {
         *s = create_slot( new_node );
         if ( *s == NULL ) {
-            free_node( new_node );
+            free_node( d, new_node );
             return rstat_mem;
         }
         return rstat_ok;
     }
 
     location *loc = NULL;
-    rstat stat = locate_from_node( d, key->value, &loc, (*s)->root );
-    if ( stat.bit.error || !loc ) {
+    rstat stat = locate_from_node( d, key->value, &loc, st, (*s)->root );
+    if ( stat.bit.error ) {
         if ( loc ) free_location( d, loc );
-        free_node( new_node );
+        free_node( d, new_node );
         return stat;
     }
-    if ( !loc->parent || !loc->dir ) {
-        free_location( d, loc );
-        free_node( new_node );
-        return error( 1, 0, DICT_UNKNOWN, 4 );
-    }
+    assert( loc );
+    assert( loc->parent );
+    assert( loc->dir );
 
-    if ( dir == -1 ) {
+    if ( loc->dir == -1 ) {
         loc->parent->left = new_node;
     }
-    else if ( dir == 1 ) {
+    else if ( loc->dir == 1 ) {
         loc->parent->right = new_node;
     }
 
@@ -202,10 +205,10 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     size_t right = (us + 1) % loc->set->settings->slot_count;
     size_t neighbors[2] = { left, right };
 
-    for ( size_t ni; ni < 2; ni++ ) {
+    for ( size_t ni = 0; ni < 2; ni++ ) {
         if ( ni == us ) continue;
 
-        slot *ns = loc->set->slots[ni];
+        slot *ns = loc->set->slots[neighbors[ni]];
 
         size_t n_ideal = ns ? ns->ideal_height : 0;
         if ( ideal > (n_ideal + ( max_imb * 10 ))) {

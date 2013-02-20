@@ -1,4 +1,5 @@
 #include <string.h>
+#include <assert.h>
 
 #include "epoch.h"
 #include "structure.h"
@@ -81,20 +82,27 @@ rstat locate_key( dict *d, void *key, location **locate ) {
         }
     }
 
-    return locate_from_node( d, key, locate, lc->parent );
+    return locate_from_node( d, key, locate, lc->set, lc->parent );
 }
 
-rstat locate_from_node( dict *d, void *key, location **locate, node *n ) {
+rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in ) {
     if ( *locate == NULL ) {
         *locate = create_location( d );
         if ( *locate == NULL ) return rstat_mem;
     }
     location *lc = *locate;
 
+    // Assure we have a set.
+    if ( !lc->set ) lc->set = s;
+    assert( lc->set );
+    assert( in );
+    assert( key );
+
     lc->node  = NULL;
     lc->usref = NULL;
     lc->sref  = NULL;
 
+    node *n = in;
     while ( n != NULL && n != RBLD ) {
         int dir = d->methods->cmp( lc->set->settings->meta, key, n->key->value );
         switch( dir ) {
@@ -110,22 +118,23 @@ rstat locate_from_node( dict *d, void *key, location **locate, node *n ) {
                 return rstat_ok;
             break;
             case -1:
+                lc->dir = dir;
+                lc->parent = n;
+                lc->height++;
                 n = n->left;
             break;
             case 1:
+                lc->dir = dir;
+                lc->parent = n;
+                lc->height++;
                 n = n->right;
             break;
             default:
                 return error( 1, 0, DICT_API_MISUSE, 10 );
             break;
         }
-
-        lc->dir = dir;
-        if ( n != NULL ) {
-            lc->parent = n;
-            lc->height++;
-        }
     }
+    assert( lc->parent || lc->node == in );
 
     return rstat_ok;
 }

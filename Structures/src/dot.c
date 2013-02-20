@@ -8,7 +8,7 @@
 #include "alloc.h"
 #include "balance.h"
 
-node NODE_SEP  = { 0 };
+node NODE_SEP = { { 0 }, 0 };
 // Used for 'refs' mapping
 dict_settings dset = { 11, 3, NULL };
 dict_methods dmet = {
@@ -249,20 +249,16 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     ret = dot_print_node_level( dd, "\"%p\" ", n );
     if ( ret.num ) return ret;
 
-    if ( n->usref->sref ) {
-        assert( n->usref->sref->value != n );
-        char *x = n->usref->sref->value;
-    }
     // print node with name
     char *name = dd->decode(
         n->key,
-        n->usref->sref ? n->usref->sref->value : NULL
+        n->usref->sref && n->usref->sref->xtrn ? n->usref->sref->xtrn->value : NULL
     );
 
     char *style = ref_count > 0
         ? ref_count > 1 ? ",peripheries=2"
-                        : sr->value ? ""
-                                    : ",color=red,style=dashed"
+                        : sr->xtrn ? ""
+                                   : ",color=red,style=dashed"
         : ",color=pink,style=dashed";
 
     ret = dot_print_nodes( dd, "\"%p\" [label=\"%s\"%s]\n", n, name, style );

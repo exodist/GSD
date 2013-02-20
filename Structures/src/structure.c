@@ -32,8 +32,8 @@ int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     usref *ur = n->usref;
     sref *sr = ur->sref;
     if ( sr != NULL && sr != RBLD ) {
-        if ( sr->value != NULL ) {
-            stop = h( n->key, sr->value, args );
+        if ( sr->xtrn != NULL && sr->xtrn != RBLD ) {
+            stop = h( n->key->value, sr->xtrn->value, args );
             if ( stop ) return stop;
         }
     }

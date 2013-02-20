@@ -36,6 +36,11 @@ rstat do_free( dict **dr ) {
 void free_trash( dict *d, trash *t ) {
     assert( t->type );
     switch ( t->type ) {
+        // Not reachable, OOPS = 0, will be caught by the assert above. This is
+        // here to silence a warning.
+        case OOPS:
+            return;
+
         case SET:
             free_set( d, (set *)t );
         break;
@@ -84,14 +89,14 @@ void free_node( dict *d, node *n ) {
         free( n->usref );
     }
 
-    free_xtrn( n->key );
+    free_xtrn( d, n->key );
 
     free( n );
 }
 
 void free_sref( dict *d, sref *r ) {
-    if ( r->value && r->value != RBLD )
-        free_xtrn( r->value );
+    if ( r->xtrn && r->xtrn != RBLD )
+        free_xtrn( d, r->xtrn );
 
     free( r );
 }
@@ -164,7 +169,7 @@ set *create_set( dict_settings *settings ) {
 
     memset( out->slots, 0, settings->slot_count * sizeof( slot * ));
 
-    out->trash->type = SET;
+    out->trash.type = SET;
 
     return out;
 }
@@ -175,7 +180,7 @@ slot *create_slot( node *root ) {
     if ( !new_slot ) return NULL;
     memset( new_slot, 0, sizeof( slot ));
     new_slot->root = root;
-    new_slot->trash->type = SLOT;
+    new_slot->trash.type = SLOT;
 
     return new_slot;
 }
@@ -190,7 +195,7 @@ node *create_node( xtrn *key, usref *ref ) {
     new_node->key = key;
     __sync_add_and_fetch( &(ref->refcount), 1 );
     new_node->usref = ref;
-    new_node->trash->type = NODE;
+    new_node->trash.type = NODE;
 
     return new_node;
 }
@@ -211,7 +216,7 @@ sref *create_sref( xtrn *x ) {
     if ( !new_sref ) return NULL;
     memset( new_sref, 0, sizeof( sref ));
     new_sref->xtrn = x;
-    new_sref->trash->type = SREF;
+    new_sref->trash.type = SREF;
 
     return new_sref;
 }
@@ -227,7 +232,7 @@ xtrn *create_xtrn( dict *d, void *value ) {
         d->methods->ref( d, value, 1 );
 
     new_xtrn->value = value;
-    new_xtrn->trash->type = XTRN;
+    new_xtrn->trash.type = XTRN;
 
     return new_xtrn;
 }

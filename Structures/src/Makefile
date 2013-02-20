@@ -30,11 +30,11 @@ grinddottest: libGrindGSDDict.so
 						./testdot.run > /dev/null 2>grind.txt
 
 gdbdottest: libGrindGSDDict.so
-	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dot.c -lGrindGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dottest.c -lGrindGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." gdb ./testdot.run
 
 dottest: libGSDDict.so
-	$(GCC) $(CFLAGS) -O2 -I. -L. test/dot.c -lGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/dottest.c -lGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
 	dot -Tx11 /tmp/testdot.dot
 
