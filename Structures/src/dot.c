@@ -148,7 +148,6 @@ rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_l
 }
 
 rstat dump_dot_epochs( dict *d, dot *dd ) {
-
     rstat ret = dot_print_epochs( dd,
         "node [color=pink,fontcolor=grey,style=dashed,shape=octagon]\n"
     );
@@ -162,21 +161,22 @@ rstat dump_dot_epochs( dict *d, dot *dd ) {
     size_t en = 0;
     while ( e != NULL ) {
         epoch *dep = e->dep;
-        if ( dep ) {
+
+        if ( dep || e == a ) {
+            char *style = "style=solid,fontcolor=white";
+            char *color = ( e == a ) ? "yellow" : "green";
+            char *shape = dep ? ",shape=doubleoctagon" : "";
+
             ret = dot_print_epochs( dd,
-                "\"%p\" [label=\"Epoch%i\",color=green,style=solid,shape=doubleoctagon,fontcolor=white]\n",
-                e, en
+                "\"%p\" [label=\"Epoch%i\",%s,color=%s%s]\n",
+                e, en, style, color, shape
             );
             if ( ret.num ) return ret;
-            ret = dot_print_epochs( dd, "\"%p\"->\"%p\" [color=yellow]\n", e, dep );
-            if ( ret.num ) return ret;
-        }
-        else if ( e == a ) {
-            ret = dot_print_epochs( dd,
-                "\"%p\" [label=\"Epoch%i\",color=yellow,style=solid,fontcolor=white]\n",
-                e, en
-            );
-            if ( ret.num ) return ret;
+
+            if ( dep ) {
+                ret = dot_print_epochs( dd, "\"%p\"->\"%p\" [color=yellow]\n", e, dep );
+                if ( ret.num ) return ret;
+            }
         }
         else {
             ret = dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, en );
