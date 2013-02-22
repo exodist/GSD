@@ -1,4 +1,5 @@
 #include <string.h>
+#include <assert.h>
 
 #include "epoch.h"
 #include "structure.h"
@@ -27,14 +28,20 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     }
     location *lc = *locate;
 
+    // We always reset these if we are reusing the location data.
+    lc->dir   = 0;
+    lc->node  = NULL;
+    lc->usref = NULL;
+    lc->sref  = NULL;
+    lc->xtrn  = NULL;
+
     // The set has been swapped start over.
     if ( lc->set != NULL && lc->set != d->set ) {
-        lc->set     = NULL;
-        lc->slot    = NULL;
-        lc->parent  = NULL;
-        lc->node    = NULL;
-        lc->usref   = NULL;
-        lc->sref    = NULL;
+        lc->set       = NULL;
+        lc->slotn_set = 0;
+        lc->slotn     = 0;
+        lc->slot      = NULL;
+        lc->parent    = NULL;
     }
 
     if ( lc->set == NULL ) {
@@ -50,9 +57,6 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     if ( lc->slot != NULL && lc->slot != lc->set->slots[lc->slotn] ) {
         lc->slot    = NULL;
         lc->parent  = NULL;
-        lc->node    = NULL;
-        lc->usref   = NULL;
-        lc->sref    = NULL;
     }
 
     if ( lc->slot == NULL ) {
@@ -61,9 +65,6 @@ rstat locate_key( dict *d, void *key, location **locate ) {
         // Slot is not populated
         if ( slt == NULL || slt == RBLD ){
             lc->parent = NULL;
-            lc->node  = NULL;
-            lc->usref  = NULL;
-            lc->sref   = NULL;
             return rstat_ok;
         }
 
@@ -72,40 +73,64 @@ rstat locate_key( dict *d, void *key, location **locate ) {
 
     if ( lc->parent == NULL ) {
         lc->parent = lc->slot->root;
-        lc->height = 1;
-        if ( lc->parent == NULL ) {
-            lc->node = NULL;
-            lc->usref = NULL;
-            lc->sref  = NULL;
+        if ( lc->parent == NULL || lc->parent == RBLD ) {
+            lc->height = 0;
+            lc->parent = NULL;
             return rstat_ok;
+        }
+        else {
+            lc->height = 1;
         }
     }
 
-    node *n = lc->parent;
+    return locate_from_node( d, key, locate, lc->set, lc->parent );
+}
+
+rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in ) {
+    if ( *locate == NULL ) {
+        *locate = create_location( d );
+        if ( *locate == NULL ) return rstat_mem;
+    }
+    location *lc = *locate;
+
+    // Assure we have a set.
+    if ( !lc->set ) lc->set = s;
+    assert( lc->set );
+    assert( in );
+    assert( key );
+
+    lc->node  = NULL;
+    lc->usref = NULL;
+    lc->sref  = NULL;
+    lc->xtrn  = NULL;
+
+    node *n = in;
     while ( n != NULL && n != RBLD ) {
-        int dir = d->methods->cmp( lc->set->settings->meta, key, n->key );
+        int dir = d->methods->cmp( lc->set->settings->meta, key, n->key->value );
         switch( dir ) {
             case 0:
                 lc->node = n;
                 lc->usref = lc->node->usref; // This is never NULL
-                lc->sref  = lc->node->usref->sref;
+                lc->sref  = lc->usref->sref;
+                lc->xtrn  = lc->sref && lc->sref != RBLD ? lc->sref->xtrn : NULL;
 
                 // If the node has a rebuild value we do not want to use it.
-                // But we check after setting it to avoid a race condition.
-                // We also use a memory barrier to make sure the set occurs
-                // before the check.
-                __sync_synchronize();
                 if ( lc->sref == RBLD ) {
                     lc->sref = NULL;
+                    lc->xtrn = NULL;
                 }
 
                 return rstat_ok;
             break;
             case -1:
+                lc->dir = dir;
+                lc->parent = n;
                 lc->height++;
                 n = n->left;
             break;
             case 1:
+                lc->dir = dir;
+                lc->parent = n;
                 lc->height++;
                 n = n->right;
             break;
@@ -113,14 +138,9 @@ rstat locate_key( dict *d, void *key, location **locate ) {
                 return error( 1, 0, DICT_API_MISUSE, 10 );
             break;
         }
-
-        // If the node has no value it has been deref'd
-        if ( n != NULL ) {
-            lc->parent = n;
-        }
     }
+    assert( lc->parent || lc->node == in );
 
-    lc->sref = NULL;
     return rstat_ok;
 }
 

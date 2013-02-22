@@ -1,6 +1,7 @@
 #ifndef GSD_DICT_ERROR_H
 #define GSD_DICT_ERROR_H
 
+#include <stdlib.h>
 #include <stdint.h>
 
 /* dict_stat: a return type
@@ -51,6 +52,9 @@ typedef union {
 
         // Index for error text
         unsigned int message_idx : 8;
+
+        size_t line_number;
+        const char *file_name;
     } bit;
 } dict_stat;
 

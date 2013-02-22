@@ -23,23 +23,24 @@ libGrindGSDDict.so:
 	ln -sd libGrindGSDDict.so.1.0 libGrindGSDDict.so
 
 grinddottest: libGrindGSDDict.so
-	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dot.c -lGrindGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dottest.c -lGrindGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." valgrind --leak-check=full \
 								 --read-var-info=yes \
 								 --track-origins=yes \
 						./testdot.run > /dev/null 2>grind.txt
 
 gdbdottest: libGrindGSDDict.so
-	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dot.c -lGrindGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dottest.c -lGrindGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." gdb ./testdot.run
 
 dottest: libGSDDict.so
-	$(GCC) $(CFLAGS) -O2 -I. -L. test/dot.c -lGSDDict -otestdot.run
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/dottest.c -lGSDDict -otestdot.run
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
 	dot -Tx11 /tmp/testdot.dot
 
 stresstest: libGrindGSDDict.so
 	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/stress.c -lGrindGSDDict -lpthread -oteststress.run
+#	LD_LIBRARY_PATH="." ./teststress.run
 	LD_LIBRARY_PATH="." gdb ./teststress.run
 #	LD_LIBRARY_PATH="." valgrind --leak-check=full \
 #								 --read-var-info=yes \
