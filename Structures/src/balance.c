@@ -15,6 +15,8 @@ rstat rebalance( dict *d, location *loc ) {
     if( !__sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 ))
         return rstat_ok;
 
+    __sync_add_and_fetch( &(d->rebalanced), 1 );
+
     rstat out = rstat_ok;
 
     // Create balance_pair array

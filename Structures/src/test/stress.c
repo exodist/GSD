@@ -35,7 +35,7 @@ Should use fnv_hash for compare
 
 typedef struct kv kv;
 struct kv {
-    uint16_t value;
+    uint64_t value;
     char     cat;
     size_t   refcount;
     uint64_t fnv_hash;
@@ -52,7 +52,7 @@ int    kv_cmp( dict_settings *s, void *key1, void *key2 );
 char  *kv_dot( void *key, void *val );
 int    kv_handler( void *key, void *value, void *args );
 
-kv *new_kv( char cat, uint16_t val );
+kv *new_kv( char cat, uint64_t val );
 
 void *thread_dot_dumper( void *ptr );
 void *thread_uniq_delete( void *ptr );
@@ -73,7 +73,7 @@ int LENGTH = 60 * 60;
 int START = 0;
 
 int main() {
-    dict_settings set = { 16, 2, NULL };
+    dict_settings set = { 16, 5, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
     dict_create( &d, 12, &set, &met );
@@ -114,7 +114,7 @@ int main() {
     printf( "\n" );
 }
 
-kv *new_kv( char cat, uint16_t val ) {
+kv *new_kv( char cat, uint64_t val ) {
     kv *it = malloc( sizeof( kv ));
     memset( it, 0, sizeof( kv ));
     it->refcount = 1;
@@ -136,9 +136,11 @@ void kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val ) {
     kv *ov = old_val ? old_val : &NKV;
     kv *nv = new_val ? new_val : &NKV;
 
+    if ( k->cat == 'V' ) return;
+
     printf( "\33[2K\r" );
     printf(
-        "%c[%i]:%zi = %c[%i]:%zi -> %c[%i]:%zi",
+        "%c[%zi]:%zi = %c[%zi]:%zi -> %c[%zi]:%zi",
         k->cat,   k->value,  k->refcount,
         ov->cat, ov->value, ov->refcount,
         nv->cat, nv->value, nv->refcount
@@ -191,7 +193,7 @@ char *kv_dot( void *key, void *val ) {
     snprintf(
         out,
         14,
-        "%c[%i]:%c[%i]",
+        "%c[%zi]:%c[%zi]",
         k->cat, k->value,
         v->cat, v->value
     );
@@ -214,12 +216,33 @@ uint64_t hash_bytes( uint8_t *data, size_t length ) {
     return key;
 }
 
+int kv_handler( void *key, void *value, void *args ) {
+    kv *k = key;
+    kv *v = value;
+
+    assert( key != NULL );
+    assert( key != RBLD );
+
+    assert( k->refcount );
+
+    if ( value != NULL ) {
+        assert( value != RBLD );
+        assert( v->refcount );
+    }
+
+    if ( k->cat == 'V' && value ) {
+        assert( k->value == v->value );
+    }
+
+    return 0;
+}
+
 void *thread_uniq_delete( void *ptr ) {
     dict *d = ptr;
     char id = 'A';
 
     while ( time(NULL) < START + LENGTH ) {
-        for ( uint16_t i = 0; i < 1000; i++ ) {
+        for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
             dict_stat s = dict_insert( d, it, it );
             if ( s.bit.error ) {
@@ -230,7 +253,7 @@ void *thread_uniq_delete( void *ptr ) {
             assert( got == it );
             kv_ref( d, it, -2 );
         }
-        for ( uint16_t i = 0; i < 1000; i++ ) {
+        for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
 
             dict_stat s = dict_delete( d, it );
@@ -241,6 +264,7 @@ void *thread_uniq_delete( void *ptr ) {
             assert( it->refcount > 0 );
             kv_ref( d, it, -1 );
         }
+        printf( "\nCYCLE uniq delete\n" );
     }
 
     printf( "\nEND uniq delete\n" );
@@ -252,7 +276,7 @@ void *thread_uniq_deref( void *ptr ) {
     char id = 'B';
 
     while ( time(NULL) < START + LENGTH ) {
-        for ( uint16_t i = 0; i < 1000; i++ ) {
+        for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
             dict_stat s = dict_insert( d, it, it );
             if ( s.bit.error ) {
@@ -263,7 +287,7 @@ void *thread_uniq_deref( void *ptr ) {
             assert( got == it );
             kv_ref( d, it, -2 );
         }
-        for ( uint16_t i = 0; i < 1000; i++ ) {
+        for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
             dict_stat s = dict_dereference( d, it );
             if ( s.bit.error ) {
@@ -271,6 +295,7 @@ void *thread_uniq_deref( void *ptr ) {
             }
             kv_ref( d, it, -1 );
         }
+        printf( "\nCYCLE uniq deref\n" );
     }
 
     printf( "\nEND uniq deref\n" );
@@ -321,27 +346,6 @@ void *thread_rand( void *ptr ) {
 
     printf( "\nEND rand\n" );
     return NULL;
-}
-
-int kv_handler( void *key, void *value, void *args ) {
-    kv *k = key;
-    kv *v = value;
-
-    assert( key != NULL );
-    assert( key != RBLD );
-
-    assert( k->refcount );
-
-    if ( value != NULL ) {
-        assert( value != RBLD );
-        assert( v->refcount );
-    }
-
-    if ( k->cat == 'V' && value ) {
-        assert( k->value == v->value );
-    }
-
-    return 0;
 }
 
 void *thread_iterate_all( void *ptr ) {
