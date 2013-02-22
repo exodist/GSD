@@ -40,6 +40,7 @@ dottest: libGSDDict.so
 
 stresstest: libGrindGSDDict.so
 	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/stress.c -lGrindGSDDict -lpthread -oteststress.run
+#	LD_LIBRARY_PATH="." ./teststress.run
 	LD_LIBRARY_PATH="." gdb ./teststress.run
 #	LD_LIBRARY_PATH="." valgrind --leak-check=full \
 #								 --read-var-info=yes \

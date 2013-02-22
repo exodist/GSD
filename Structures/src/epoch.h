@@ -31,8 +31,10 @@ struct epoch {
     epoch *next;
 };
 
+#define dispose( d, g ) x_dispose( d, g, __FILE__, __LINE__ )
+
 epoch *create_epoch();
-void dispose( dict *d, trash *garbage );
+void x_dispose( dict *d, trash *garbage, char *fn, size_t ln );
 epoch *join_epoch( dict *d );
 void leave_epoch( dict *d, epoch *e );
 

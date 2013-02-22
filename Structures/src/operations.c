@@ -14,11 +14,11 @@ rstat op_get( dict *d, void *key, void **val ) {
     rstat err = locate_key( d, key, &loc );
 
     if ( !err.num ) {
-        if ( loc->sref == NULL || loc->sref->xtrn == NULL ) {
+        if ( loc->sref == NULL || loc->xtrn == NULL ) {
             *val = NULL;
         }
         else {
-            *val = loc->sref->xtrn->value;
+            *val = loc->xtrn->value;
             if ( d->methods->ref )
                 d->methods->ref( d, *val, 1 );
         }
@@ -138,7 +138,7 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
             size_t sc = swap->refcount;
 
             // If ref count goes to zero we cannot use it.
-            if ( sc == 0 ) return rstat_trans;
+            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, 13 );
 
             success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
         }
@@ -146,11 +146,14 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
 
     // Swap old sref with new sref, skip if sref has changed already
     if( __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap )) {
-        if ( d->methods->change )
+        if ( d->methods->change ) {
+            xtrn *nv = r    ? r->xtrn    : NULL;
+            xtrn *ov = swap ? swap->xtrn : NULL;
             d->methods->change( d, loc->set->settings->meta, key,
-            r->xtrn->value,
-            swap ? swap->xtrn->value : NULL
-        );
+                nv ? nv->value : NULL,
+                ov ? ov->value : NULL
+            );
+        }
 
         // Lower ref count of old sref, dispose of sref if count hits 0
         size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
@@ -176,7 +179,7 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 
         // Check for an existing sref, updating srefs is not blocked by a
         // rebuild.
-        if ( loc->sref ) {
+        if ( loc->sref && loc->sref != RBLD ) {
             // If we get an sref we either update it, or don't. No need to move
             // on to other steps. It always returns 0 (do not retry).
             do_set_sref( d, loc, key, val, spec, &old_val, &stat );
@@ -286,7 +289,6 @@ int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, 
         return 0;
     }
 
-    new_sref->refcount = 1;
     if ( __sync_bool_compare_and_swap( &(loc->usref->sref), NULL, new_sref )) {
         loc->sref = new_sref;
         *stat = rstat_ok;
@@ -330,9 +332,13 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
         // Insert the new node!
         if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
             size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
+
             loc->node  = new_node;
             loc->usref = new_node->usref;
             loc->sref  = new_node->usref->sref;
+            if ( loc->sref == RBLD ) loc->sref = NULL;
+            loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
+
             loc->height++;
             *stat = balance_check( d, loc, count );
             return 0;
@@ -377,6 +383,8 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
     loc->node  = new_slot->root;
     loc->usref = new_slot->root->usref;
     loc->sref  = new_slot->root->usref->sref;
+    if ( loc->sref == RBLD ) loc->sref = NULL;
+    loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
     return 0;
 }
@@ -396,7 +404,10 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type )
         dispose( d, (trash *)new_xtrn );
         return NULL;
     }
-    if ( type == CREATE_SREF ) return new_sref;
+    if ( type == CREATE_SREF ) {
+        new_sref->refcount = 1;
+        return new_sref;
+    }
 
     usref *new_usref = create_usref( new_sref );
     if( !new_usref ) {
@@ -410,7 +421,7 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type )
         return NULL;
     }
 
-    node *new_node = create_node( new_xtrn_key, new_usref );
+    node *new_node = create_node( new_xtrn_key, new_usref, 0 );
     if ( !new_node ) {
         dispose( d, (trash *)new_usref );
         dispose( d, (trash *)new_xtrn_key );

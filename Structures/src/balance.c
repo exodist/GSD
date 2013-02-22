@@ -82,7 +82,8 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
     __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
 
     // If this node has an sref, add to the list.
-    if ( n->usref->sref != RBLD ) {
+    sref *sr = n->usref->sref;
+    if ( sr != RBLD ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
@@ -106,7 +107,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     xtrn *key = create_xtrn( d, n->key->value );
     if ( !key ) return rstat_mem;
 
-    node *new_node = create_node( key, n->usref );
+    node *new_node = create_node( key, n->usref, 1 );
     if ( !new_node ) {
         dispose( d, (trash *)key );
         return rstat_mem;

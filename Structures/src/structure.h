@@ -27,6 +27,8 @@ typedef struct sref  sref;
 struct trash {
     trash *next;
     enum { OOPS = 0, SET, SLOT, NODE, SREF, XTRN } type;
+    char *fn;
+    size_t ln;
 };
 
 struct dict {
@@ -70,7 +72,7 @@ struct node {
 };
 
 struct usref {
-    uint8_t refcount;
+    size_t  refcount;
     sref   *sref;
 };
 

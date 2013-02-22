@@ -33,6 +33,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     lc->node  = NULL;
     lc->usref = NULL;
     lc->sref  = NULL;
+    lc->xtrn  = NULL;
 
     // The set has been swapped start over.
     if ( lc->set != NULL && lc->set != d->set ) {
@@ -101,6 +102,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
     lc->node  = NULL;
     lc->usref = NULL;
     lc->sref  = NULL;
+    lc->xtrn  = NULL;
 
     node *n = in;
     while ( n != NULL && n != RBLD ) {
@@ -109,11 +111,14 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
             case 0:
                 lc->node = n;
                 lc->usref = lc->node->usref; // This is never NULL
-                lc->sref  = lc->node->usref->sref;
+                lc->sref  = lc->usref->sref;
+                lc->xtrn  = lc->sref && lc->sref != RBLD ? lc->sref->xtrn : NULL;
 
                 // If the node has a rebuild value we do not want to use it.
-                if ( lc->sref == RBLD )
+                if ( lc->sref == RBLD ) {
                     lc->sref = NULL;
+                    lc->xtrn = NULL;
+                }
 
                 return rstat_ok;
             break;

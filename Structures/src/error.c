@@ -3,7 +3,7 @@
 #include "include/gsd_dict_return.h"
 #include "error.h"
 
-#define MESSAGE_COUNT 13
+#define MESSAGE_COUNT 14
 
 char *error_messages[MESSAGE_COUNT] = {
     /* 0  */ "Success",
@@ -18,7 +18,8 @@ char *error_messages[MESSAGE_COUNT] = {
     /* 9  */ "The epoch limit cannot be less than 4 (except for 0).",
     /* 10 */ "The Compare method must return 1, 0, or -1",
     /* 11 */ "NULL can not be used as the 'old value' in compare and swap",
-    /* 12 */ "This should not be possible unless a nodes key has changed, which is not permitted."
+    /* 12 */ "This should not be possible unless a nodes key has changed, which is not permitted.",
+    /* 13 */ "Blah oops"
 };
 
 char *dict_stat_message( dict_stat s ) {

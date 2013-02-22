@@ -14,8 +14,15 @@ epoch *create_epoch() {
     return new;
 }
 
-void dispose( dict *d, trash *garbage ) {
+void x_dispose( dict *d, trash *garbage, char *fn, size_t ln ) {
     if ( garbage == NULL ) return;
+
+    if ( garbage->fn ) {
+        fprintf( stderr, "\n********\nDouble dispose: %s:%zi - %s,%zi\n*******\n", fn, ln, garbage->fn, garbage->ln );
+        assert( 0 );
+    }
+    garbage->fn = fn;
+    garbage->ln = ln;
 
     epoch *e = join_epoch( d );
 
@@ -31,21 +38,14 @@ void dispose( dict *d, trash *garbage ) {
     // Try to find a new epoch and put it in place, unless epoch has already
     // changed, or this is the first and only garbage so far.
     if ( first && !e->dep ) {
-        epoch *last = NULL;
-        epoch *next = e->next;
-        while ( next != NULL && next != e ) {
-            // Start from the beginning if we reach the end, then we will cyle
-            // back to e, at which point we abort.
-            if ( next->next == NULL ) {
-                last = next;
-                next = d->epochs;
-            }
-            else {
-                next = next->next;
-            }
+        epoch *next = d->epochs;
+        while ( next != NULL ) {
+            // Found an inactive
+            if ( !next->active ) break;
+            next = next->next;
         }
 
-        if ( next == e && ( d->epoch_count < d->epoch_limit || !d->epoch_limit)) {
+        if ( next == NULL && ( d->epoch_count < d->epoch_limit || !d->epoch_limit)) {
             size_t count = __sync_add_and_fetch( &(d->epoch_count), 1 );
             if ( count > d->epoch_limit ) goto CLEANUP;
             next = create_epoch();
@@ -53,7 +53,13 @@ void dispose( dict *d, trash *garbage ) {
                 count = __sync_sub_and_fetch( &(d->epoch_count), 1 );
                 goto CLEANUP;
             }
-            assert( __sync_bool_compare_and_swap( &(last->next), NULL, next ));
+
+            int success = 0;
+            while( !success ) {
+                epoch *first = d->epochs;
+                next->next = first;
+                success = __sync_bool_compare_and_swap( &(d->epochs), first, next );
+            }
         }
 
         // Set the next epoch

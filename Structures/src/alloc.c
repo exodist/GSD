@@ -35,28 +35,33 @@ rstat do_free( dict **dr ) {
 }
 
 void free_trash( dict *d, trash *t ) {
-    assert( t->type );
-    switch ( t->type ) {
-        // Not reachable, OOPS = 0, will be caught by the assert above. This is
-        // here to silence a warning.
-        case OOPS:
-            return;
+    while ( t != NULL ) {
+        trash *goner = t;
+        t = t->next;
 
-        case SET:
-            free_set( d, (set *)t );
-        break;
-        case SLOT:
-            free_slot( d, (slot *)t );
-        break;
-        case NODE:
-            free_node( d, (node *)t );
-        break;
-        case SREF:
-            free_sref( d, (sref *)t );
-        break;
-        case XTRN:
-            free_xtrn( d, (xtrn *)t );
-        break;
+        assert( goner->type );
+        switch ( goner->type ) {
+            // Not reachable, OOPS = 0, will be caught by the assert above. This is
+            // here to silence a warning.
+            case OOPS:
+                return;
+
+            case SET:
+                free_set( d, (set *)goner );
+            break;
+            case SLOT:
+                free_slot( d, (slot *)goner );
+            break;
+            case NODE:
+                free_node( d, (node *)goner );
+            break;
+            case SREF:
+                free_sref( d, (sref *)goner );
+            break;
+            case XTRN:
+                free_xtrn( d, (xtrn *)goner );
+            break;
+        }
     }
 }
 
@@ -188,7 +193,7 @@ slot *create_slot( node *root ) {
     return new_slot;
 }
 
-node *create_node( xtrn *key, usref *ref ) {
+node *create_node( xtrn *key, usref *ref, size_t min_start_refcount ) {
     assert( ref );
     assert( key );
 
@@ -196,7 +201,18 @@ node *create_node( xtrn *key, usref *ref ) {
     if ( !new_node ) return NULL;
     memset( new_node, 0, sizeof( node ));
     new_node->key = key;
-    __sync_add_and_fetch( &(ref->refcount), 1 );
+    size_t rc;
+    while ( 1 ) {
+        rc = ref->refcount;
+        if ( rc < min_start_refcount ) {
+            free( new_node );
+            return NULL;
+        }
+
+        if ( __sync_bool_compare_and_swap( &(ref->refcount), rc, rc + 1 ))
+            break;
+    }
+    assert( ref->refcount );
     new_node->usref = ref;
     new_node->trash.type = NODE;
 

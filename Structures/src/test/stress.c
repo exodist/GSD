@@ -46,7 +46,7 @@ kv NKV = { 1, 'N', 0, 0 };
 uint64_t hash_bytes( uint8_t *data, size_t length );
 
 void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
-void   kv_ref( dict *d, void *meta, void *ref, int delta );
+void   kv_ref( dict *d, void *ref, int delta );
 size_t kv_loc( dict_settings *s, void *key );
 int    kv_cmp( dict_settings *s, void *key1, void *key2 );
 char  *kv_dot( void *key, void *val );
@@ -69,7 +69,7 @@ void *thread_transactions( void *ptr );
 void *thread_rand( void *ptr );
 
 // How long to run in seconds
-int LENGTH = 20;
+int LENGTH = 60 * 60;
 int START = 0;
 
 int main() {
@@ -146,7 +146,7 @@ void kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val ) {
     fflush( stdout );
 }
 
-void kv_ref( dict *d, void *meta, void *ref, int delta ) {
+void kv_ref( dict *d, void *ref, int delta ) {
     if ( ref == NULL ) return;
     if ( ref == &NKV ) return;
     kv *r = ref;
@@ -226,9 +226,9 @@ void *thread_uniq_delete( void *ptr ) {
                 fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
             }
             kv *got = NULL;
-            dict_get( d, it, &got );
+            dict_get( d, it, (void **)&got );
             assert( got == it );
-            kv_ref( d, NULL, it, -2 );
+            kv_ref( d, it, -2 );
         }
         for ( uint16_t i = 0; i < 1000; i++ ) {
             kv *it = new_kv( id, i );
@@ -239,7 +239,7 @@ void *thread_uniq_delete( void *ptr ) {
                 fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
             }
             assert( it->refcount > 0 );
-            kv_ref( d, NULL, it, -1 );
+            kv_ref( d, it, -1 );
         }
     }
 
@@ -259,9 +259,9 @@ void *thread_uniq_deref( void *ptr ) {
                 fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
             }
             kv *got = NULL;
-            dict_get( d, it, &got );
+            dict_get( d, it, (void **)&got );
             assert( got == it );
-            kv_ref( d, NULL, it, -2 );
+            kv_ref( d, it, -2 );
         }
         for ( uint16_t i = 0; i < 1000; i++ ) {
             kv *it = new_kv( id, i );
@@ -269,7 +269,7 @@ void *thread_uniq_deref( void *ptr ) {
             if ( s.bit.error ) {
                 fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
             }
-            kv_ref( d, NULL, it, -1 );
+            kv_ref( d, it, -1 );
         }
     }
 
@@ -283,7 +283,7 @@ void *thread_dot_dumper( void *ptr ) {
     char *fname = malloc( 200 );
 
     int i = 1;
-    while ( time(NULL) < START + LENGTH + 30) {
+    while ( time(NULL) < START + LENGTH ) {
         char *dot = dict_dump_dot( d, kv_dot );
 
         if ( dot != NULL ) {
@@ -292,9 +292,8 @@ void *thread_dot_dumper( void *ptr ) {
             fprintf( fp, "%s\n", dot );
             printf( "\nWrote: \"%s\"\n", fname );
             fclose( fp );
+            free( dot );
         }
-
-        sleep( 5 );
     }
 
     free( fname );
@@ -316,8 +315,8 @@ void *thread_rand( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        kv_ref( d, NULL, it_k, -1 );
-        kv_ref( d, NULL, it_v, -1 );
+        kv_ref( d, it_k, -1 );
+        kv_ref( d, it_v, -1 );
     }
 
     printf( "\nEND rand\n" );
@@ -370,7 +369,7 @@ void *thread_rand_insert( void *ptr ) {
             printf( "\n\n\n******\nRET: F:%i, R:%i\n*******\n\n\n", s.bit.fail, s.bit.rebal );
             assert( it->refcount );
         }
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand insert\n" );
@@ -389,7 +388,7 @@ void *thread_rand_update( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand update\n" );
@@ -408,7 +407,7 @@ void *thread_rand_set( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand set\n" );
@@ -423,7 +422,7 @@ void *thread_rand_get( void *ptr ) {
     while ( time(NULL) < START + LENGTH ) {
         kv *it = rnd_kv( id, &seed );
         kv *got = NULL;
-        dict_stat s = dict_get( d, it, &got );
+        dict_stat s = dict_get( d, it, (void **)&got );
         if ( s.bit.error ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
@@ -432,9 +431,9 @@ void *thread_rand_get( void *ptr ) {
         if ( got != NULL ) {
             assert( it->value == got->value );
             assert( got->refcount != 0 );
-            kv_ref( d, NULL, got, -1 );
+            kv_ref( d, got, -1 );
         }
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand get\n" );
@@ -454,7 +453,7 @@ void *thread_rand_delete( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand delete\n" );
@@ -473,7 +472,7 @@ void *thread_rand_deref( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        kv_ref( d, NULL, it, -1 );
+        kv_ref( d, it, -1 );
     }
 
     printf( "\nEND rand deref\n" );

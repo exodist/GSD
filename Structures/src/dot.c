@@ -41,6 +41,8 @@ char *dump_node_label( void *key, void *value ) {
 char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     char *out = NULL;
 
+    epoch *e = join_epoch( d ); 
+
     dot dd;
     memset( &dd, 0, sizeof( dot ));
     dd.decode = decode ? decode : dump_node_label;
@@ -59,6 +61,7 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     if( dd.epochs ) free( dd.epochs );
     if( dd.slot_level ) free( dd.slot_level );
     if( dd.node_level ) free( dd.node_level );
+    leave_epoch( d, e );
 
     return out;
 }
@@ -250,15 +253,17 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     if ( ret.num ) return ret;
 
     // print node with name
+    xtrn *v = ( sr && sr != RBLD ) ? sr->xtrn : NULL;
     char *name = dd->decode(
-        n->key,
-        n->usref->sref && n->usref->sref->xtrn ? n->usref->sref->xtrn->value : NULL
+        n->key->value,
+        v ? v->value : NULL
     );
 
     char *style = ref_count > 0
         ? ref_count > 1 ? ",peripheries=2"
-                        : sr->xtrn ? ""
-                                   : ",color=red,style=dashed"
+                        : sr && sr != RBLD && sr->xtrn
+                            ? ""
+                            : ",color=red,style=dashed"
         : ",color=pink,style=dashed";
 
     ret = dot_print_nodes( dd, "\"%p\" [label=\"%s\"%s]\n", n, name, style );
