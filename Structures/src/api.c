@@ -7,7 +7,11 @@
 #include "settings.h"
 #include "structure.h"
 
-rstat dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
+dict *dict_build( size_t min, size_t max, dict_methods m ) {
+    dict_settings s = { min, max, }
+}
+
+rstat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods ) {
     return do_create( d, epoch_limit, settings, methods );
 }
 

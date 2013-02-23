@@ -13,8 +13,8 @@ typedef struct dict dict;
 typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
 typedef void   (dict_ref)( dict *d, void *ref, int delta );
 typedef int    (dict_handler)( void *key, void *value, void *args );
-typedef int    (dict_cmp)( dict_settings *s, void *key1, void *key2 );
-typedef size_t (dict_loc)( dict_settings *s, void *key );
+typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
+typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
 typedef char * (dict_dot)( void *key, void *val );
 
 struct dict;
@@ -66,8 +66,9 @@ struct dict_methods {
  * callbacks.
 \*/
 struct dict_settings {
-    size_t  slot_count;    // How many hash slots to allocate
-    size_t max_imbalance; // How much imbalance is allowed
+    size_t min_slot_count; // How many hash slots to allocate initially
+    size_t max_slot_count; // How many hash slots to have at max.
+    size_t max_imbalance;  // How much imbalance is allowed
 
     // Metadata you can attach to the dictionary
     void *meta;
@@ -75,8 +76,9 @@ struct dict_settings {
 
 // -- Creation and meta data --
 
-// Note: 'epoch_limit' must be 0 or greater than 3
-dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+dict *dict_build( size_t min, size_t max, dict_methods *m );
+
+dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods );
 
 // Copying and cloning
 dict_stat dict_merge( dict *from, dict *to );
@@ -101,7 +103,11 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-dict_stat dict_reconfigure( dict *d, dict_settings *settings );
+dict_stat dict_reconfigure( dict *d, dict_settings settings );
+
+// Allows you to rebalance at will, ideal to do after a lot fo inserts, before
+// a lot up lookups/updates.
+dict_stat dict_rebalance( dict *d, size_t threshold );
 
 // Get never blocks
 // Set will insert or update as necessary

@@ -32,30 +32,35 @@ struct trash {
 };
 
 struct dict {
-    set *set;
+    dict_methods methods;
 
-    dict_methods *methods;
+    set *set;
 
     epoch *epochs;
     epoch *epoch;
-    size_t epoch_limit;
-    size_t epoch_count;
+    uint8_t epoch_limit;
+    uint8_t epoch_count;
 
     size_t rebalanced;
+    size_t item_count;
 };
 
 struct set {
     trash  trash;
     slot **slots;
-    dict_settings *settings;
+    size_t slot_count;
+    dict_settings settings;
     uint8_t rebuild;
 };
 
 struct slot {
     trash   trash;
     node   *root;
-    size_t  count;
+
+    size_t  item_count;
     uint8_t ideal_height;
+    size_t  deref_count;
+
     uint8_t rebuild;
     uint8_t patho;
 };
@@ -87,7 +92,6 @@ struct sref {
 int iterate( dict *d, dict_handler *h, void *args );
 
 int iterate_node( dict *d, node *n, dict_handler *h, void *args );
-
 
 #endif
 
