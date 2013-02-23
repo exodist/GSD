@@ -174,7 +174,7 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     if ( loc->slot->patho ) return rstat_patho;
 
     // Find ideal height
-    uint8_t ideal = max_bit( count );
+    size_t ideal = (size_t)max_bit( count );
 
     // Update the ideal height in the slot.
     uint8_t old_ideal = loc->slot->ideal_height;
@@ -183,8 +183,8 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
             old_ideal = loc->slot->ideal_height;
     }
 
-    size_t  height  = loc->height;
-    uint8_t max_imb = loc->set->settings->max_imbalance;
+    size_t height  = loc->height;
+    size_t max_imb = loc->set->settings->max_imbalance;
 
     // Check if we have an internal imbalance
     if ( height > (ideal + max_imb) && !loc->slot->rebuild ) {

@@ -67,7 +67,7 @@ struct dict_methods {
 \*/
 struct dict_settings {
     size_t  slot_count;    // How many hash slots to allocate
-    uint8_t max_imbalance; // How much imbalance is allowed
+    size_t max_imbalance; // How much imbalance is allowed
 
     // Metadata you can attach to the dictionary
     void *meta;
