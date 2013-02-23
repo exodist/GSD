@@ -39,7 +39,7 @@ that do not change or add features.
        being rebuilt in another thread.
      - A key removal (dereference) can result in a partial rebuild.
      - You can control when rebuilds are triggered via max_imbalance.
- * Allows for graceful handling fo pathological data:
+ * Allows for graceful handling of pathological data:
    * When an operation results in a pathological tree, the operation still
      succeeds, but a DICT_PATHO_ERROR is returned to notify you.
    * The dictionary can be completely rebuilt with a new configuration in a
@@ -96,7 +96,8 @@ reference to a structure with a 0 ref count it will return a transaction error.
 
 Every internal structure has a specific level. At this time it looks like this:
 
-    Dictionary->Set->Slot->[Tree Nodes]->(USRef)->(SRef)
+    Dictionary->Set->Slot->[Tree Nodes]-+->(USRef)->(SRef)->xtrn->{value}
+                                        +->xtrn->{key}
 
     [] Tree nodes can be nested within eachother, but are never cyclical.
     () USRef and SRef are reference counted
@@ -133,23 +134,13 @@ other threads can join, it is now safe to free any garbage within the epoch.
 
 === How do we ensure that an epoch eventually ends? ==
 
-An epoch contains only one garbage slot. When an operation fills a garbage slot
-it sets a new epoch. When a new epoch is set the old epoch will join the new
-one in the same way an operation would join it. From this point forward any new
-operation will join the new epoch instead of the old one. When the old epoch
-reaches 0 (since none will now join it) it will leave the new epoch. This
-ensures that nothing disposed of in the new epoch will free until every
-operation in the old epoch has completed.
+No operations on the dictionary can run forever. If an operation was defined
+that did run forever, it would have to be written to release and re-aquire
+epochs.
 
 === How many epochs are there? ===
 
-The epoch system is even used in a single threaded environment. Most internal
-operations will result in 1 or less disposals. However the reference operation
-can result in as many as 3 disposals, as a reslt there is a minimum of 4
-epochs. Epochs are allocated as needed, and are never freed, once they are
-created they remain forever. You can specify a limit on epoch creation, it must
-be greater than or equal to 4. You can also specify 0 to allow unlimited
-epochs.
+This is configurable
 
 === What triggers a disposal? ===
 
@@ -164,4 +155,4 @@ occur for any of the following operations:
    epochs may be needed for a reference operation, which means 4 epochs will be
    needed in total.
 
-
+Disposal also sometimes occurs when you dereference or delete keys.
