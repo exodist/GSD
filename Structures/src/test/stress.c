@@ -73,10 +73,10 @@ int LENGTH = 60 * 60;
 int START = 0;
 
 int main() {
-    dict_settings set = { 16, 5, NULL };
+    dict_settings set = { 16, 8, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
-    dict_create( &d, 12, &set, &met );
+    dict_create( &d, 8, &set, &met );
 
     START = time(NULL);
 
@@ -172,6 +172,16 @@ int kv_cmp( dict_settings *s, void *key1, void *key2 ) {
 
     kv *k1 = key1;
     kv *k2 = key2;
+
+    if ( !k1->fnv_hash ) {
+        k1->fnv_hash = hash_bytes( (void *)&(k1->value), sizeof( k1->value ));
+    }
+    if ( !k2->fnv_hash ) {
+        k2->fnv_hash = hash_bytes( (void *)&(k2->value), sizeof( k2->value ));
+    }
+
+    if ( k1->fnv_hash > k2->fnv_hash ) return -1;
+    if ( k1->fnv_hash < k2->fnv_hash ) return  1;
 
     if ( k1->value > k2->value ) return -1;
     if ( k1->value < k2->value ) return  1;

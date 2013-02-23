@@ -22,7 +22,7 @@ kv NKV = { 0, 0 };
 // If true FNV will be used to locate and compare keys, otherwise the raw
 // integer value is used (which is a worst case scenario as that means sorted
 // insert into all the trees.
-int USE_FNV = 0;
+int USE_FNV = 1;
 
 uint64_t hash_bytes( uint8_t *data, size_t length );
 
@@ -66,9 +66,9 @@ int main() {
 
     int min_ops = 8192;
     int max_ops = 1048576;
-    int min_slots = 32;
+    int min_slots = 8;
     int max_slots = 2048;
-    int min_imbalance = 32;
+    int min_imbalance = 8;
     int max_imbalance = 2048;
     int min_threads = 1;
     int max_threads = 8;
