@@ -47,8 +47,8 @@ uint64_t hash_bytes( uint8_t *data, size_t length );
 
 void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
 void   kv_ref( dict *d, void *ref, int delta );
-size_t kv_loc( dict_settings *s, void *key );
-int    kv_cmp( dict_settings *s, void *key1, void *key2 );
+size_t kv_loc( size_t slot_count, void *meta, void *key );
+int    kv_cmp( void *meta, void *key1, void *key2 );
 char  *kv_dot( void *key, void *val );
 int    kv_handler( void *key, void *value, void *args );
 
@@ -73,10 +73,10 @@ int LENGTH = 60 * 60;
 int START = 0;
 
 int main() {
-    dict_settings set = { 16, 8, NULL };
+    dict_settings set = { 16, 16, 8, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
-    dict_create( &d, 8, &set, &met );
+    dict_create( &d, 8, set, met );
 
     START = time(NULL);
 
@@ -157,17 +157,17 @@ void kv_ref( dict *d, void *ref, int delta ) {
     if ( refs == 0 ) free( ref );
 }
 
-size_t kv_loc( dict_settings *s, void *key ) {
+size_t kv_loc( size_t slot_count, void *meta, void *key ) {
     kv *k = key;
     //return k->value % s->slot_count;
 
     if ( !k->fnv_hash ) {
         k->fnv_hash = hash_bytes( key, 3 );
     }
-    return k->fnv_hash % s->slot_count;
+    return k->fnv_hash % slot_count;
 }
 
-int kv_cmp( dict_settings *s, void *key1, void *key2 ) {
+int kv_cmp( void *meta, void *key1, void *key2 ) {
     if ( key1 == key2 ) return 0;
 
     kv *k1 = key1;
@@ -263,6 +263,9 @@ void *thread_uniq_delete( void *ptr ) {
             assert( got == it );
             kv_ref( d, it, -2 );
         }
+
+        dict_rebalance( d, 3, 8 );
+
         for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
 

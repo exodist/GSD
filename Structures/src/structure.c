@@ -8,7 +8,7 @@ int iterate( dict *d, dict_handler *h, void *args ) {
     set *s = d->set;
     int stop = 0;
 
-    for ( int i = 0; i < s->settings->slot_count; i++ ) {
+    for ( int i = 0; i < s->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         node *n = sl->root;

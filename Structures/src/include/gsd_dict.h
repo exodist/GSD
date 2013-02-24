@@ -76,7 +76,7 @@ struct dict_settings {
 
 // -- Creation and meta data --
 
-dict *dict_build( size_t min, size_t max, dict_methods *m );
+dict *dict_build( size_t min, size_t max, dict_methods m, void *meta );
 
 dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods );
 
@@ -89,10 +89,10 @@ dict_stat dict_merge_refs( dict *from, dict *to );
 dict_stat dict_free( dict **d );
 
 // Used to access your settings
-dict_settings *dict_get_settings( dict *d );
+dict_settings dict_get_settings( dict *d );
 
 // Used to get your dict_methods item.
-dict_methods *dict_get_methods( dict *d );
+dict_methods dict_get_methods( dict *d );
 
 // -- Informative --
 
@@ -103,11 +103,11 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-dict_stat dict_reconfigure( dict *d, dict_settings settings );
+dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t threads );
 
 // Allows you to rebalance at will, ideal to do after a lot fo inserts, before
 // a lot up lookups/updates.
-dict_stat dict_rebalance( dict *d, size_t threshold );
+dict_stat dict_rebalance( dict *d, size_t threshold, size_t threads );
 
 // Get never blocks
 // Set will insert or update as necessary

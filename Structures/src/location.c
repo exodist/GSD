@@ -49,7 +49,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     }
 
     if ( !lc->slotn_set ) {
-        lc->slotn  = d->methods->loc( lc->set->settings, key );
+        lc->slotn = d->methods.loc( lc->set->slot_count, lc->set->settings.meta, key );
         lc->slotn_set = 1;
     }
 
@@ -106,7 +106,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
 
     node *n = in;
     while ( n != NULL && n != RBLD ) {
-        int dir = d->methods->cmp( lc->set->settings->meta, key, n->key->value );
+        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key->value );
         switch( dir ) {
             case 0:
                 lc->node = n;

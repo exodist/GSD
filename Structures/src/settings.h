@@ -13,9 +13,9 @@
 #include "include/gsd_dict.h"
 #include "error.h"
 
-dict_settings *get_settings( dict *d );
-dict_methods *get_methods( dict *d );
-rstat reconfigure( dict *d, dict_settings *settings );
+dict_settings get_settings( dict *d );
+dict_methods get_methods( dict *d );
+rstat reconfigure( dict *d, dict_settings settings );
 
 
 #endif

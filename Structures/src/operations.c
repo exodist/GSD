@@ -19,8 +19,8 @@ rstat op_get( dict *d, void *key, void **val ) {
         }
         else {
             *val = loc->xtrn->value;
-            if ( d->methods->ref )
-                d->methods->ref( d, *val, 1 );
+            if ( d->methods.ref )
+                d->methods.ref( d, *val, 1 );
         }
     }
 
@@ -146,10 +146,10 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
 
     // Swap old sref with new sref, skip if sref has changed already
     if( __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap )) {
-        if ( d->methods->change ) {
+        if ( d->methods.change ) {
             xtrn *nv = r    ? r->xtrn    : NULL;
             xtrn *ov = swap ? swap->xtrn : NULL;
-            d->methods->change( d, loc->set->settings->meta, key,
+            d->methods.change( d, loc->set->settings.meta, key,
                 nv ? nv->value : NULL,
                 ov ? ov->value : NULL
             );
@@ -218,8 +218,8 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 
     location *loc = *locator;
 
-    if ( loc && d->methods->change && !stat.bit.fail ) {
-        d->methods->change( d, loc->set->settings->meta, key, old_val, val );
+    if ( loc && d->methods.change && !stat.bit.fail ) {
+        d->methods.change( d, loc->set->settings.meta, key, old_val, val );
     }
 
     return stat;
@@ -265,9 +265,9 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
         }
 
         if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
-            if ( d->methods->change ) {
-                d->methods->change(
-                    d, loc->set->settings->meta,
+            if ( d->methods.change ) {
+                d->methods.change(
+                    d, loc->set->settings.meta,
                     key,
                     current ? current->value : NULL, val
                 );
@@ -309,7 +309,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 
     while ( 1 ) {
         node **branch = NULL;
-        int dir = d->methods->cmp( loc->set->settings, key, loc->parent->key->value );
+        int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key->value );
         switch( dir ) {
             case -1:
                 branch = &(loc->parent->left);
@@ -331,7 +331,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 
         // Insert the new node!
         if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
-            size_t count = __sync_add_and_fetch( &(loc->slot->count), 1 );
+            size_t count = __sync_add_and_fetch( &(loc->slot->item_count), 1 );
 
             loc->node  = new_node;
             loc->usref = new_node->usref;

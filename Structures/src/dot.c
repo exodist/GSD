@@ -10,7 +10,8 @@
 
 node NODE_SEP = { { 0 }, 0 };
 // Used for 'refs' mapping
-dict_settings dset = { 11, 3, NULL };
+dict_settings dset = { 11, 11, 3, NULL };
+
 dict_methods dmet = {
     dump_dot_ref_cmp,
     dump_dot_ref_loc,
@@ -200,7 +201,7 @@ rstat dump_dot_epochs( dict *d, dot *dd ) {
 
 dict *dump_dot_create_refs() {
     dict *refs;
-    if( do_create( &refs, 4, &dset, &dmet ).num ) {
+    if( do_create( &refs, 4, dset, dmet ).num ) {
         if ( refs != NULL ) do_free( &refs );
         return NULL;
     }
@@ -351,7 +352,7 @@ rstat dump_dot_slots( set *s, dot *dd ) {
     if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
     size_t previous = 0;
-    for ( size_t i = 0; i < s->settings->slot_count; i++ ) {
+    for ( size_t i = 0; i < s->slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         if ( sl->root == RBLD ) continue;
@@ -435,15 +436,15 @@ char *dump_dot_merge( dot *dd ) {
     return out;
 }
 
-int dump_dot_ref_cmp( dict_settings *s, void *key1, void *key2 ) {
+int dump_dot_ref_cmp( void *meta, void *key1, void *key2 ) {
     if ( key1 == key2 ) return 0;
     if ( key1 > key2 ) return 1;
     return -1;
 }
 
-size_t dump_dot_ref_loc( dict_settings *s, void *key ) {
+size_t dump_dot_ref_loc( size_t slot_count, void *meta, void *key ) {
     size_t num = (size_t)key;
-    return num % s->slot_count;
+    return num % slot_count;
 }
 
 int dump_dot_ref_free_handler( void *key, void *value, void *args ) {

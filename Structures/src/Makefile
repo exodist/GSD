@@ -11,9 +11,8 @@ libGSDDict.so: *.o
 
 clean:
 	rm -rf *.o
-	rm -rf test*.run
-	rm -rf libGSDDict.so*
-	rm -rf libGrindGSDDict.so*
+	rm -rf *.so*
+	rm -rf *.run
 
 libDBGGSDDict.so:
 	rm -rf *.o
@@ -46,7 +45,7 @@ dottest: libGSDDict.so
 	dot -Tx11 /tmp/testdot.dot
 
 stresstest: libDBGGSDDict.so
-	$(GCC) $(CFLAGS) -O2 -g -I. -L. test/stress.c -lDBGGSDDict -lpthread -oteststress.run
+	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/stress.c -lDBGGSDDict -lpthread -oteststress.run
 #	LD_LIBRARY_PATH="." ./teststress.run
 	LD_LIBRARY_PATH="." gdb ./teststress.run
 #	LD_LIBRARY_PATH="." valgrind --leak-check=full \

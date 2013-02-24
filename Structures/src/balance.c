@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "epoch.h"
 #include "structure.h"
@@ -11,16 +12,15 @@
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
-rstat rebalance( dict *d, location *loc ) {
-    if( !__sync_bool_compare_and_swap( &(loc->slot->rebuild), 0, 1 ))
+rstat rebalance( dict *d, set *st, size_t slotn ) {
+    slot *sl = st->slots[slotn];
+    if( !__sync_bool_compare_and_swap( &(sl->rebuild), 0, 1 ))
         return rstat_ok;
-
-    __sync_add_and_fetch( &(d->rebalanced), 1 );
 
     rstat out = rstat_ok;
 
     // Create balance_pair array
-    size_t size = loc->slot->count + 100;
+    size_t size = sl->item_count + 100;
     node **all = malloc( sizeof( node * ) * size );
     if ( all == NULL ) {
         out = rstat_mem;
@@ -29,7 +29,7 @@ rstat rebalance( dict *d, location *loc ) {
     memset( all, 0, size * sizeof( node * ));
 
     // Iterate nodes, add to array, block new branches
-    size_t count = rebalance_add_node( loc->slot->root, &all, &size, 0 );
+    size_t count = rebalance_add_node( sl->root, &all, &size, 0 );
     if ( count == 0 ) {
         out = rstat_mem;
         goto REBALANCE_CLEANUP;
@@ -39,29 +39,33 @@ rstat rebalance( dict *d, location *loc ) {
 
     // insert nodes
     size_t ideal = max_bit( count );
-    out = rebalance_insert_list( d, loc->set, &ns, all, 0, count - 1, ideal );
+    out = rebalance_insert_list( d, st, &ns, all, 0, count - 1, ideal );
     free( all );
     all = NULL;
 
     if ( out.bit.error )
         goto REBALANCE_CLEANUP;
 
-    ns->count = count;
+    ns->item_count = count;
 
     // swap
-    slot *old_slot = loc->slot;
-    int success = __sync_bool_compare_and_swap( &(loc->set->slots[loc->slotn]), old_slot, ns );
+    slot *old_slot = sl;
+    int success = __sync_bool_compare_and_swap( &(st->slots[slotn]), old_slot, ns );
 
     if ( success ) {
+        __sync_add_and_fetch( &(d->rebalanced), 1 );
         dispose( d, (trash *)old_slot );
         return rstat_ok;
     }
+    else {
+        sl = old_slot;
+    }
 
     REBALANCE_CLEANUP:
-    rebalance_unblock( loc->slot->root );
+    rebalance_unblock( sl->root );
     if ( ns )  dispose( d, (trash *)ns );
     if ( all ) free( all );
-    __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
+    __sync_bool_compare_and_swap( &(sl->rebuild), 1, 0 );
     return out;
 }
 
@@ -143,7 +147,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
         loc->parent->right = new_node;
     }
 
-    if ( loc->height > ( ideal + st->settings->max_imbalance ))
+    if ( loc->height > ( ideal + st->settings.max_imbalance ))
         (*s)->patho = 1;
 
     free_location( d, loc );
@@ -178,17 +182,17 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
 
     // Update the ideal height in the slot.
     uint8_t old_ideal = loc->slot->ideal_height;
-    while ( ideal > old_ideal && count >= loc->slot->count ) {
+    while ( ideal > old_ideal && count >= loc->slot->item_count ) {
         if( !__sync_bool_compare_and_swap( &(loc->slot->ideal_height), old_ideal, ideal ))
             old_ideal = loc->slot->ideal_height;
     }
 
     size_t height  = loc->height;
-    size_t max_imb = loc->set->settings->max_imbalance;
+    size_t max_imb = loc->set->settings.max_imbalance;
 
     // Check if we have an internal imbalance
     if ( height > (ideal + max_imb) && !loc->slot->rebuild ) {
-        rstat ret = rebalance( d, loc );
+        rstat ret = rebalance( d, loc->set, loc->slotn );
         __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
 
         if ( ret.bit.error ) {
@@ -202,8 +206,8 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
 
     // Check if we are balanced with our neighbors
     size_t us = loc->slotn;
-    size_t left  = (us - 1) % loc->set->settings->slot_count;
-    size_t right = (us + 1) % loc->set->settings->slot_count;
+    size_t left  = (us - 1) % loc->set->slot_count;
+    size_t right = (us + 1) % loc->set->slot_count;
     size_t neighbors[2] = { left, right };
 
     for ( size_t ni = 0; ni < 2; ni++ ) {
@@ -222,5 +226,42 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     }
 
     return rstat_ok;
+}
+
+dict_stat rebalance_all( dict *d, size_t threshold, size_t threads ) {
+    epoch *e = join_epoch( d );
+    set *s = d->set;
+
+    size_t index = 0;
+    void *args[3] = { &index, s, d };
+
+    if ( threads == 1 ) {
+        rebalance_worker( args );
+    }
+    else {
+        pthread_t *pts = malloc( threads * sizeof( pthread_t ));
+        for ( int i = 0; i < threads; i++ ) {
+            pthread_create( &(pts[i]), NULL, rebalance_worker, args );
+        }
+        for ( int i = 0; i < threads; i++ ) {
+            pthread_join( pts[i], NULL );
+        }
+    }
+
+    leave_epoch( d, e );
+    return rstat_ok;
+}
+
+void *rebalance_worker( void *in ) {
+    void **args = (void **)in;
+    size_t *index = args[0];
+    set    *s     = args[1];
+    dict   *d     = args[2];
+
+    while ( 1 ) {
+        size_t idx = __sync_fetch_and_add( index, 1 );
+        if ( idx >= s->slot_count ) return NULL;
+        rebalance( d, s, idx );
+    }
 }
 
