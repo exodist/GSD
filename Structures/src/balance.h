@@ -18,7 +18,7 @@
 
 extern const void *RBLD;
 
-rstat rebalance( dict *d, set *st, size_t slotn );
+rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff );
 size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count );
 rstat rebalance_insert_list( dict *d, set *st, slot **s, node **all, size_t start, size_t end, size_t ideal );
 rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal );

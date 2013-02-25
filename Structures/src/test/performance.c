@@ -71,7 +71,7 @@ int main() {
     int min_epochs = 4;
     int max_epochs = 4;
 
-    dict_settings set = { min_slots, max_slots, 0, NULL };
+    dict_settings set = { min_slots, max_slots, 0, 1, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
 
@@ -95,6 +95,7 @@ int main() {
             for ( int imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
                 for ( int operations = min_ops; operations <= max_ops; operations *= 2 ) {
                     set.max_imbalance = imbalance;
+                    set.max_internal_threads = threads;
                     dict_create( &d, epochs, set, met );
 
                     pthread_t  *pts  = malloc( threads * sizeof( pthread_t  ));

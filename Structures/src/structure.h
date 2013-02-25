@@ -50,6 +50,7 @@ struct set {
     slot **slots;
     size_t slot_count;
     dict_settings settings;
+
     uint8_t rebuild;
 };
 

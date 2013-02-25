@@ -12,7 +12,7 @@
 const int XRBLD = 1;
 const void *RBLD = &XRBLD;
 
-rstat rebalance( dict *d, set *st, size_t slotn ) {
+rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
     slot *sl = st->slots[slotn];
     if( !__sync_bool_compare_and_swap( &(sl->rebuild), 0, 1 ))
         return rstat_ok;
@@ -53,6 +53,7 @@ rstat rebalance( dict *d, set *st, size_t slotn ) {
     int success = __sync_bool_compare_and_swap( &(st->slots[slotn]), old_slot, ns );
 
     if ( success ) {
+        *count_diff = old_slot->item_count - count;
         __sync_add_and_fetch( &(d->rebalanced), 1 );
         dispose( d, (trash *)old_slot );
         return rstat_ok;
@@ -192,13 +193,17 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
 
     // Check if we have an internal imbalance
     if ( height > (ideal + max_imb) && !loc->slot->rebuild ) {
-        rstat ret = rebalance( d, loc->set, loc->slotn );
+        size_t count_diff = 0;
+        rstat ret = rebalance( d, loc->set, loc->slotn, &count_diff );
         __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
 
         if ( ret.bit.error ) {
             ret.bit.fail  = 0;
             ret.bit.rebal = 1;
             return ret;
+        }
+        else { // update all count
+            __sync_fetch_and_sub( &(d->item_count), count_diff );
         }
 
         if ( loc->slot->patho ) return rstat_patho;
@@ -235,15 +240,16 @@ dict_stat rebalance_all( dict *d, size_t threshold, size_t threads ) {
     size_t index = 0;
     void *args[3] = { &index, s, d };
 
-    if ( threads == 1 ) {
+    if ( threads < 2 ) {
         rebalance_worker( args );
     }
     else {
-        pthread_t *pts = malloc( threads * sizeof( pthread_t ));
-        for ( int i = 0; i < threads; i++ ) {
+        size_t tcount = threads < s->slot_count ? threads : s->slot_count;
+        pthread_t *pts = malloc( tcount * sizeof( pthread_t ));
+        for ( int i = 0; i < tcount; i++ ) {
             pthread_create( &(pts[i]), NULL, rebalance_worker, args );
         }
-        for ( int i = 0; i < threads; i++ ) {
+        for ( int i = 0; i < tcount; i++ ) {
             pthread_join( pts[i], NULL );
         }
     }
@@ -261,7 +267,10 @@ void *rebalance_worker( void *in ) {
     while ( 1 ) {
         size_t idx = __sync_fetch_and_add( index, 1 );
         if ( idx >= s->slot_count ) return NULL;
-        rebalance( d, s, idx );
+
+        size_t count_diff = 0;
+        rebalance( d, s, idx, &count_diff );
+        __sync_fetch_and_sub( &(d->item_count), count_diff );
     }
 }
 

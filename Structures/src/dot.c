@@ -10,7 +10,7 @@
 
 node NODE_SEP = { { 0 }, 0 };
 // Used for 'refs' mapping
-dict_settings dset = { 11, 11, 3, NULL };
+dict_settings dset = { 11, 11, 3, 1, NULL };
 
 dict_methods dmet = {
     dump_dot_ref_cmp,

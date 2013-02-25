@@ -70,6 +70,9 @@ struct dict_settings {
     size_t max_slot_count; // How many hash slots to have at max.
     size_t max_imbalance;  // How much imbalance is allowed
 
+    // How many threads can be used internally?
+    size_t max_internal_threads;
+
     // Metadata you can attach to the dictionary
     void *meta;
 };
@@ -103,7 +106,7 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t threads );
+dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads );
 
 // Allows you to rebalance at will, ideal to do after a lot fo inserts, before
 // a lot up lookups/updates.

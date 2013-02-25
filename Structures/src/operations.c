@@ -8,6 +8,7 @@
 #include "balance.h"
 #include "alloc.h"
 #include "util.h"
+#include "resize.h"
 
 rstat op_get( dict *d, void *key, void **val ) {
     location *loc = NULL;
@@ -332,6 +333,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
         // Insert the new node!
         if ( __sync_bool_compare_and_swap( branch, NULL, new_node )) {
             size_t count = __sync_add_and_fetch( &(loc->slot->item_count), 1 );
+            __sync_add_and_fetch( &(d->item_count), 1 );
 
             loc->node  = new_node;
             loc->usref = new_node->usref;
@@ -340,7 +342,13 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
             loc->height++;
-            *stat = balance_check( d, loc, count );
+
+            *stat = resize_check( d );
+
+            if ( d->set == loc->set && !stat->bit.error ) {
+                *stat = balance_check( d, loc, count );
+            }
+
             return 0;
         }
 
