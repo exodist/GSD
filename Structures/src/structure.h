@@ -42,14 +42,12 @@ struct dict {
     uint8_t epoch_count;
 
     size_t rebalanced;
-    size_t resized;
     size_t item_count;
 };
 
 struct set {
     trash  trash;
     slot **slots;
-    size_t slot_count;
     dict_settings settings;
 
     uint8_t rebuild;

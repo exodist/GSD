@@ -66,9 +66,11 @@ struct dict_methods {
  * callbacks.
 \*/
 struct dict_settings {
-    size_t min_slot_count; // How many hash slots to allocate initially
-    size_t max_slot_count; // How many hash slots to have at max.
-    size_t max_imbalance;  // How much imbalance is allowed
+    // How many hash slots to allocate
+    size_t slot_count;
+
+    // How much imbalance is allowed before an automatic rebalance of a tree.
+    size_t max_imbalance;
 
     // How many threads can be used internally?
     size_t max_internal_threads;
@@ -79,7 +81,7 @@ struct dict_settings {
 
 // -- Creation and meta data --
 
-dict *dict_build( size_t min, size_t max, dict_methods m, void *meta );
+dict *dict_build( size_t slots, dict_methods m, void *meta );
 
 dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods );
 

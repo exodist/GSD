@@ -10,7 +10,7 @@
 
 node NODE_SEP = { { 0 }, 0 };
 // Used for 'refs' mapping
-dict_settings dset = { 11, 11, 3, 1, NULL };
+dict_settings dset = { 11, 3, 1, NULL };
 
 dict_methods dmet = {
     dump_dot_ref_cmp,
@@ -352,7 +352,7 @@ rstat dump_dot_slots( set *s, dot *dd ) {
     if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;
 
     size_t previous = 0;
-    for ( size_t i = 0; i < s->slot_count; i++ ) {
+    for ( size_t i = 0; i < s->settings.slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         if ( sl->root == RBLD ) continue;

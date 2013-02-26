@@ -66,7 +66,7 @@ void free_trash( dict *d, trash *t ) {
 }
 
 void free_set( dict *d, set *s ) {
-    for ( int i = 0; i < s->slot_count; i++ ) {
+    for ( int i = 0; i < s->settings.slot_count; i++ ) {
         if ( s->slots[i] != NULL ) free_slot( d, s->slots[i] );
     }
     free( s->slots );
@@ -123,8 +123,8 @@ rstat do_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_met
     if ( epoch_limit && epoch_limit < 2 )
         return error( 1, 0, DICT_API_MISUSE, 9 );
 
-    if( !settings.min_slot_count ) settings.min_slot_count = 128;
-    if( !settings.max_imbalance  ) settings.max_imbalance  = 8;
+    if( !settings.slot_count )    settings.slot_count    = 128;
+    if( !settings.max_imbalance ) settings.max_imbalance = 8;
 
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return rstat_mem;
@@ -146,7 +146,7 @@ rstat do_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_met
         return rstat_mem;
     }
 
-    out->set = create_set( settings, settings.min_slot_count );
+    out->set = create_set( settings, settings.slot_count );
     if ( out->set == NULL ) {
         free( out->epochs );
         free( out );
@@ -174,7 +174,7 @@ set *create_set( dict_settings settings, size_t slot_count ) {
     }
 
     memset( out->slots, 0, slot_count * sizeof( slot * ));
-    out->slot_count = slot_count;
+    out->settings.slot_count = slot_count;
 
     out->trash.type = SET;
 

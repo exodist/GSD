@@ -64,35 +64,33 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    size_t min_ops = 1048576 * 2;
-    size_t max_ops = 1048576 * 2 * 2 * 2 * 2;
-    size_t min_slots = 128;
-    size_t max_slots = 2048;
+    size_t min_ops = 1048576 / 2;
+    size_t max_ops = 1048576 * 2;
+    size_t min_slots = 1024;
+    size_t max_slots = 32768;
     size_t min_imbalance = 8;
-    size_t max_imbalance = 8;
+    size_t max_imbalance = 16;
     size_t min_threads = 1;
     size_t max_threads = 8;
     size_t min_epochs = 4;
     size_t max_epochs = 4;
 
-    dict_settings set = { min_slots, max_slots, 0, 1, NULL };
+    dict_settings set = { 0, 0, 1, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
 
     fprintf( stdout,
-        "Type, "
         "Max Epochs, "
         "Threads, "
         "Max Imbalance, "
+        "Slot Count, "
         "Operations, "
         "Insert Time, "
         "Rebalance Time, "
         "Lookup Time, "
         "Update Time, "
+        "Resize Time, "
         "Rebalanced, "
-        "Resized, "
-        "Start Slots, "
-        "Final Slots, "
         "Used Epochs\n"
     );
     fflush( stdout );
@@ -100,85 +98,112 @@ int main() {
     for ( size_t epochs = min_epochs; epochs <= max_epochs; epochs *= 2 ) {
         for ( size_t threads = min_threads; threads <= max_threads; threads *= 2 ) {
             for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
-                for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {
-                    set.max_imbalance = imbalance;
-                    set.max_internal_threads = threads;
-                    dict_create( &d, epochs, set, met );
+                for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 2 ) {
+                    for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {
+                        fprintf( stdout, "%zi, %zi, %zi, %zi, %zi, ",
+                            epochs,
+                            threads,
+                            imbalance,
+                            slot_count,
+                            operations
+                        );
+                        fflush( stdout );
 
-                    pthread_t  *pts  = malloc( threads * sizeof( pthread_t  ));
-                    threadargs *args = malloc( threads * sizeof( threadargs ));
-
-                    timespec start, end;
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        args[tid].dict = d;
-                        args[tid].operations = operations / threads;
-                        args[tid].id = tid;
-                        args[tid].threads = threads;
-                        pthread_create( &(pts[tid]), NULL, thread_do_inserts, &(args[tid]) );
+                        set.max_imbalance = imbalance;
+                        set.max_internal_threads = threads;
+                        set.slot_count = slot_count;
+                        dict_create( &d, epochs, set, met );
+    
+                        pthread_t  *pts  = malloc( threads * sizeof( pthread_t  ));
+                        threadargs *args = malloc( threads * sizeof( threadargs ));
+    
+                        timespec start, end;
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            args[tid].dict = d;
+                            args[tid].operations = operations / threads;
+                            args[tid].id = tid;
+                            args[tid].threads = threads;
+                            pthread_create( &(pts[tid]), NULL, thread_do_inserts, &(args[tid]) );
+                        }
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            pthread_join( pts[tid], NULL );
+                        }
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec insert_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)insert_duration.tv_sec, insert_duration.tv_nsec
+                        );
+                        fflush( stdout );
+    
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        dict_rebalance( d, 3, threads );
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec rebalance_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)rebalance_duration.tv_sec, rebalance_duration.tv_nsec
+                        );
+                        fflush( stdout );
+    
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            args[tid].dict = d;
+                            args[tid].operations = operations / threads;
+                            args[tid].id = tid;
+                            args[tid].threads = threads;
+                            pthread_create( &(pts[tid]), NULL, thread_do_lookups, &(args[tid]) );
+                        }
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            pthread_join( pts[tid], NULL );
+                        }
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec lookup_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec
+                        );
+                        fflush( stdout );
+    
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            args[tid].dict = d;
+                            args[tid].operations = operations / threads;
+                            args[tid].id = tid;
+                            args[tid].threads = threads;
+                            pthread_create( &(pts[tid]), NULL, thread_do_updates, &(args[tid]) );
+                        }
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            pthread_join( pts[tid], NULL );
+                        }
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec update_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)update_duration.tv_sec, update_duration.tv_nsec
+                        );
+                        fflush( stdout );
+    
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        set.slot_count = slot_count * 2;
+                        rstat conf = dict_reconfigure( d, set, threads );
+                        if ( conf.bit.error ) {
+                            fprintf( stderr, "\nERROR: %i, %s\n", conf.bit.error, dict_stat_message(conf));
+                        }
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec resize_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)resize_duration.tv_sec, resize_duration.tv_nsec
+                        );
+                        fflush( stdout );
+    
+                        fprintf( stdout, "%zi, %i\n",
+                            d->rebalanced,
+                            d->epoch_count
+                        );
+                        fflush( stdout );
+    
+                        free( pts );
+                        free( args );
+                        dict_free( &d );
                     }
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        pthread_join( pts[tid], NULL );
-                    }
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-                    timespec insert_duration = time_diff( start, end );
-
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    dict_rebalance( d, 3, threads );
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-                    timespec rebalance_duration = time_diff( start, end );
-
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        args[tid].dict = d;
-                        args[tid].operations = operations / threads;
-                        args[tid].id = tid;
-                        args[tid].threads = threads;
-                        pthread_create( &(pts[tid]), NULL, thread_do_lookups, &(args[tid]) );
-                    }
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        pthread_join( pts[tid], NULL );
-                    }
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-                    timespec lookup_duration = time_diff( start, end );
-
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        args[tid].dict = d;
-                        args[tid].operations = operations / threads;
-                        args[tid].id = tid;
-                        args[tid].threads = threads;
-                        pthread_create( &(pts[tid]), NULL, thread_do_updates, &(args[tid]) );
-                    }
-                    for ( int tid = 0; tid < threads; tid++ ) {
-                        pthread_join( pts[tid], NULL );
-                    }
-                    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-                    timespec update_duration = time_diff( start, end );
-
-
-                    fprintf( stdout, "INSERT, %zi, %zi, %zi, %zi, %lli.%09li, %lli.%09li, %lli.%09li, %lli.%09li, %zi, %zi, %zi, %zi, %i\n",
-                        epochs,
-                        threads,
-                        imbalance,
-                        operations,
-                        (long long)insert_duration.tv_sec, insert_duration.tv_nsec,
-                        (long long)rebalance_duration.tv_sec, rebalance_duration.tv_nsec,
-                        (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec,
-                        (long long)update_duration.tv_sec, update_duration.tv_nsec,
-                        d->rebalanced,
-                        d->resized,
-                        min_slots,
-                        d->set->slot_count,
-                        d->epoch_count
-                    );
-                    fflush( stdout );
-
-
-
-                    free( pts );
-                    free( args );
-                    dict_free( &d );
                 }
             }
         }

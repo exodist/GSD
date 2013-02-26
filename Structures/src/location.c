@@ -49,7 +49,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     }
 
     if ( !lc->slotn_set ) {
-        lc->slotn = d->methods.loc( lc->set->slot_count, lc->set->settings.meta, key );
+        lc->slotn = d->methods.loc( lc->set->settings.slot_count, lc->set->settings.meta, key );
         lc->slotn_set = 1;
     }
 

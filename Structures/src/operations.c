@@ -8,7 +8,6 @@
 #include "balance.h"
 #include "alloc.h"
 #include "util.h"
-#include "resize.h"
 
 rstat op_get( dict *d, void *key, void **val ) {
     location *loc = NULL;
@@ -343,11 +342,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 
             loc->height++;
 
-            *stat = resize_check( d );
-
-            if ( d->set == loc->set && !stat->bit.error ) {
-                *stat = balance_check( d, loc, count );
-            }
+            *stat = balance_check( d, loc, count );
 
             return 0;
         }

@@ -214,8 +214,8 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
 
     // Check if we are balanced with our neighbors
     size_t us = loc->slotn;
-    size_t left  = (us - 1) % loc->set->slot_count;
-    size_t right = (us + 1) % loc->set->slot_count;
+    size_t left  = (us - 1) % loc->set->settings.slot_count;
+    size_t right = (us + 1) % loc->set->settings.slot_count;
     size_t neighbors[2] = { left, right };
 
     for ( size_t ni = 0; ni < 2; ni++ ) {
@@ -247,7 +247,7 @@ dict_stat rebalance_all( dict *d, size_t threshold, size_t threads ) {
         rebalance_worker( args );
     }
     else {
-        size_t tcount = threads < s->slot_count ? threads : s->slot_count;
+        size_t tcount = threads < s->settings.slot_count ? threads : s->settings.slot_count;
         pthread_t *pts = malloc( tcount * sizeof( pthread_t ));
         for ( int i = 0; i < tcount; i++ ) {
             pthread_create( &(pts[i]), NULL, rebalance_worker, args );
@@ -269,7 +269,7 @@ void *rebalance_worker( void *in ) {
 
     while ( 1 ) {
         size_t idx = __sync_fetch_and_add( index, 1 );
-        if ( idx >= s->slot_count ) return NULL;
+        if ( idx >= s->settings.slot_count ) return NULL;
 
         size_t count_diff = 0;
         rebalance( d, s, idx, &count_diff );

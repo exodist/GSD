@@ -11,11 +11,17 @@
 #define SETTINGS_H
 
 #include "include/gsd_dict.h"
+#include "structure.h"
 #include "error.h"
 
 dict_settings get_settings( dict *d );
 dict_methods get_methods( dict *d );
-rstat reconfigure( dict *d, dict_settings settings );
+rstat reconfigure( dict *d, dict_settings settings, size_t max_threads );
 
+rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads );
+
+void *reconf_worker( void *args );
+
+int reconf_transfer_slot( set *s, size_t idx, dict *orig, dict *dest );
 
 #endif

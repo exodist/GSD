@@ -8,8 +8,8 @@
 #include "structure.h"
 #include "balance.h"
 
-dict *dict_build( size_t min, size_t max, dict_methods m, void *meta ) {
-    dict_settings s = { min, max, 16, 8, meta };
+dict *dict_build( size_t slots, dict_methods m, void *meta ) {
+    dict_settings s = { slots, 16, 8, meta };
     dict *out;
     do_create( &out, 4, s, m );
     return out;
@@ -44,7 +44,7 @@ char *dict_dump_dot( dict *d, dict_dot *decode ) {
 }
 
 rstat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads ) {
-    return reconfigure( d, settings );
+    return reconfigure( d, settings, max_threads );
 }
 dict_stat dict_rebalance( dict *d, size_t threshold, size_t threads ) {
     return rebalance_all( d, threshold, threads );
