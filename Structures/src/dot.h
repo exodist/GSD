@@ -17,7 +17,7 @@
 #include "node_list.h"
 #include "error.h"
 
-#define DOT_BUFFER_INC 1024
+#define DOT_BUFFER_INC 1024 * 1024
 
 typedef struct dot dot;
 struct dot {

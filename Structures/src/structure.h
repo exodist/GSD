@@ -42,6 +42,7 @@ struct dict {
     uint8_t epoch_count;
 
     size_t rebalanced;
+    size_t resized;
     size_t item_count;
 };
 

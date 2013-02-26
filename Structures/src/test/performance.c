@@ -9,15 +9,19 @@
 #include <pthread.h>
 #include <time.h>
 
+#define new_kv( a ) x_new_kv( a, __FILE__, __LINE__ )
+
 typedef struct timespec timespec;
 typedef struct kv kv;
 struct kv {
-    uint64_t value;
-    size_t   refcount;
-    uint64_t fnv_hash;
+    uint64_t  value;
+    size_t    refcount;
+    uint64_t  fnv_hash;
+    char      *fname;
+    size_t    line;
 };
 
-kv NKV = { 0, 0 };
+kv NKV = { 0, 0, 0, __FILE__, __LINE__ };
 
 // If true FNV will be used to locate and compare keys, otherwise the raw
 // integer value is used (which is a worst case scenario as that means sorted
@@ -33,7 +37,7 @@ void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val )
 
 uint64_t hash_bytes( uint8_t *data, size_t length );
 
-kv *new_kv( uint64_t val );
+kv *x_new_kv( uint64_t val, char *file, size_t line );
 
 void *thread_do_inserts( void *ptr );
 void *thread_do_lookups( void *ptr );
@@ -60,16 +64,16 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    int min_ops = 8192;
-    int max_ops = 1048576;
-    int min_slots = 128;
-    int max_slots = 2048;
-    int min_imbalance = 16;
-    int max_imbalance = 128;
-    int min_threads = 1;
-    int max_threads = 8;
-    int min_epochs = 4;
-    int max_epochs = 4;
+    size_t min_ops = 1048576 * 2;
+    size_t max_ops = 1048576 * 2 * 2 * 2 * 2;
+    size_t min_slots = 128;
+    size_t max_slots = 2048;
+    size_t min_imbalance = 8;
+    size_t max_imbalance = 8;
+    size_t min_threads = 1;
+    size_t max_threads = 8;
+    size_t min_epochs = 4;
+    size_t max_epochs = 4;
 
     dict_settings set = { min_slots, max_slots, 0, 1, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
@@ -86,14 +90,17 @@ int main() {
         "Lookup Time, "
         "Update Time, "
         "Rebalanced, "
+        "Resized, "
+        "Start Slots, "
+        "Final Slots, "
         "Used Epochs\n"
     );
     fflush( stdout );
 
-    for ( int epochs = min_epochs; epochs <= max_epochs; epochs *= 2 ) {
-        for ( int threads = min_threads; threads <= max_threads; threads *= 2 ) {
-            for ( int imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
-                for ( int operations = min_ops; operations <= max_ops; operations *= 2 ) {
+    for ( size_t epochs = min_epochs; epochs <= max_epochs; epochs *= 2 ) {
+        for ( size_t threads = min_threads; threads <= max_threads; threads *= 2 ) {
+            for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
+                for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {
                     set.max_imbalance = imbalance;
                     set.max_internal_threads = threads;
                     dict_create( &d, epochs, set, met );
@@ -150,7 +157,7 @@ int main() {
                     timespec update_duration = time_diff( start, end );
 
 
-                    fprintf( stdout, "INSERT, %i, %i, %i, %i, %lli.%09li, %lli.%09li, %lli.%09li, %lli.%09li, %zi, %i\n",
+                    fprintf( stdout, "INSERT, %zi, %zi, %zi, %zi, %lli.%09li, %lli.%09li, %lli.%09li, %lli.%09li, %zi, %zi, %zi, %zi, %i\n",
                         epochs,
                         threads,
                         imbalance,
@@ -160,6 +167,9 @@ int main() {
                         (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec,
                         (long long)update_duration.tv_sec, update_duration.tv_nsec,
                         d->rebalanced,
+                        d->resized,
+                        min_slots,
+                        d->set->slot_count,
                         d->epoch_count
                     );
                     fflush( stdout );
@@ -230,7 +240,10 @@ void *thread_do_lookups( void *ptr ) {
         kv *it = new_kv( i );
         kv *got = NULL;
         dict_get( d, it, (void **)&got );
-        assert( got->value == i );
+        assert( got && got->value == i );
+        if( !got || got->value != i ) {
+            fprintf( stderr, "Lost: %zu\n", i );
+        }
         kv_ref( d, it, -1 );
         kv_ref( d, got, -1 );
     }
@@ -238,11 +251,13 @@ void *thread_do_lookups( void *ptr ) {
     return NULL;
 }
 
-kv *new_kv( uint64_t val ) {
+kv *x_new_kv( uint64_t val, char *file, size_t line ) {
     kv *it = malloc( sizeof( kv ));
     memset( it, 0, sizeof( kv ));
     it->refcount = 1;
     it->value = val;
+    it->fname = file;
+    it->line = line;
     return it;
 }
 

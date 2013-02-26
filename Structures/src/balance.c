@@ -175,6 +175,9 @@ rstat rebalance_insert_list( dict *d, set *st, slot **s, node **all, size_t star
 }
 
 rstat balance_check( dict *d, location *loc, size_t count ) {
+    // If max_imbalance is 0 we don't check
+    if ( !loc->set->settings.max_imbalance ) return rstat_ok;
+
     // If the data is known-pathological, don't bother trying to balance it.
     if ( loc->slot->patho ) return rstat_patho;
 
