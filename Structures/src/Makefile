@@ -58,8 +58,8 @@ stresstest: libDBGGSDDict.so
 #								 --history-level=full \
 #						./teststress.run 2> grind.txt
 
-performance: libDBGGSDDict.so
-	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/performance.c -lDBGGSDDict -lpthread -lrt -operformance.run
+performance: libGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/performance.c -lGSDDict -lpthread -lrt -operformance.run
 	LD_LIBRARY_PATH="." ./performance.run
 #	LD_LIBRARY_PATH="." gdb ./performance.run
 #	LD_LIBRARY_PATH="." valgrind --leak-check=full \

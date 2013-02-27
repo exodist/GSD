@@ -85,9 +85,9 @@ int main() {
         "Operations, "
         "Insert Time, "
         "Rebalance Time, "
-        "Lookup Time, "
         "Update Time, "
         "Resize Time, "
+        "Lookup Time, "
         "Rebalanced, "
         "Used Epochs\n"
     );
@@ -149,24 +149,6 @@ int main() {
                             args[tid].operations = operations / threads;
                             args[tid].id = tid;
                             args[tid].threads = threads;
-                            pthread_create( &(pts[tid]), NULL, thread_do_lookups, &(args[tid]) );
-                        }
-                        for ( int tid = 0; tid < threads; tid++ ) {
-                            pthread_join( pts[tid], NULL );
-                        }
-                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
-                        timespec lookup_duration = time_diff( start, end );
-                        fprintf( stdout, "%lli.%09li, ",
-                            (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec
-                        );
-                        fflush( stdout );
-
-                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                        for ( int tid = 0; tid < threads; tid++ ) {
-                            args[tid].dict = d;
-                            args[tid].operations = operations / threads;
-                            args[tid].id = tid;
-                            args[tid].threads = threads;
                             pthread_create( &(pts[tid]), NULL, thread_do_updates, &(args[tid]) );
                         }
                         for ( int tid = 0; tid < threads; tid++ ) {
@@ -189,6 +171,24 @@ int main() {
                         timespec resize_duration = time_diff( start, end );
                         fprintf( stdout, "%lli.%09li, ",
                             (long long)resize_duration.tv_sec, resize_duration.tv_nsec
+                        );
+                        fflush( stdout );
+
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            args[tid].dict = d;
+                            args[tid].operations = operations / threads;
+                            args[tid].id = tid;
+                            args[tid].threads = threads;
+                            pthread_create( &(pts[tid]), NULL, thread_do_lookups, &(args[tid]) );
+                        }
+                        for ( int tid = 0; tid < threads; tid++ ) {
+                            pthread_join( pts[tid], NULL );
+                        }
+                        clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                        timespec lookup_duration = time_diff( start, end );
+                        fprintf( stdout, "%lli.%09li, ",
+                            (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec
                         );
                         fflush( stdout );
 
@@ -263,10 +263,11 @@ void *thread_do_lookups( void *ptr ) {
         kv *it = new_kv( i );
         kv *got = NULL;
         dict_get( d, it, (void **)&got );
-        assert( got && got->value == i );
-        if( !got || got->value != i ) {
-            fprintf( stderr, "Lost: %zu\n", i );
+        if( !got || got->value != (i + 1) ) {
+            fprintf( stderr, "\nLost: %zu   ", i );
+            fflush( stderr );
         }
+        assert( got && got->value == (i + 1) );
         kv_ref( d, it, -1 );
         kv_ref( d, got, -1 );
     }
