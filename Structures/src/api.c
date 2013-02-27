@@ -2,7 +2,7 @@
 
 #include "alloc.h"
 #include "dot.h"
-#include "merge.h"
+#include "multidict.h"
 #include "operations.h"
 #include "settings.h"
 #include "structure.h"
