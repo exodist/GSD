@@ -249,12 +249,17 @@ dict_stat rebalance_all( dict *d, size_t threshold, size_t threads ) {
     else {
         size_t tcount = threads < s->settings.slot_count ? threads : s->settings.slot_count;
         pthread_t *pts = malloc( tcount * sizeof( pthread_t ));
+        if ( !pts ) {
+            leave_epoch( d, e );
+            return rstat_mem;
+        }
         for ( int i = 0; i < tcount; i++ ) {
             pthread_create( &(pts[i]), NULL, rebalance_worker, args );
         }
         for ( int i = 0; i < tcount; i++ ) {
             pthread_join( pts[i], NULL );
         }
+        free( pts );
     }
 
     leave_epoch( d, e );

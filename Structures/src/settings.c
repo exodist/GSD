@@ -1,6 +1,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <unistd.h>
+#include <stdio.h>
 
 #include "include/gsd_dict.h"
 
@@ -71,19 +72,41 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     }
     else {
         pthread_t *pts = malloc( tcount * sizeof( pthread_t ));
-        for ( int i = 0; i < tcount; i++ ) {
-            pthread_create( &(pts[i]), NULL, reconf_worker, args );
+        if ( !pts ) {
+            fail = 1;
         }
-        for ( int i = 0; i < tcount; i++ ) {
-            int *ret;
-            pthread_join( pts[i], (void **)&ret );
-            fail += *ret;
+        else {
+            for ( int i = 0; i < tcount; i++ ) {
+                pthread_create( &(pts[i]), NULL, reconf_worker, args );
+            }
+            for ( int i = 0; i < tcount; i++ ) {
+                int *ret;
+                pthread_join( pts[i], (void **)&ret );
+                fail += *ret;
+            }
+            free( pts );
         }
     }
 
     epoch *de = join_epoch( new_dict );
 
     rstat out = rstat_ok;
+    if ( fail ) {
+        out = make_error( 1, 0, DICT_UNKNOWN, 14, __LINE__, __FILE__ );
+    }
+    else {
+        if ( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set )) {
+            d->set->settings.max_imbalance = s->settings.max_imbalance;
+            rebalance_all( d, 2, tcount );
+            dispose( d, (trash *)s );
+            new_dict->set = NULL;
+        }
+        else {
+            fail = 1;
+            out = rstat_trans;
+        }
+    }
+
     if ( fail ) {
         // Unblock slots
         for ( size_t i = 0; i < s->settings.slot_count; i++ ) {
@@ -92,20 +115,6 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
                 rebalance_unblock( sl->root );
                 assert( __sync_bool_compare_and_swap( &(sl->rebuild), 2, 0 ) );
             }
-        }
-
-        out = make_error( 1, 0, DICT_UNKNOWN, 14, __LINE__, __FILE__ );
-    }
-    else {
-        new_dict->set->settings = s->settings;
-        if ( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set )) {
-            d->set->settings.max_imbalance = s->settings.max_imbalance;
-            dispose( d, (trash *)s );
-            rebalance_all( new_dict, 2, tcount );
-            new_dict->set = NULL;
-        }
-        else {
-            out = rstat_trans;
         }
     }
 

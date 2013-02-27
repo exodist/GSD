@@ -16,6 +16,8 @@ typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
 typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
 typedef char * (dict_dot)( void *key, void *val );
+typedef void   (dict_immute)( void *meta );
+typedef void   (dict_ref_immute)( void *meta, void *ref );
 
 struct dict;
 
@@ -42,6 +44,11 @@ struct dict_methods {
     // These are called whenever a dictionary adds or removes a reference to
     // key or value. These can be used for reference counting purposes.
     dict_ref *ref; // Callback when the dictionary adds or removes a ref
+
+    // Used to tell metadata and refs that the hash in which they sit has
+    // become immutable.
+    dict_immute *immute;
+    dict_ref_immute *ref_immute;
 };
 
 /* Dictionary Settings:
@@ -88,6 +95,8 @@ dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, di
 // Copying and cloning
 dict_stat dict_merge( dict *from, dict *to );
 dict_stat dict_merge_refs( dict *from, dict *to );
+dict *dict_clone( dict *d );
+dict *dict_clone_refs( dict *d );
 
 // Used to free a dict structure.
 // Does not free your keys, values, meta, or methods.
@@ -98,6 +107,8 @@ dict_settings dict_get_settings( dict *d );
 
 // Used to get your dict_methods item.
 dict_methods dict_get_methods( dict *d );
+
+void make_immutable( dict *d );
 
 // -- Informative --
 

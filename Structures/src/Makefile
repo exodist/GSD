@@ -62,4 +62,9 @@ performance: libGSDDict.so
 	$(GCC) $(CFLAGS) -O2 -I. -L. test/performance.c -lGSDDict -lpthread -lrt -operformance.run
 	LD_LIBRARY_PATH="." ./performance.run
 #	LD_LIBRARY_PATH="." gdb ./performance.run
+#	LD_LIBRARY_PATH="." valgrind --leak-check=full \
+#								 --read-var-info=yes \
+#								 --track-origins=yes \
+#								 --show-reachable=yes \
+#						./performance.run 2> grind.txt
 

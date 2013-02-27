@@ -40,6 +40,7 @@ struct dict {
     epoch *epoch;
     uint8_t epoch_limit;
     uint8_t epoch_count;
+    uint8_t immutable;
 
     size_t rebalanced;
     size_t item_count;
@@ -87,6 +88,7 @@ struct sref {
     trash   trash;
     size_t  refcount;
     xtrn   *xtrn;
+    uint8_t immutable;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

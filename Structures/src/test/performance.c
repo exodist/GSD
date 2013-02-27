@@ -65,9 +65,9 @@ timespec time_diff(timespec start, timespec end) {
 
 int main() {
     size_t min_ops = 1048576 / 2;
-    size_t max_ops = 1048576 * 2;
+    size_t max_ops = 1048576;
     size_t min_slots = 1024;
-    size_t max_slots = 32768;
+    size_t max_slots = 1024 * 4 * 4;
     size_t min_imbalance = 8;
     size_t max_imbalance = 16;
     size_t min_threads = 1;
@@ -98,7 +98,7 @@ int main() {
     for ( size_t epochs = min_epochs; epochs <= max_epochs; epochs *= 2 ) {
         for ( size_t threads = min_threads; threads <= max_threads; threads *= 2 ) {
             for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
-                for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 2 ) {
+                for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 4 ) {
                     for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {
                         fprintf( stdout, "%zi, %zi, %zi, %zi, %zi, ",
                             epochs,
@@ -113,10 +113,10 @@ int main() {
                         set.max_internal_threads = threads;
                         set.slot_count = slot_count;
                         dict_create( &d, epochs, set, met );
-    
+
                         pthread_t  *pts  = malloc( threads * sizeof( pthread_t  ));
                         threadargs *args = malloc( threads * sizeof( threadargs ));
-    
+
                         timespec start, end;
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                         for ( int tid = 0; tid < threads; tid++ ) {
@@ -135,7 +135,7 @@ int main() {
                             (long long)insert_duration.tv_sec, insert_duration.tv_nsec
                         );
                         fflush( stdout );
-    
+
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                         dict_rebalance( d, 3, threads );
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
@@ -144,7 +144,7 @@ int main() {
                             (long long)rebalance_duration.tv_sec, rebalance_duration.tv_nsec
                         );
                         fflush( stdout );
-    
+
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                         for ( int tid = 0; tid < threads; tid++ ) {
                             args[tid].dict = d;
@@ -162,7 +162,7 @@ int main() {
                             (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec
                         );
                         fflush( stdout );
-    
+
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                         for ( int tid = 0; tid < threads; tid++ ) {
                             args[tid].dict = d;
@@ -180,7 +180,7 @@ int main() {
                             (long long)update_duration.tv_sec, update_duration.tv_nsec
                         );
                         fflush( stdout );
-    
+
                         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                         set.slot_count = slot_count * 2;
                         rstat conf = dict_reconfigure( d, set, threads );
@@ -193,13 +193,13 @@ int main() {
                             (long long)resize_duration.tv_sec, resize_duration.tv_nsec
                         );
                         fflush( stdout );
-    
+
                         fprintf( stdout, "%zi, %i\n",
                             d->rebalanced,
                             d->epoch_count
                         );
                         fflush( stdout );
-    
+
                         free( pts );
                         free( args );
                         dict_free( &d );
