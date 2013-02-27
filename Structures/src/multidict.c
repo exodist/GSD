@@ -6,6 +6,7 @@
 #include "operations.h"
 #include "node_list.h"
 #include "balance.h"
+#include "stdio.h"
 
 int SUCCESS = 0;
 int FAIL = 1;

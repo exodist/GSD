@@ -28,8 +28,6 @@ kv NKV = { 0, 0, 0, __FILE__, __LINE__ };
 // insert into all the trees.
 int USE_FNV = 1;
 
-uint64_t hash_bytes( uint8_t *data, size_t length );
-
 void   kv_ref( dict *d, void *ref, int delta );
 size_t kv_loc( size_t slot_count, void *meta, void *key );
 int    kv_cmp( void *meta, void *key1, void *key2 );
@@ -90,7 +88,6 @@ int main() {
         "Lookup Time, "
         "Update Time, "
         "Resize Time, "
-        "Count at end, "
         "Rebalanced, "
         "Used Epochs\n"
     );
@@ -195,8 +192,7 @@ int main() {
                         );
                         fflush( stdout );
 
-                        fprintf( stdout, "%zi, %zi, %i\n",
-                            d->item_count,
+                        fprintf( stdout, "%zi, %i\n",
                             d->rebalanced,
                             d->epoch_count
                         );

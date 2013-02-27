@@ -108,10 +108,6 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
     }
 
     // Current value, but cannot update
-    if ( oloc->xtrn && !osp->update ) {
-        out = rstat_trans;
-        goto OP_REFERENCE_CLEANUP;
-    }
     if ( dloc->xtrn && !dsp->update ) {
         out = rstat_trans;
         goto OP_REFERENCE_CLEANUP;
