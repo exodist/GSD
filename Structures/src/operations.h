@@ -36,7 +36,7 @@ rstat op_delete( dict *d, void *key );
 rstat op_dereference( dict *d, void *key );
 rstat op_get( dict *d, void *key, void **val );
 rstat op_insert( dict *d, void *key, void *val );
-rstat op_reference( dict *orig, void *okey, dict *dest, void *dkey );
+rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dkey, set_spec *dsp );
 rstat op_set( dict *d, void *key, void *val );
 rstat op_update( dict *d, void *key, void *val );
 

@@ -14,6 +14,7 @@ const void *RBLD = &XRBLD;
 
 rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
     slot *sl = st->slots[slotn];
+    if ( sl == NULL || sl == RBLD ) return rstat_ok;
     if( !__sync_bool_compare_and_swap( &(sl->rebuild), 0, 1 ))
         return rstat_ok;
 

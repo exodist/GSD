@@ -7,13 +7,21 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef MERGE_H
-#define MERGE_H
+#ifndef MULTIDICT_H
+#define MULTIDICT_H
 
+#include "include/gsd_dict.h"
+#include "structure.h"
 #include "error.h"
 
-// These are also in include/gsd_dict.h
-rstat merge( dict *from, dict *to );
-rstat merge_refs( dict *from, dict *to );
+dict *clone( dict *d, uint8_t reference, size_t threads );
+
+rstat merge( dict *from, dict *to, merge_settings s, size_t threads );
+
+rstat do_merge( dict *orig, dict *dest, merge_settings s, size_t threads );
+
+void *merge_worker( void *args );
+
+rstat merge_transfer_slot( set *oset, size_t idx, dict *orig, dict *dest, merge_settings *settings );
 
 #endif

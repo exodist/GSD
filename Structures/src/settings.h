@@ -20,8 +20,8 @@ rstat reconfigure( dict *d, dict_settings settings, size_t max_threads );
 
 rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads );
 
-void *reconf_worker( void *args );
+void *reconf_worker( void *in );
 
-int reconf_transfer_slot( set *s, size_t idx, dict *orig, dict *dest );
+rstat reconf_prep_slot( set *set, size_t idx, void *from, void *to );
 
 #endif

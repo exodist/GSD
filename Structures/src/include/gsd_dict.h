@@ -6,6 +6,7 @@
 
 #include "gsd_dict_return.h"
 
+typedef struct merge_settings merge_settings;
 typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
@@ -86,6 +87,19 @@ struct dict_settings {
     void *meta;
 };
 
+struct merge_settings {
+    enum {
+        // Pairs in origin override destination
+        MERGE_SET,
+        // Only pairs unique to origin are put into destination
+        MERGE_INSERT,
+        // Only update pairs found in both dicts
+        MERGE_UPDATE,
+    } operation;
+
+    uint8_t reference;
+};
+
 // -- Creation and meta data --
 
 dict *dict_build( size_t slots, dict_methods m, void *meta );
@@ -93,10 +107,8 @@ dict *dict_build( size_t slots, dict_methods m, void *meta );
 dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods );
 
 // Copying and cloning
-dict_stat dict_merge( dict *from, dict *to );
-dict_stat dict_merge_refs( dict *from, dict *to );
-dict *dict_clone( dict *d );
-dict *dict_clone_refs( dict *d );
+dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads );
+dict *dict_clone( dict *d, uint8_t reference, size_t threads );
 
 // Used to free a dict structure.
 // Does not free your keys, values, meta, or methods.

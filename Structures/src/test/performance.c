@@ -90,6 +90,7 @@ int main() {
         "Lookup Time, "
         "Update Time, "
         "Resize Time, "
+        "Count at end, "
         "Rebalanced, "
         "Used Epochs\n"
     );
@@ -194,7 +195,8 @@ int main() {
                         );
                         fflush( stdout );
 
-                        fprintf( stdout, "%zi, %i\n",
+                        fprintf( stdout, "%zi, %zi, %i\n",
+                            d->item_count,
                             d->rebalanced,
                             d->epoch_count
                         );

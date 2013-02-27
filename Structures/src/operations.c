@@ -85,37 +85,62 @@ rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
     return err;
 }
 
-rstat op_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
+rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dkey, set_spec *dsp ) {
+    rstat out = rstat_ok;
+    assert( dsp->swap_from == NULL );
     location *oloc = NULL;
     location *dloc = NULL;
 
-    set_spec sp = { 1, 0, NULL };
+    // Find existing pairs
+    out = locate_key( orig, okey, &oloc );
+    if ( out.bit.error ) goto OP_REFERENCE_CLEANUP;
+    out = locate_key( dest, dkey, &dloc );
+    if ( out.bit.error ) goto OP_REFERENCE_CLEANUP;
 
-    // Find item in orig, insert if necessary
-    rstat err1 = do_set( orig, &oloc, okey, NULL, &sp );
-    // Find item in dest, insert if necessary
-    rstat err2 = do_set( dest, &dloc, dkey, NULL, &sp );
-
-    // Ignore rebalance errors.. might want to readdress this.
-    if ( err1.bit.rebal ) err1 = rstat_ok;
-    if ( err2.bit.rebal ) err2 = rstat_ok;
-
-    // Transaction failure from above simply means it already exists
-    if ( err1.bit.fail && !err1.bit.error ) err1 = rstat_ok;
-    if ( err2.bit.fail && !err2.bit.error ) err2 = rstat_ok;
-
-    rstat ret = rstat_ok;
-    if ( !err1.num && !err2.num ) {
-        ret = do_deref( dest, dkey, dloc, oloc->usref->sref );
+    // No current value, and cannot insert
+    if (( !oloc->sref || !oloc->xtrn ) && !osp->insert ) {
+        out = rstat_trans;
+        goto OP_REFERENCE_CLEANUP;
     }
+    if (( !dloc->sref || !dloc->xtrn ) && !dsp->insert ) {
+        out = rstat_trans;
+        goto OP_REFERENCE_CLEANUP;
+    }
+
+    // Current value, but cannot update
+    if ( oloc->xtrn && !osp->update ) {
+        out = rstat_trans;
+        goto OP_REFERENCE_CLEANUP;
+    }
+    if ( dloc->xtrn && !dsp->update ) {
+        out = rstat_trans;
+        goto OP_REFERENCE_CLEANUP;
+    }
+
+    if ( !oloc->usref ) {
+        out = do_set( orig, &oloc, okey, NULL, osp );
+
+        // Error on all but rebalance issues.
+        if ( out.bit.error && !out.bit.rebal )
+            goto OP_REFERENCE_CLEANUP;
+    }
+
+    if ( !dloc->usref ) {
+        out = do_set( dest, &dloc, dkey, NULL, dsp );
+
+        // Error on all but rebalance issues.
+        if ( out.bit.error && !out.bit.rebal )
+            goto OP_REFERENCE_CLEANUP;
+    }
+
+    out = do_deref( dest, dkey, dloc, oloc->usref->sref );
+
+    OP_REFERENCE_CLEANUP:
 
     if ( oloc != NULL ) free_location( orig, oloc );
     if ( dloc != NULL ) free_location( dest, dloc );
 
-    if ( err1.num ) return err1;
-    if ( err2.num ) return err2;
-
-    return ret;
+    return out;
 }
 
 rstat op_dereference( dict *d, void *key ) {

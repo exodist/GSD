@@ -19,12 +19,12 @@ rstat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_m
     return do_create( d, epoch_limit, settings, methods );
 }
 
-rstat merge( dict *from, dict *to ) {
-    return rstat_unimp;
+dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads ) {
+    return merge( from, to, s, threads );
 }
 
-rstat merge_refs( dict *from, dict *to ) {
-    return rstat_unimp;
+dict *dict_clone( dict *d, uint8_t reference, size_t threads ) {
+    return clone( d, reference, threads );
 }
 
 rstat dict_free( dict **d ) {
@@ -74,7 +74,8 @@ rstat dict_cmp_delete( dict *d, void *key, void *old_val ) {
 }
 
 rstat dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
-    return op_reference( orig, okey, dest, dkey );
+    set_spec sp = { 1, 1, NULL };
+    return op_reference( orig, okey, &sp, dest, dkey, &sp );
 }
 rstat dict_dereference( dict *d, void *key ) {
     return op_dereference( d, key );
