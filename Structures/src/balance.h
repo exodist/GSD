@@ -15,8 +15,7 @@
 #include "structure.h"
 #include "location.h"
 #include "error.h"
-
-extern const void *RBLD;
+#include "magic_pointers.h"
 
 rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff );
 size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count );

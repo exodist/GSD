@@ -9,7 +9,7 @@
 #include "balance.h"
 
 dict *dict_build( size_t slots, dict_methods m, void *meta ) {
-    dict_settings s = { slots, 16, 8, meta };
+    dict_settings s = { slots, 16, meta };
     dict *out;
     do_create( &out, 4, s, m );
     return out;
@@ -85,3 +85,6 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
     return iterate( d, h, args );
 }
 
+void make_immutable( dict *d, size_t threads ) {
+    
+}

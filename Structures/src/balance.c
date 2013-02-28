@@ -9,9 +9,6 @@
 #include "util.h"
 #include "alloc.h"
 
-const int XRBLD = 1;
-const void *RBLD = &XRBLD;
-
 rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
     slot *sl = st->slots[slotn];
     if ( sl == NULL || sl == RBLD ) return rstat_ok;

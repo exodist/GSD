@@ -80,9 +80,6 @@ struct dict_settings {
     // How much imbalance is allowed before an automatic rebalance of a tree.
     size_t max_imbalance;
 
-    // How many threads can be used internally?
-    size_t max_internal_threads;
-
     // Metadata you can attach to the dictionary
     void *meta;
 };
@@ -120,7 +117,7 @@ dict_settings dict_get_settings( dict *d );
 // Used to get your dict_methods item.
 dict_methods dict_get_methods( dict *d );
 
-void make_immutable( dict *d );
+void make_immutable( dict *d, size_t threads );
 
 // -- Informative --
 

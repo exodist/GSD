@@ -30,7 +30,6 @@ rstat reconfigure( dict *d, dict_settings settings, size_t max_threads ) {
     set *s = d->set;
     if ( __sync_bool_compare_and_swap( &(s->rebuild), 0, 1 )) {
         s->settings.max_imbalance = settings.max_imbalance;
-        s->settings.max_internal_threads = settings.max_internal_threads;
 
         size_t count = settings.slot_count;
         void  *meta  = settings.meta;

@@ -63,17 +63,17 @@ timespec time_diff(timespec start, timespec end) {
 
 int main() {
     size_t min_ops = 1048576 / 2;
-    size_t max_ops = 1048576;
+    size_t max_ops = 1048576 * 2;
     size_t min_slots = 1024;
-    size_t max_slots = 1024 * 4 * 4;
-    size_t min_imbalance = 8;
+    size_t max_slots = 1024 * 4 * 4 * 4;
+    size_t min_imbalance = 16;
     size_t max_imbalance = 16;
-    size_t min_threads = 1;
-    size_t max_threads = 8;
+    size_t min_threads = 16;
+    size_t max_threads = 2048;
     size_t min_epochs = 4;
     size_t max_epochs = 4;
 
-    dict_settings set = { 0, 0, 1, NULL };
+    dict_settings set = { 0, 0, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
 
@@ -108,7 +108,6 @@ int main() {
                         fflush( stdout );
 
                         set.max_imbalance = imbalance;
-                        set.max_internal_threads = threads;
                         set.slot_count = slot_count;
                         dict_create( &d, epochs, set, met );
 
