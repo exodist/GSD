@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-int compare( dict_settings *settings, void *key1, void *key2 ) {
+int compare( void *meta, void *key1, void *key2 ) {
     int64_t k1 = *(int64_t*)key1;
     int64_t k2 = *(int64_t*)key2;
     if ( k1 > k2 ) return -1;
@@ -24,26 +24,21 @@ char *show( void *key, void *val ) {
     return buffer;
 }
 
-size_t locate( dict_settings *settings, void *key ) {
+size_t locate( size_t slot_count, void *meta, void *key ) {
     int64_t k = *(int64_t*)key;
-    int64_t s = k % settings->slot_count;
+    int64_t s = k % slot_count;
     return s;
 }
 
 int main() {
     srand(time(NULL));
 
-    dict *d;
-    dict_methods *m = malloc( sizeof( dict_methods ));
-    memset( m, 0, sizeof( dict_methods ));
-    dict_settings *s = malloc( sizeof( dict_settings ));
-    memset( s, 0, sizeof( dict_settings ));
-    s->slot_count = 8;
-    s->max_imbalance = 2;
-    m->cmp = compare;
-    m->loc = locate;
+    dict_methods  m = { compare, locate };
+    dict_settings s = { 8, 2, NULL };
 
-    dict_create( &d, 0, s, m );
+    dict *d;
+
+    dict_create( &d, s, m );
     int64_t v = 1;
     int64_t v2 = 11;
     int64_t v3 = 55;
@@ -78,10 +73,10 @@ int main() {
         if ( i % 5 == 0 ) {
             int64_t y = rand() % 8;
             if ( x == y ) { y += 1; }
-            //dict_reference( d, &k[x], d, &k[y] );
+            dict_reference( d, &k[x], d, &k[y] );
         }
         if ( i % 7 == 0 ) {
-            //dict_dereference( d, &k[x] );
+            dict_dereference( d, &k[x] );
         }
     }
 
@@ -93,13 +88,20 @@ int main() {
     dict_set( d, &k[0], &v3 );
     dict_reference( d, &k[3905], d, &k[2401] );
 
+    int64_t *g = NULL;
+    dict_get( d, &k[0], (void **)&g );
+    assert( g == &v3 );
+    dict_get( d, &k[3905], (void **)&g );
+    assert( g == &v3 );
+    dict_get( d, &k[2401], (void **)&g );
+    assert( g == &v3 );
+
+
     char *dot = dict_dump_dot( d, show );
 
     printf( "%s\n", dot );
     free( dot );
     dict_free( &d );
-    free( m );
-    free( s );
 
     return 0;
 }

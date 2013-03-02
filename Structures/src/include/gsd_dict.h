@@ -6,6 +6,7 @@
 
 #include "gsd_dict_return.h"
 
+typedef struct merge_settings merge_settings;
 typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
@@ -13,9 +14,11 @@ typedef struct dict dict;
 typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
 typedef void   (dict_ref)( dict *d, void *ref, int delta );
 typedef int    (dict_handler)( void *key, void *value, void *args );
-typedef int    (dict_cmp)( dict_settings *s, void *key1, void *key2 );
-typedef size_t (dict_loc)( dict_settings *s, void *key );
+typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
+typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
 typedef char * (dict_dot)( void *key, void *val );
+typedef void   (dict_immute)( void *meta );
+typedef void   (dict_ref_immute)( void *meta, void *ref );
 
 struct dict;
 
@@ -42,6 +45,11 @@ struct dict_methods {
     // These are called whenever a dictionary adds or removes a reference to
     // key or value. These can be used for reference counting purposes.
     dict_ref *ref; // Callback when the dictionary adds or removes a ref
+
+    // Used to tell metadata and refs that the hash in which they sit has
+    // become immutable.
+    dict_immute *immute;
+    dict_ref_immute *ref_immute;
 };
 
 /* Dictionary Settings:
@@ -66,31 +74,55 @@ struct dict_methods {
  * callbacks.
 \*/
 struct dict_settings {
-    size_t  slot_count;    // How many hash slots to allocate
-    size_t max_imbalance; // How much imbalance is allowed
+    // How many hash slots to allocate
+    size_t slot_count;
+
+    // How much imbalance is allowed before an automatic rebalance of a tree.
+    size_t max_imbalance;
 
     // Metadata you can attach to the dictionary
     void *meta;
 };
 
+struct merge_settings {
+    enum {
+        // Pairs in origin override destination
+        MERGE_SET,
+        // Only pairs unique to origin are put into destination
+        MERGE_INSERT,
+        // Only update pairs found in both dicts
+        MERGE_UPDATE,
+    } operation;
+
+    // Set to 1 if you want the destination to reference the original.
+    uint8_t reference;
+};
+
 // -- Creation and meta data --
 
-// Note: 'epoch_limit' must be 0 or greater than 3
-dict_stat dict_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+dict *dict_build( size_t slots, dict_methods m, void *meta );
+
+dict_stat dict_create( dict **d, dict_settings settings, dict_methods methods );
 
 // Copying and cloning
-dict_stat dict_merge( dict *from, dict *to );
-dict_stat dict_merge_refs( dict *from, dict *to );
+dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads );
+dict *dict_clone( dict *d, uint8_t reference, size_t threads );
 
 // Used to free a dict structure.
 // Does not free your keys, values, meta, or methods.
 dict_stat dict_free( dict **d );
 
 // Used to access your settings
-dict_settings *dict_get_settings( dict *d );
+dict_settings dict_get_settings( dict *d );
 
 // Used to get your dict_methods item.
-dict_methods *dict_get_methods( dict *d );
+dict_methods dict_get_methods( dict *d );
+
+// Returns false if the dictionary is in an invalid state, this generally only
+// occurs if we run out of memory partway through a rebalance or reconfigure.
+int dict_health_check( dict *d );
+
+dict_stat dict_make_immutable( dict *d, size_t threads );
 
 // -- Informative --
 
@@ -101,7 +133,15 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // This allows you to rebuild your dictionary using new metadata and/or slot
 // count. This is useful if you get a DICT_PATHO_ERROR which means the data in
 // your dictionary appears to be pathalogical
-dict_stat dict_reconfigure( dict *d, dict_settings *settings );
+dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads );
+
+// If the dictionary is left in an invalid state, this can be used to repair
+// it.
+dict_stat dict_recover( dict *d, size_t max_threads );
+
+// Allows you to rebalance at will, ideal to do after a lot fo inserts, before
+// a lot up lookups/updates.
+dict_stat dict_rebalance( dict *d, size_t threshold, size_t threads );
 
 // Get never blocks
 // Set will insert or update as necessary

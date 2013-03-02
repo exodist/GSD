@@ -14,21 +14,10 @@ rstat do_free( dict **dr ) {
     *dr = NULL;
 
     // Wait on all epochs
-    epoch *e = d->epochs;
-    while ( e != NULL ) {
-        while( e->active ) sleep( 0 );
-        e = e->next;
+    for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
+        while( d->epochs[i].active ) sleep( 0 );
     }
-
     if ( d->set != NULL ) free_set( d, d->set );
-
-    e = d->epochs;
-    d->epochs = NULL;
-    while ( e != NULL ) {
-        epoch *goner = e;
-        e = e->next;
-        free( goner );
-    }
 
     free( d );
     return rstat_ok;
@@ -66,7 +55,7 @@ void free_trash( dict *d, trash *t ) {
 }
 
 void free_set( dict *d, set *s ) {
-    for ( int i = 0; i < s->settings->slot_count; i++ ) {
+    for ( int i = 0; i < s->settings.slot_count; i++ ) {
         if ( s->slots[i] != NULL ) free_slot( d, s->slots[i] );
     }
     free( s->slots );
@@ -79,15 +68,15 @@ void free_slot( dict *d, slot *s ) {
 }
 
 void free_node( dict *d, node *n ) {
-    if ( n->left != NULL && n->left != RBLD )
+    if ( n->left && !blocked_null( n->left ))
         free_node( d, n->left );
-    if ( n->right != NULL && n->right != RBLD )
+    if ( n->right && !blocked_null( n->right ))
         free_node( d, n->right );
 
     size_t count = __sync_sub_and_fetch( &(n->usref->refcount), 1 );
     if( count == 0 ) {
         sref *r = n->usref->sref;
-        if ( r != NULL && r != RBLD ) {
+        if ( r && !blocked_null( r )) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
             // If refcount is SIZE_MAX we almost certainly have an underflow. 
             assert( count != SIZE_MAX );
@@ -103,54 +92,32 @@ void free_node( dict *d, node *n ) {
 }
 
 void free_sref( dict *d, sref *r ) {
-    if ( r->xtrn && r->xtrn != RBLD )
+    if ( r->xtrn && !blocked_null( r->xtrn ))
         free_xtrn( d, r->xtrn );
 
     free( r );
 }
 
 void free_xtrn( dict *d, xtrn *x ) {
-    if ( d->methods->ref && x->value )
-        d->methods->ref( d, x->value, -1 );
+    if ( d->methods.ref && x->value )
+        d->methods.ref( d, x->value, -1 );
 
     free( x );
 }
 
-rstat do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods ) {
-    if ( settings == NULL )     return error( 1, 0, DICT_API_MISUSE, 5 );
-    if ( methods == NULL )      return error( 1, 0, DICT_API_MISUSE, 6 );
-    if ( methods->cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7 );
-    if ( methods->loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8 );
+rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
+    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7, 0 );
+    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8, 0 );
 
-    if ( epoch_limit && epoch_limit < 4 )
-        return error( 1, 0, DICT_API_MISUSE, 9 );
-
-    if( !settings->slot_count    ) settings->slot_count    = 256;
-    if( !settings->max_imbalance ) settings->max_imbalance = 3;
+    if( !settings.slot_count )    settings.slot_count    = 128;
+    if( !settings.max_imbalance ) settings.max_imbalance = 8;
 
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return rstat_mem;
     memset( out, 0, sizeof( dict ));
 
-    out->epoch_limit = epoch_limit;
-    out->epochs = create_epoch();
-    out->epoch = out->epochs;
-    out->epoch_count = 2;
-    if ( out->epochs == NULL ) {
-        free( out );
-        return rstat_mem;
-    }
-
-    out->epochs->next = create_epoch();
-    if ( out->epochs->next == NULL ) {
-        free( out->epochs );
-        free( out );
-        return rstat_mem;
-    }
-
-    out->set = create_set( settings );
+    out->set = create_set( settings, settings.slot_count );
     if ( out->set == NULL ) {
-        free( out->epochs );
         free( out );
         return rstat_mem;
     }
@@ -162,20 +129,21 @@ rstat do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_me
     return rstat_ok;
 }
 
-set *create_set( dict_settings *settings ) {
+set *create_set( dict_settings settings, size_t slot_count ) {
     set *out = malloc( sizeof( set ));
     if ( out == NULL ) return NULL;
 
     memset( out, 0, sizeof( set ));
 
     out->settings = settings;
-    out->slots = malloc( settings->slot_count * sizeof( slot * ));
+    out->slots = malloc( slot_count * sizeof( slot * ));
     if ( out->slots == NULL ) {
         free( out );
         return NULL;
     }
 
-    memset( out->slots, 0, settings->slot_count * sizeof( slot * ));
+    memset( out->slots, 0, slot_count * sizeof( slot * ));
+    out->settings.slot_count = slot_count;
 
     out->trash.type = SET;
 
@@ -247,8 +215,8 @@ xtrn *create_xtrn( dict *d, void *value ) {
     if ( !new_xtrn ) return NULL;
     memset( new_xtrn, 0, sizeof( xtrn ));
 
-    if ( d->methods->ref )
-        d->methods->ref( d, value, 1 );
+    if ( d->methods.ref )
+        d->methods.ref( d, value, 1 );
 
     new_xtrn->value = value;
     new_xtrn->trash.type = XTRN;

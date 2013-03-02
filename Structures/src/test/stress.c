@@ -47,8 +47,8 @@ uint64_t hash_bytes( uint8_t *data, size_t length );
 
 void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
 void   kv_ref( dict *d, void *ref, int delta );
-size_t kv_loc( dict_settings *s, void *key );
-int    kv_cmp( dict_settings *s, void *key1, void *key2 );
+size_t kv_loc( size_t slot_count, void *meta, void *key );
+int    kv_cmp( void *meta, void *key1, void *key2 );
 char  *kv_dot( void *key, void *val );
 int    kv_handler( void *key, void *value, void *args );
 
@@ -69,14 +69,14 @@ void *thread_transactions( void *ptr );
 void *thread_rand( void *ptr );
 
 // How long to run in seconds
-int LENGTH = 60 * 60;
+int LENGTH = 60 * 10;
 int START = 0;
 
 int main() {
-    dict_settings set = { 16, 8, NULL };
+    dict_settings set = { 16, 4, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
-    dict_create( &d, 8, &set, &met );
+    dict_create( &d, set, met );
 
     START = time(NULL);
 
@@ -157,17 +157,17 @@ void kv_ref( dict *d, void *ref, int delta ) {
     if ( refs == 0 ) free( ref );
 }
 
-size_t kv_loc( dict_settings *s, void *key ) {
+size_t kv_loc( size_t slot_count, void *meta, void *key ) {
     kv *k = key;
     //return k->value % s->slot_count;
 
     if ( !k->fnv_hash ) {
         k->fnv_hash = hash_bytes( key, 3 );
     }
-    return k->fnv_hash % s->slot_count;
+    return k->fnv_hash % slot_count;
 }
 
-int kv_cmp( dict_settings *s, void *key1, void *key2 ) {
+int kv_cmp( void *meta, void *key1, void *key2 ) {
     if ( key1 == key2 ) return 0;
 
     kv *k1 = key1;
@@ -193,8 +193,8 @@ int kv_cmp( dict_settings *s, void *key1, void *key2 ) {
 }
 
 char *kv_dot( void *key, void *val ) {
-    assert ( key != RBLD );
-    assert ( val != RBLD );
+    assert ( !blocked_null(key) );
+    assert ( !blocked_null(val) );
 
     char *out = malloc( 100 );
     kv *k = key ? key : &NKV;
@@ -230,13 +230,13 @@ int kv_handler( void *key, void *value, void *args ) {
     kv *k = key;
     kv *v = value;
 
-    assert( key != NULL );
-    assert( key != RBLD );
+    assert( key );
+    assert( !blocked_null(key) );
 
     assert( k->refcount );
 
     if ( value != NULL ) {
-        assert( value != RBLD );
+        assert( !blocked_null(value) );
         assert( v->refcount );
     }
 
@@ -263,6 +263,9 @@ void *thread_uniq_delete( void *ptr ) {
             assert( got == it );
             kv_ref( d, it, -2 );
         }
+
+        dict_rebalance( d, 3, 8 );
+
         for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );
 
@@ -318,7 +321,7 @@ void *thread_dot_dumper( void *ptr ) {
     char *fname = malloc( 200 );
 
     int i = 1;
-    while ( time(NULL) < START + LENGTH ) {
+    while ( time(NULL) < START + LENGTH && i < 10) {
         char *dot = dict_dump_dot( d, kv_dot );
 
         if ( dot != NULL ) {
@@ -441,7 +444,7 @@ void *thread_rand_get( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        assert( got != RBLD );
+        assert( !blocked_null(got) );
         if ( got != NULL ) {
             assert( it->value == got->value );
             assert( got->refcount != 0 );

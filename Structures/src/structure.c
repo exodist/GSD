@@ -8,7 +8,7 @@ int iterate( dict *d, dict_handler *h, void *args ) {
     set *s = d->set;
     int stop = 0;
 
-    for ( int i = 0; i < s->settings->slot_count; i++ ) {
+    for ( int i = 0; i < s->settings.slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
         node *n = sl->root;
@@ -24,22 +24,22 @@ int iterate( dict *d, dict_handler *h, void *args ) {
 int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
     int stop = 0;
 
-    if ( n->left != NULL && n->left != RBLD ) {
+    if ( n->left && !blocked_null( n->left )) {
         stop = iterate_node( d, n->left, h, args );
         if ( stop ) return stop;
     }
 
     usref *ur = n->usref;
     sref *sr = ur->sref;
-    if ( sr != NULL && sr != RBLD ) {
+    if ( sr && !blocked_null( sr )) {
         xtrn *x = sr->xtrn;
-        if ( x != NULL && x != RBLD ) {
+        if ( x && !blocked_null( x )) {
             stop = h( n->key->value, x->value, args );
             if ( stop ) return stop;
         }
     }
 
-    if ( n->right != NULL && n->right != RBLD ) {
+    if ( n->right && !blocked_null( n->right )) {
         stop = iterate_node( d, n->right, h, args );
         if ( stop ) return stop;
     }

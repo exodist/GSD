@@ -14,8 +14,16 @@
 
 #include "error.h"
 
+#define EPOCH_LIMIT 4
+
 typedef struct dict  dict;
 typedef struct trash trash;
+typedef struct wait_list wait_list;
+
+struct wait_list {
+    wait_list *next;
+    uint8_t marker;
+};
 
 typedef struct epoch epoch;
 struct epoch {
@@ -28,14 +36,17 @@ struct epoch {
     trash  *trash;
 
     epoch *dep;
-    epoch *next;
+
+    wait_list *wait_list;
 };
 
 #define dispose( d, g ) x_dispose( d, g, __FILE__, __LINE__ )
 
-epoch *create_epoch();
 void x_dispose( dict *d, trash *garbage, char *fn, size_t ln );
 epoch *join_epoch( dict *d );
+epoch *wait_epoch( dict *d );
 void leave_epoch( dict *d, epoch *e );
+
+int advance_epoch( dict *d, epoch *e );
 
 #endif

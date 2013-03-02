@@ -13,34 +13,40 @@ digraph overview {
 
     node [color=yellow,fontcolor=white]
     edge [color=cyan]
-    HashSlot1->Node0
+    HashSlot1->Node1
 
-    Node0 [shape=egg]
     Node1 [shape=egg]
+    Node0 [shape=egg]
+    XtrnA [color=magenta,shape=diamond,label="Xtrn(K)"]
     Key   [color=red]
     USRef [color=green,shape=doublecircle]
     Node2 [shape=egg]
 
-    Node0->Node1
-    Node0->Key   [color=pink]
-    Node0->USRef [color=pink]
-    Node0->Node2
+    Node1->Node0
+    Node1->XtrnA [color=pink]
+    XtrnA->Key   [color=pink]
+    Node1->USRef [color=pink]
+    Node1->Node2
 
     SRef  [color=blue,shape=Mcircle]
+    XtrnB [color=magenta,shape=diamond,label="Xtrn(V)"]
     Value [color=red]
 
     USRef->SRef
-    SRef->Value
+    SRef->XtrnB
+    XtrnB->Value
 
     {rank=same; HashSlot0 HashSlot1 HashSlot2}
-    {rank=same; Node1 Node2}
+    {rank=same; Node0 Node2}
     {rank=sink; Key Value}
 
     node [shape=hexagon]
     edge [color=grey]
-    Dictionary->Epoch0
-    Dictionary->Epoch1
-    Dictionary->Epoch2
 
-    {rank=min; Epoch0 Epoch1 Epoch2}
+    Epoch0->Epoch1
+    Epoch1->Epoch2
+    Epoch2->Epoch3
+    Epoch3->Epoch0
+
+    Dictionary->Epoch1
 }

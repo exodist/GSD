@@ -23,9 +23,9 @@ void free_node( dict *d, node *n );
 void free_sref( dict *d, sref *r );
 void free_xtrn( dict *d, xtrn *x );
 
-rstat do_create( dict **d, uint8_t epoch_limit, dict_settings *settings, dict_methods *methods );
+rstat do_create( dict **d, dict_settings settings, dict_methods methods );
 
-set   *create_set( dict_settings *settings );
+set   *create_set( dict_settings settings, size_t slot_count );
 slot  *create_slot( node *root );
 node  *create_node( xtrn *key, usref *ref, size_t min_ref_count );
 usref *create_usref( sref *ref );

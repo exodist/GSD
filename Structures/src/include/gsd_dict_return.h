@@ -47,11 +47,16 @@ typedef union {
             DICT_OUT_OF_MEMORY,
             DICT_API_MISUSE,
             DICT_UNIMPLEMENTED,
+            DICT_IMMUTABLE,
             DICT_UNKNOWN
         } error : 8;
 
         // Index for error text
         unsigned int message_idx : 8;
+
+        // If this is set to true then the error left the dictionary in an
+        // invalid state. This is bad an will require a call to dict_recover()
+        unsigned int invalid_state: 8;
 
         size_t line_number;
         const char *file_name;

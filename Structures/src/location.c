@@ -49,7 +49,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     }
 
     if ( !lc->slotn_set ) {
-        lc->slotn  = d->methods->loc( lc->set->settings, key );
+        lc->slotn = d->methods.loc( lc->set->settings.slot_count, lc->set->settings.meta, key );
         lc->slotn_set = 1;
     }
 
@@ -63,7 +63,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
         slot *slt = lc->set->slots[lc->slotn];
 
         // Slot is not populated
-        if ( slt == NULL || slt == RBLD ){
+        if ( slt == NULL || blocked_null( slt )){
             lc->parent = NULL;
             return rstat_ok;
         }
@@ -73,7 +73,7 @@ rstat locate_key( dict *d, void *key, location **locate ) {
 
     if ( lc->parent == NULL ) {
         lc->parent = lc->slot->root;
-        if ( lc->parent == NULL || lc->parent == RBLD ) {
+        if ( lc->parent == NULL || blocked_null( lc->parent )) {
             lc->height = 0;
             lc->parent = NULL;
             return rstat_ok;
@@ -105,17 +105,17 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
     lc->xtrn  = NULL;
 
     node *n = in;
-    while ( n != NULL && n != RBLD ) {
-        int dir = d->methods->cmp( lc->set->settings->meta, key, n->key->value );
+    while ( n != NULL && !blocked_null( n )) {
+        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key->value );
         switch( dir ) {
             case 0:
                 lc->node = n;
                 lc->usref = lc->node->usref; // This is never NULL
                 lc->sref  = lc->usref->sref;
-                lc->xtrn  = lc->sref && lc->sref != RBLD ? lc->sref->xtrn : NULL;
+                lc->xtrn  = lc->sref && !blocked_null( lc->sref ) ? lc->sref->xtrn : NULL;
 
                 // If the node has a rebuild value we do not want to use it.
-                if ( lc->sref == RBLD ) {
+                if ( blocked_null( lc->sref )) {
                     lc->sref = NULL;
                     lc->xtrn = NULL;
                 }
@@ -135,7 +135,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
                 n = n->right;
             break;
             default:
-                return error( 1, 0, DICT_API_MISUSE, 10 );
+                return error( 1, 0, DICT_API_MISUSE, 10, 0 );
             break;
         }
     }
