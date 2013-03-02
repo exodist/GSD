@@ -14,6 +14,7 @@
 #include "util.h"
 #include "multidict.h"
 #include "operations.h"
+#include "magic_pointers.h"
 
 dict_settings get_settings( dict *d ) {
     return d->set->settings;
@@ -62,49 +63,13 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     if ( meta )       settings.meta       = meta;
 
     dict *new_dict = NULL;
-    rstat out = do_create( &new_dict, d->epoch_limit, settings, d->methods );
+    rstat out = do_create( &new_dict, settings, d->methods );
     if ( out.bit.error ) return out;
 
-    size_t index = 0;
-    void *args[4] = { &index, s, NULL, RBLD };
-
     out = rstat_ok;
-    if ( max_threads < 2 ) {
-        rstat *ret = reconf_worker( args );
-        out = *ret;
-        // Note: If return is an error then it will be dynamically
-        // allocated memory we need to free, unless there was a
-        // memory error in which case we will have a ref to
-        // rstat_mem which we should not free.
-        if ( ret != &rstat_mem && ret != &rstat_ok ) free( ret );
-    }
-    else {
-        pthread_t *pts = malloc( max_threads * sizeof( pthread_t ));
-        if ( !pts ) {
-            return rstat_mem;
-        }
-        else {
-            for ( int i = 0; i < max_threads; i++ ) {
-                pthread_create( &(pts[i]), NULL, reconf_worker, args );
-            }
-            for ( int i = 0; i < max_threads; i++ ) {
-                rstat *ret;
-                pthread_join( pts[i], (void **)&ret );
-                if ( ret->bit.error && !out.bit.error ) {
-                    out = *ret;
-                    // Note: If return is an error then it will be dynamically
-                    // allocated memory we need to free, unless there was a
-                    // memory error in which case we will have a ref to
-                    // rstat_mem which we should not free.
-                    if ( ret != &rstat_mem && ret != &rstat_ok ) free( ret );
-                }
-            }
-            free( pts );
-        }
-    }
 
-    merge_settings ms = { MERGE_INSERT, 1 };
-    out = do_merge( d, new_dict, ms, max_threads );
+    merge_settings ms = { MERGE_INSERT, 2 };
+    out = do_merge( d, new_dict, ms, max_threads, RBLD );
 
     if ( !out.bit.error ) {
         assert( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set ));
@@ -114,45 +79,10 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
         new_dict->set = NULL;
     }
 
-    // Unblock slots
+    // Unblock trees if there was an error
     if ( out.bit.error ) {
-        index = 0;
-        args[2] = RBLD;
-        args[3] = NULL;
-    
-        if ( max_threads < 2 ) {
-            rstat *ret = reconf_worker( args );
-            out = *ret;
-            // Note: If return is an error then it will be dynamically
-            // allocated memory we need to free, unless there was a
-            // memory error in which case we will have a ref to
-            // rstat_mem which we should not free.
-            if ( ret != &rstat_mem && ret != &rstat_ok ) free( ret );
-        }
-        else {
-            pthread_t *pts = malloc( max_threads * sizeof( pthread_t ));
-            if ( !pts ) {
-                return rstat_mem;
-            }
-            else {
-                for ( int i = 0; i < max_threads; i++ ) {
-                    pthread_create( &(pts[i]), NULL, reconf_worker, args );
-                }
-                for ( int i = 0; i < max_threads; i++ ) {
-                    rstat *ret;
-                    pthread_join( pts[i], (void **)&ret );
-                    if ( ret->bit.error && !out.bit.error ) {
-                        out = *ret;
-                        // Note: If return is an error then it will be dynamically
-                        // allocated memory we need to free, unless there was a
-                        // memory error in which case we will have a ref to
-                        // rstat_mem which we should not free.
-                        if ( ret != &rstat_mem && ret != &rstat_ok ) free( ret );
-                    }
-                }
-                free( pts );
-            }
-        }
+        rstat cleanup = do_null_swap( s, 0, s->settings.slot_count, RBLD, NULL, max_threads );
+        if ( cleanup.bit.error ) out.bit.invalid_state = 1;
     }
 
     do_free( &new_dict );
@@ -160,31 +90,23 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     return out;
 }
 
-void *reconf_worker( void *in ) {
-    void **args = (void **)in;
-    size_t *index = args[0];
-    set    *set   = args[1];
-    void   *from  = args[2];
-    void   *to    = args[3];
+rstat make_immutable( dict *d, size_t threads ) {
+    __sync_bool_compare_and_swap( &(d->immutable), 0, 1 );
 
-    while ( 1 ) {
-        size_t idx = __sync_fetch_and_add( index, 1 );
-        if ( idx >= set->settings.slot_count ) return &rstat_ok;
+    // Wait for epochs to finish
+    epoch *e = wait_epoch( d );
+    if ( e == NULL ) return rstat_mem;
 
-        rstat check = reconf_prep_slot( set, idx, from, to );
-        if ( check.bit.error ) {
-            // Allocate a new return, or return a ref to rstat_mem.
-            rstat *out = malloc( sizeof( rstat ));
-            if ( out == NULL ) return &rstat_mem;
-            *out = check;
-            return out;
-        }
-    }
+    set *s = d->set;
+    rstat out = threaded_traverse( s, 0, s->settings.slot_count, immutable_callback, NULL, threads );
+
+    leave_epoch( d, e );
+    return out;
 }
 
-rstat reconf_prep_slot( set *set, size_t idx, void *from, void *to ) {
+rstat immutable_callback( set *s, size_t idx, void **args ) {
     rstat out = rstat_ok;
-    slot *sl = set->slots[idx];
+    slot *sl = s->slots[idx];
     if ( sl == NULL ) return out;
 
     nlist *nodes = nlist_create();
@@ -192,24 +114,26 @@ rstat reconf_prep_slot( set *set, size_t idx, void *from, void *to ) {
 
     node *n = sl->root;
     while( n != NULL ) {
-        __sync_bool_compare_and_swap( &(n->right), from, to );
-        if ( n->right != RBLD && n->right != NULL ) {
+        if ( n->right && !blocked_null( n->right )) {
             out = nlist_push( nodes, n->right );
-            if ( out.bit.error ) goto MERGE_XFER_ERROR;
+            if ( out.bit.error ) goto IMUT_ERROR;
         }
 
-        __sync_bool_compare_and_swap( &(n->left), from, to );
-        if ( n->left != RBLD && n->left != NULL ) {
+        if ( n->left && !blocked_null( n->left )) {
             out = nlist_push( nodes, n->left );
-            if ( out.bit.error ) goto MERGE_XFER_ERROR;
+            if ( out.bit.error ) goto IMUT_ERROR;
         }
 
-        __sync_bool_compare_and_swap( &(n->usref->sref), from, to );
+        __sync_bool_compare_and_swap( &(n->usref->sref), NULL, IMUT );
+        if ( n->usref->sref && !blocked_null( n->usref->sref )) {
+            __sync_bool_compare_and_swap( &(n->usref->sref->immutable), 0, 1 );
+        }
 
         n = nlist_shift( nodes );
     }
 
-    MERGE_XFER_ERROR:
+    IMUT_ERROR:
     nlist_free( &nodes );
     return out;
 }
+

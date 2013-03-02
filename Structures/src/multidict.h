@@ -18,10 +18,14 @@ dict *clone( dict *d, uint8_t reference, size_t threads );
 
 rstat merge( dict *from, dict *to, merge_settings s, size_t threads );
 
-rstat do_merge( dict *orig, dict *dest, merge_settings s, size_t threads );
+rstat do_merge( dict *orig, dict *dest, merge_settings s, size_t threads, const void *null_swap );
 
 void *merge_worker( void *args );
 
-rstat merge_transfer_slot( set *oset, size_t idx, dict *orig, dict *dest, merge_settings *settings );
+rstat merge_transfer_slot( set *oset, size_t idx, void **args );
+
+rstat do_null_swap( set *s, size_t start, size_t count, const void *from, const void *to, size_t threads );
+
+rstat null_swap_slot( set *set, size_t idx, void **args );
 
 #endif

@@ -31,8 +31,9 @@ rstat op_get( dict *d, void *key, void **val ) {
 }
 
 rstat op_set( dict *d, void *key, void *val ) {
+    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
-    set_spec sp = { 1, 1, NULL };    
+    set_spec sp = { 1, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
 
     if ( locator != NULL ) {
@@ -43,8 +44,9 @@ rstat op_set( dict *d, void *key, void *val ) {
 
 
 rstat op_insert( dict *d, void *key, void *val ) {
+    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
-    set_spec sp = { 1, 0, NULL };    
+    set_spec sp = { 1, 0, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
     if ( locator != NULL ) {
         free_location( d, locator );
@@ -53,39 +55,44 @@ rstat op_insert( dict *d, void *key, void *val ) {
 }
 
 rstat op_update( dict *d, void *key, void *val ) {
+    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
-    set_spec sp = { 0, 1, NULL };    
+    set_spec sp = { 0, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_delete( dict *d, void *key ) {
+    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
-    set_spec sp = { 0, 1, NULL };    
+    set_spec sp = { 0, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, NULL, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
-    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, 11 );
+    if ( d->immutable ) return rstat_imute;
+    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, 11, 0 );
     location *locator = NULL;
-    set_spec sp = { 0, 1, old_val };    
+    set_spec sp = { 0, 1, old_val, NULL };
     rstat err = do_set( d, &locator, key, new_val, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
+    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
-    set_spec sp = { 0, 1, old_val };
+    set_spec sp = { 0, 1, old_val, NULL };
     rstat err = do_set( d, &locator, key, NULL, &sp );
     if ( locator != NULL ) free_location( d, locator );
     return err;
 }
 
 rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dkey, set_spec *dsp ) {
+    if ( dest->immutable ) return rstat_imute;
     rstat out = rstat_ok;
     assert( dsp->swap_from == NULL );
     location *oloc = NULL;
@@ -98,7 +105,7 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
     if ( out.bit.error ) goto OP_REFERENCE_CLEANUP;
 
     // No current value, and cannot insert
-    if (( !oloc->sref || !oloc->xtrn ) && !osp->insert ) {
+    if (( !oloc->sref || !oloc->xtrn ) && ( !osp->insert || orig->immutable )) {
         out = rstat_trans;
         goto OP_REFERENCE_CLEANUP;
     }
@@ -113,7 +120,7 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
         goto OP_REFERENCE_CLEANUP;
     }
 
-    if ( !oloc->usref ) {
+    if ( !oloc->sref ) {
         out = do_set( orig, &oloc, okey, NULL, osp );
 
         // Error on all but rebalance issues.
@@ -129,6 +136,12 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
             goto OP_REFERENCE_CLEANUP;
     }
 
+    assert( oloc->sref );
+    assert( dloc->usref );
+
+    assert( !blocked_null( oloc->sref ));
+    assert( !blocked_null( dloc->usref ));
+
     out = do_deref( dest, dkey, dloc, oloc->usref->sref );
 
     OP_REFERENCE_CLEANUP:
@@ -140,6 +153,7 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
 }
 
 rstat op_dereference( dict *d, void *key ) {
+    if ( d->immutable ) return rstat_imute;
     location *loc = NULL;
     rstat err = locate_key( d, key, &loc );
 
@@ -150,6 +164,7 @@ rstat op_dereference( dict *d, void *key ) {
 }
 
 rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
+    if ( d->immutable ) return rstat_imute;
     sref *r = loc->sref;
     if ( r == NULL ) return rstat_trans;
 
@@ -159,7 +174,7 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
             size_t sc = swap->refcount;
 
             // If ref count goes to zero we cannot use it.
-            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, 13 );
+            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, 13, 0 );
 
             success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
         }
@@ -194,13 +209,14 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
     rstat stat = rstat_ok;
 
     while ( 1 ) {
+        if ( d->immutable ) return rstat_imute;
         stat = locate_key( d, key, locator );
         if ( stat.num ) return stat;
         location *loc = *locator;
 
         // Check for an existing sref, updating srefs is not blocked by a
         // rebuild.
-        if ( loc->sref && loc->sref != RBLD ) {
+        if ( loc->sref && !blocked_null( loc->sref )) {
             // If we get an sref we either update it, or don't. No need to move
             // on to other steps. It always returns 0 (do not retry).
             do_set_sref( d, loc, key, val, spec, &old_val, &stat );
@@ -247,10 +263,11 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 }
 
 int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat ) {
+    assert( !spec->usref );
     xtrn *new_xtrn = NULL;
 
     if ( val ) {
-        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN );
+        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN, NULL );
         if ( !new_xtrn ) {
             *stat = rstat_mem;
             return 0;
@@ -304,7 +321,8 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 }
 
 int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF );
+    assert( !spec->usref );
+    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF, NULL );
     if( !new_sref ) {
         *stat = rstat_mem;
         return 0;
@@ -322,7 +340,7 @@ int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, 
 }
 
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE );
+    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE, spec->usref );
     if ( new_node == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -340,12 +358,12 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             break;
             case 0:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_UNKNOWN, 12 );
+                *stat = error( 1, 0, DICT_UNKNOWN, 12, 0 );
                 return 0;
             break;
             default:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_API_MISUSE, 10 );
+                *stat = error( 1, 0, DICT_API_MISUSE, 10, 0 );
                 return 0;
             break;
         }
@@ -358,7 +376,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             loc->node  = new_node;
             loc->usref = new_node->usref;
             loc->sref  = new_node->usref->sref;
-            if ( loc->sref == RBLD ) loc->sref = NULL;
+            if ( blocked_null( loc->sref )) loc->sref = NULL;
             loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
             loc->height++;
@@ -385,7 +403,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 }
 
 int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT );
+    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT, spec->usref );
     if ( new_slot == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -407,36 +425,44 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
     loc->node  = new_slot->root;
     loc->usref = new_slot->root->usref;
     loc->sref  = new_slot->root->usref->sref;
-    if ( loc->sref == RBLD ) loc->sref = NULL;
+    if ( blocked_null( loc->sref )) loc->sref = NULL;
     loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
     return 0;
 }
 
-void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type ) {
-    xtrn *new_xtrn = NULL;
-    if ( val || type == CREATE_XTRN ) {
-        assert( val );
-        new_xtrn = create_xtrn( d, val );
-        if ( !new_xtrn ) return NULL;
+void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, usref *us ) {
+    usref *new_usref = NULL;
+    if ( us ) {
+        assert( type != CREATE_XTRN );
+        assert( type != CREATE_SREF );
+        new_usref = us;
     }
+    else {
+        xtrn *new_xtrn = NULL;
+        if ( val || type == CREATE_XTRN ) {
+            assert( val );
+            new_xtrn = create_xtrn( d, val );
+            if ( !new_xtrn ) return NULL;
+        }
 
-    if ( type == CREATE_XTRN ) return new_xtrn;
+        if ( type == CREATE_XTRN ) return new_xtrn;
 
-    sref *new_sref = create_sref( new_xtrn );
-    if( !new_sref ) {
-        dispose( d, (trash *)new_xtrn );
-        return NULL;
-    }
-    if ( type == CREATE_SREF ) {
-        new_sref->refcount = 1;
-        return new_sref;
-    }
+        sref *new_sref = create_sref( new_xtrn );
+        if( !new_sref ) {
+            if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+            return NULL;
+        }
+        if ( type == CREATE_SREF ) {
+            new_sref->refcount = 1;
+            return new_sref;
+        }
 
-    usref *new_usref = create_usref( new_sref );
-    if( !new_usref ) {
-        dispose( d, (trash *)new_sref );
-        return NULL;
+        new_usref = create_usref( new_sref );
+        if( !new_usref ) {
+            dispose( d, (trash *)new_sref );
+            return NULL;
+        }
     }
 
     xtrn *new_xtrn_key = create_xtrn( d, key );

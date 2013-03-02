@@ -69,14 +69,14 @@ void *thread_transactions( void *ptr );
 void *thread_rand( void *ptr );
 
 // How long to run in seconds
-int LENGTH = 60 * 60;
+int LENGTH = 60 * 10;
 int START = 0;
 
 int main() {
-    dict_settings set = { 16, 16, 8, NULL };
+    dict_settings set = { 16, 4, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
-    dict_create( &d, 8, set, met );
+    dict_create( &d, set, met );
 
     START = time(NULL);
 
@@ -193,8 +193,8 @@ int kv_cmp( void *meta, void *key1, void *key2 ) {
 }
 
 char *kv_dot( void *key, void *val ) {
-    assert ( key != RBLD );
-    assert ( val != RBLD );
+    assert ( !blocked_null(key) );
+    assert ( !blocked_null(val) );
 
     char *out = malloc( 100 );
     kv *k = key ? key : &NKV;
@@ -230,13 +230,13 @@ int kv_handler( void *key, void *value, void *args ) {
     kv *k = key;
     kv *v = value;
 
-    assert( key != NULL );
-    assert( key != RBLD );
+    assert( key );
+    assert( !blocked_null(key) );
 
     assert( k->refcount );
 
     if ( value != NULL ) {
-        assert( value != RBLD );
+        assert( !blocked_null(value) );
         assert( v->refcount );
     }
 
@@ -321,7 +321,7 @@ void *thread_dot_dumper( void *ptr ) {
     char *fname = malloc( 200 );
 
     int i = 1;
-    while ( time(NULL) < START + LENGTH ) {
+    while ( time(NULL) < START + LENGTH && i < 10) {
         char *dot = dict_dump_dot( d, kv_dot );
 
         if ( dot != NULL ) {
@@ -444,7 +444,7 @@ void *thread_rand_get( void *ptr ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
         }
 
-        assert( got != RBLD );
+        assert( !blocked_null(got) );
         if ( got != NULL ) {
             assert( it->value == got->value );
             assert( got->refcount != 0 );

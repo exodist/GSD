@@ -1,3 +1,5 @@
+#include <assert.h>
+
 #include "include/gsd_dict.h"
 
 #include "alloc.h"
@@ -11,19 +13,21 @@
 dict *dict_build( size_t slots, dict_methods m, void *meta ) {
     dict_settings s = { slots, 16, meta };
     dict *out;
-    do_create( &out, 4, s, m );
+    do_create( &out, s, m );
     return out;
 }
 
-rstat dict_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods ) {
-    return do_create( d, epoch_limit, settings, methods );
+rstat dict_create( dict **d, dict_settings settings, dict_methods methods ) {
+    return do_create( d, settings, methods );
 }
 
 dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads ) {
+    assert( s.reference == 0 || s.reference == 1 );
     return merge( from, to, s, threads );
 }
 
 dict *dict_clone( dict *d, uint8_t reference, size_t threads ) {
+    assert( reference == 0 || reference == 1 );
     return clone( d, reference, threads );
 }
 
@@ -74,7 +78,7 @@ rstat dict_cmp_delete( dict *d, void *key, void *old_val ) {
 }
 
 rstat dict_reference( dict *orig, void *okey, dict *dest, void *dkey ) {
-    set_spec sp = { 1, 1, NULL };
+    set_spec sp = { 1, 1, NULL, NULL };
     return op_reference( orig, okey, &sp, dest, dkey, &sp );
 }
 rstat dict_dereference( dict *d, void *key ) {
@@ -85,6 +89,7 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
     return iterate( d, h, args );
 }
 
-void make_immutable( dict *d, size_t threads ) {
-    
+rstat dict_make_immutable( dict *d, size_t threads ) {
+    return make_immutable( d, threads );
 }
+

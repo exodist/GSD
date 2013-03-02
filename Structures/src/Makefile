@@ -16,7 +16,7 @@ clean:
 
 libDBGGSDDict.so:
 	rm -rf *.o
-	$(GCC) $(CFLAGS) -g -O2 -c *.c
+	$(GCC) $(CFLAGS) -g -O0 -c *.c
 	$(GCC) -g -shared -Wl,-soname,libDBGGSDDict.so.1 -o libDBGGSDDict.so.1.0 *.o
 	ln -sf libDBGGSDDict.so.1.0 libDBGGSDDict.so.1
 	ln -sd libDBGGSDDict.so.1.0 libDBGGSDDict.so
@@ -44,10 +44,10 @@ dottest: libGSDDict.so
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
 	dot -Tx11 /tmp/testdot.dot
 
-stresstest: libDBGGSDDict.so
-	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/stress.c -lDBGGSDDict -lpthread -oteststress.run
-#	LD_LIBRARY_PATH="." ./teststress.run
-	LD_LIBRARY_PATH="." gdb ./teststress.run
+stresstest: libGrindGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/stress.c -lGrindGSDDict -lpthread -oteststress.run
+	LD_LIBRARY_PATH="." ./teststress.run
+#	LD_LIBRARY_PATH="." gdb ./teststress.run
 #	LD_LIBRARY_PATH="." valgrind --leak-check=full \
 #								 --read-var-info=yes \
 #								 --track-origins=yes \
@@ -61,10 +61,16 @@ stresstest: libDBGGSDDict.so
 performance: libGSDDict.so
 	$(GCC) $(CFLAGS) -O2 -I. -L. test/performance.c -lGSDDict -lpthread -lrt -operformance.run
 	LD_LIBRARY_PATH="." ./performance.run
-#	LD_LIBRARY_PATH="." gdb ./performance.run
-#	LD_LIBRARY_PATH="." valgrind --leak-check=full \
-#								 --read-var-info=yes \
-#								 --track-origins=yes \
-#								 --show-reachable=yes \
-#						./performance.run 2> grind.txt
+
+grind_performance: libGrindGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -I. -L. test/performance.c -lGrindGSDDict -lpthread -lrt -operformance.run
+	LD_LIBRARY_PATH="." valgrind --leak-check=full \
+								 --read-var-info=yes \
+								 --track-origins=yes \
+								 --show-reachable=yes \
+						./performance.run 2> grind.txt
+
+debug_performance: libDBGGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -I. -L. test/performance.c -lDBGGSDDict -lpthread -lrt -operformance.run
+	LD_LIBRARY_PATH="." gdb ./performance.run
 

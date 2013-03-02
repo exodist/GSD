@@ -10,16 +10,17 @@ typedef dict_stat rstat;
 
 extern char *error_messages[];
 
-#define error( f, r, c, m ) make_error( f, r, c, m, __LINE__, __FILE__ )
+#define error( f, r, c, m, i ) make_error( f, r, c, m, i, __LINE__, __FILE__ )
 
 char *error_message( dict_stat s );
-rstat make_error( uint8_t fail, uint8_t rebal, uint8_t cat, uint8_t midx, size_t ln, const char *fn );
+rstat make_error( uint8_t fail, uint8_t rebal, uint8_t cat, uint8_t midx, uint8_t i, size_t ln, const char *fn );
 
 extern rstat rstat_ok;
 extern rstat rstat_mem;
 extern rstat rstat_trans;
 extern rstat rstat_patho;
 extern rstat rstat_unimp;
+extern rstat rstat_imute;
 
 
 #endif

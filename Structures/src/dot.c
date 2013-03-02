@@ -7,6 +7,8 @@
 #include "dot.h"
 #include "alloc.h"
 #include "balance.h"
+#include "operations.h"
+#include "epoch.h"
 
 node NODE_SEP = { { 0 }, 0 };
 // Used for 'refs' mapping
@@ -160,20 +162,19 @@ rstat dump_dot_epochs( dict *d, dot *dd ) {
     ret = dot_print_epochs( dd, "edge [color=cyan]\n" );
     if ( ret.num ) return ret;
 
-    epoch *e = d->epochs;
-    epoch *a = d->epoch;
-    size_t en = 0;
-    while ( e != NULL ) {
+    uint8_t a = d->epoch;
+    for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
+        epoch *e = &(d->epochs[i]);
         epoch *dep = e->dep;
 
-        if ( dep || e == a ) {
+        if ( dep || i == a ) {
             char *style = "style=solid,fontcolor=white";
-            char *color = ( e == a ) ? "yellow" : "green";
+            char *color = ( i == a ) ? "yellow" : "green";
             char *shape = dep ? ",shape=doubleoctagon" : "";
 
             ret = dot_print_epochs( dd,
                 "\"%p\" [label=\"Epoch%i\",%s,color=%s%s]\n",
-                e, en, style, color, shape
+                e, i, style, color, shape
             );
             if ( ret.num ) return ret;
 
@@ -183,17 +184,14 @@ rstat dump_dot_epochs( dict *d, dot *dd ) {
             }
         }
         else {
-            ret = dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, en );
+            ret = dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, i );
             if ( ret.num ) return ret;
         }
 
-        if ( e->next ) {
-            ret = dot_print_epochs( dd, "\"%p\"->\"%p\"\n", e, e->next );
+        if ( i + 1 < EPOCH_LIMIT ) {
+            ret = dot_print_epochs( dd, "\"%p\"->\"%p\"\n", e, &(d->epochs[i + 1]) );
             if ( ret.num ) return ret;
         }
-
-        e = e->next;
-        en++;
     }
 
     return rstat_ok;
@@ -201,7 +199,7 @@ rstat dump_dot_epochs( dict *d, dot *dd ) {
 
 dict *dump_dot_create_refs() {
     dict *refs;
-    if( do_create( &refs, 4, dset, dmet ).num ) {
+    if( do_create( &refs, dset, dmet ).num ) {
         if ( refs != NULL ) do_free( &refs );
         return NULL;
     }
@@ -227,7 +225,7 @@ rstat dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
 }
 
 rstat dump_dot_slots_node( dot *dd, node *n ) {
-    assert( n != RBLD );
+    assert( !blocked_null(n) );
     rstat ret;
 
     usref *ur = n->usref;
@@ -237,13 +235,13 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     //if ( ref_count > 1 ) {
     //    // Find the list of nodes for this ref;
     //    nlist *nl = NULL;
-    //    ret = get( dd->ref_tracker, sr, (void **)&nl );
+    //    ret = op_get( dd->ref_tracker, sr, (void **)&nl );
     //    if ( ret.num ) return ret;
 
     //    if ( nl == NULL ) {
     //        nl = nlist_create();
     //        if ( nl == NULL ) return rstat_mem;
-    //        ret = set( dd->ref_tracker, sr, nl );
+    //        ret = op_set( dd->ref_tracker, sr, nl );
     //    }
 
     //    ret = nlist_push( nl, n );
@@ -254,7 +252,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     if ( ret.num ) return ret;
 
     // print node with name
-    xtrn *v = ( sr && sr != RBLD ) ? sr->xtrn : NULL;
+    xtrn *v = ( sr && !blocked_null( sr )) ? sr->xtrn : NULL;
     char *name = dd->decode(
         n->key->value,
         v ? v->value : NULL
@@ -262,7 +260,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
 
     char *style = ref_count > 0
         ? ref_count > 1 ? ",peripheries=2"
-                        : sr && sr != RBLD && sr->xtrn
+                        : sr && !blocked_null( sr ) && sr->xtrn
                             ? ""
                             : ",color=red,style=dashed"
         : ",color=pink,style=dashed";
@@ -272,7 +270,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     if ( ret.num ) return ret;
 
     // print node to right
-    if ( n->right && n->right != RBLD ) {
+    if ( n->right && !blocked_null( n->right )) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->right );
         if ( ret.num ) return ret;
 
@@ -281,7 +279,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     }
 
     // print node to left
-    if ( n->left && n->left != RBLD ) {
+    if ( n->left && !blocked_null( n->left )) {
         ret = dot_print_nodes( dd, "\"%p\"->\"%p\"\n", n, n->left );
         if ( ret.num ) return ret;
 
@@ -355,7 +353,8 @@ rstat dump_dot_slots( set *s, dot *dd ) {
     for ( size_t i = 0; i < s->settings.slot_count; i++ ) {
         slot *sl = s->slots[i];
         if ( sl == NULL ) continue;
-        if ( sl->root == RBLD ) continue;
+        if ( sl->root == NULL || blocked_null( sl->root ))
+            continue;
         
         ret = dump_dot_slots_slot( dd, sl, i, previous );
         if ( ret.num ) goto DUMP_DOT_SLOTS_CLEANUP;

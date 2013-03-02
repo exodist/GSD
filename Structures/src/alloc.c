@@ -14,21 +14,10 @@ rstat do_free( dict **dr ) {
     *dr = NULL;
 
     // Wait on all epochs
-    epoch *e = d->epochs;
-    while ( e != NULL ) {
-        while( e->active ) sleep( 0 );
-        e = e->next;
+    for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
+        while( d->epochs[i].active ) sleep( 0 );
     }
-
     if ( d->set != NULL ) free_set( d, d->set );
-
-    e = d->epochs;
-    d->epochs = NULL;
-    while ( e != NULL ) {
-        epoch *goner = e;
-        e = e->next;
-        free( goner );
-    }
 
     free( d );
     return rstat_ok;
@@ -79,15 +68,15 @@ void free_slot( dict *d, slot *s ) {
 }
 
 void free_node( dict *d, node *n ) {
-    if ( n->left != NULL && n->left != RBLD )
+    if ( n->left && !blocked_null( n->left ))
         free_node( d, n->left );
-    if ( n->right != NULL && n->right != RBLD )
+    if ( n->right && !blocked_null( n->right ))
         free_node( d, n->right );
 
     size_t count = __sync_sub_and_fetch( &(n->usref->refcount), 1 );
     if( count == 0 ) {
         sref *r = n->usref->sref;
-        if ( r != NULL && r != RBLD ) {
+        if ( r && !blocked_null( r )) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
             // If refcount is SIZE_MAX we almost certainly have an underflow. 
             assert( count != SIZE_MAX );
@@ -103,7 +92,7 @@ void free_node( dict *d, node *n ) {
 }
 
 void free_sref( dict *d, sref *r ) {
-    if ( r->xtrn && r->xtrn != RBLD )
+    if ( r->xtrn && !blocked_null( r->xtrn ))
         free_xtrn( d, r->xtrn );
 
     free( r );
@@ -116,12 +105,9 @@ void free_xtrn( dict *d, xtrn *x ) {
     free( x );
 }
 
-rstat do_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_methods methods ) {
-    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7 );
-    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8 );
-
-    if ( epoch_limit && epoch_limit < 2 )
-        return error( 1, 0, DICT_API_MISUSE, 9 );
+rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
+    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7, 0 );
+    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8, 0 );
 
     if( !settings.slot_count )    settings.slot_count    = 128;
     if( !settings.max_imbalance ) settings.max_imbalance = 8;
@@ -130,25 +116,8 @@ rstat do_create( dict **d, uint8_t epoch_limit, dict_settings settings, dict_met
     if ( out == NULL ) return rstat_mem;
     memset( out, 0, sizeof( dict ));
 
-    out->epoch_limit = epoch_limit;
-    out->epochs = create_epoch();
-    out->epoch = out->epochs;
-    out->epoch_count = 2;
-    if ( out->epochs == NULL ) {
-        free( out );
-        return rstat_mem;
-    }
-
-    out->epochs->next = create_epoch();
-    if ( out->epochs->next == NULL ) {
-        free( out->epochs );
-        free( out );
-        return rstat_mem;
-    }
-
     out->set = create_set( settings, settings.slot_count );
     if ( out->set == NULL ) {
-        free( out->epochs );
         free( out );
         return rstat_mem;
     }

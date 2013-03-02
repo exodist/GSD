@@ -36,14 +36,15 @@ struct dict {
 
     set *set;
 
-    epoch *epochs;
-    epoch *epoch;
-    uint8_t epoch_limit;
-    uint8_t epoch_count;
+    epoch epochs[EPOCH_LIMIT];
+    uint8_t epoch;
     uint8_t immutable;
+    uint8_t invalid;
 
     size_t rebalanced;
     size_t item_count;
+    size_t epoch_changed;
+    size_t epoch_failed;
 };
 
 struct set {

@@ -11,7 +11,7 @@
 
 rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
     slot *sl = st->slots[slotn];
-    if ( sl == NULL || sl == RBLD ) return rstat_ok;
+    if ( sl == NULL || blocked_null( sl )) return rstat_ok;
     if( !__sync_bool_compare_and_swap( &(sl->rebuild), 0, 1 ))
         return rstat_ok;
 
@@ -69,26 +69,26 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
 }
 
 void rebalance_unblock( node *n ) {
-    __sync_bool_compare_and_swap( &(n->right), RBLD, NULL );
+    __sync_bool_compare_and_swap( &(n->right), RBAL, NULL );
     if ( n->right != NULL ) rebalance_unblock( n->right );
 
-    __sync_bool_compare_and_swap( &(n->usref->sref), RBLD, NULL );
+    __sync_bool_compare_and_swap( &(n->usref->sref), RBAL, NULL );
 
-    __sync_bool_compare_and_swap( &(n->left), RBLD, NULL );
+    __sync_bool_compare_and_swap( &(n->left), RBAL, NULL );
     if ( n->left != NULL ) rebalance_unblock( n->left );
 }
 
 size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
-    // If right is NULL we block it off with RBLD, otherwise recurse
-    __sync_bool_compare_and_swap( &(n->right), NULL, RBLD );
-    if ( n->right != RBLD ) count = rebalance_add_node( n->right, all, size, count );
+    // If right is NULL we block it off with RBAL, otherwise recurse
+    __sync_bool_compare_and_swap( &(n->right), NULL, RBAL );
+    if ( !blocked_null( n->right )) count = rebalance_add_node( n->right, all, size, count );
 
-    // Mark a node with no sref as rebuild
-    __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBLD );
+    // Mark a node with no sref as rebalance
+    __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBAL );
 
     // If this node has an sref, add to the list.
     sref *sr = n->usref->sref;
-    if ( sr != RBLD ) {
+    if ( !blocked_null( sr )) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
@@ -99,9 +99,9 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
         count++;
     }
 
-    // If left is NULL we block it off with RBLD, otherwise recurse
-    __sync_bool_compare_and_swap( &(n->left), NULL, RBLD );
-    if ( n->left != RBLD ) count = rebalance_add_node( n->left, all, size, count );
+    // If left is NULL we block it off with RBAL, otherwise recurse
+    __sync_bool_compare_and_swap( &(n->left), NULL, RBAL );
+    if ( !blocked_null( n->left )) count = rebalance_add_node( n->left, all, size, count );
 
     return count;
 }

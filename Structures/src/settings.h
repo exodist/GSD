@@ -24,4 +24,8 @@ void *reconf_worker( void *in );
 
 rstat reconf_prep_slot( set *set, size_t idx, void *from, void *to );
 
+rstat make_immutable( dict *d, size_t threads );
+
+rstat immutable_callback( set *s, size_t idx, void **args );
+
 #endif

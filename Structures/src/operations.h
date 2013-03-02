@@ -21,6 +21,7 @@ struct set_spec {
     uint8_t  insert;
     uint8_t  update;
     xtrn    *swap_from;
+    usref   *usref;
 };
 
 enum create_type {
@@ -49,7 +50,7 @@ int do_set_usref(  dict *d, location *loc, void *key, void *val, set_spec *spec,
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
 int do_set_slot(   dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
 
-void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type );
+void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, usref *sref );
 
 #endif
 
