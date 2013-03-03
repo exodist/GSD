@@ -89,7 +89,7 @@ int dict_iterate( dict *d, dict_handler *h, void *args ) {
     return iterate( d, h, args );
 }
 
-rstat dict_make_immutable( dict *d, size_t threads ) {
-    return make_immutable( d, threads );
+dict *dict_clone_immutable( dict *d, size_t threads ) {
+    return clone_immutable( d, threads );
 }
 

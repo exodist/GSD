@@ -13,7 +13,7 @@ int iterate( dict *d, dict_handler *h, void *args ) {
         if ( sl == NULL ) continue;
         node *n = sl->root;
         if ( n == NULL ) continue;
-        stop = iterate_node( d, n, h, args );
+        stop = iterate_node( d, s, n, h, args );
         if ( stop ) break;
     }
 
@@ -21,26 +21,28 @@ int iterate( dict *d, dict_handler *h, void *args ) {
     return stop;
 }
 
-int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
+int iterate_node( dict *d, set *s, node *n, dict_handler *h, void *args ) {
     int stop = 0;
 
     if ( n->left && !blocked_null( n->left )) {
-        stop = iterate_node( d, n->left, h, args );
+        stop = iterate_node( d, s, n->left, h, args );
         if ( stop ) return stop;
     }
 
+    xtrn *val = NULL;
     usref *ur = n->usref;
     sref *sr = ur->sref;
     if ( sr && !blocked_null( sr )) {
-        xtrn *x = sr->xtrn;
-        if ( x && !blocked_null( x )) {
-            stop = h( n->key->value, x->value, args );
-            if ( stop ) return stop;
-        }
+        val = sr->xtrn;
+    }
+
+    if ( val && !blocked_null( val )) {
+        stop = h( n->key->value, val->value, args );
+        if ( stop ) return stop;
     }
 
     if ( n->right && !blocked_null( n->right )) {
-        stop = iterate_node( d, n->right, h, args );
+        stop = iterate_node( d, s, n->right, h, args );
         if ( stop ) return stop;
     }
 

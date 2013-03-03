@@ -30,8 +30,6 @@ that do not change or add features.
        the current value is what we expect
      - cmp_delete: Delete value with an atomic compare and swap only if
        the current value is what we expect
-     - cmp_dereference: Delete reference to value with atomic swap
-       (unimplimented)
    * 'update', 'delete', and 'get' operations will never lock, block, or spin.
    * Optimistic model for insert and removal operations:
      - An insert is usually simple, but sometimes they require some internal
