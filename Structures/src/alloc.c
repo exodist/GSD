@@ -106,8 +106,8 @@ void free_xtrn( dict *d, xtrn *x ) {
 }
 
 rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
-    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, 7, 0 );
-    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, 8, 0 );
+    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'cmp' method may not be NULL.", 0 );
+    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'loc' method may not be NULL.", 0 );
 
     if( !settings.slot_count )    settings.slot_count    = 128;
     if( !settings.max_imbalance ) settings.max_imbalance = 8;
@@ -198,12 +198,13 @@ usref *create_usref( sref *ref ) {
     return new_usref;
 }
 
-sref *create_sref( xtrn *x ) {
+sref *create_sref( xtrn *x, dict_trigger *t ) {
     sref *new_sref = malloc( sizeof( sref ));
     if ( !new_sref ) return NULL;
     memset( new_sref, 0, sizeof( sref ));
     new_sref->xtrn = x;
     new_sref->trash.type = SREF;
+    new_sref->trigger = t;
 
     return new_sref;
 }

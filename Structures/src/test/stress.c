@@ -264,7 +264,7 @@ void *thread_uniq_delete( void *ptr ) {
             kv_ref( d, it, -2 );
         }
 
-        dict_rebalance( d, 3, 8 );
+        dict_rebalance( d, 8 );
 
         for ( uint64_t i = 0; i < 100000; i++ ) {
             kv *it = new_kv( id, i );

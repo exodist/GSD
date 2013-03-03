@@ -1,13 +1,23 @@
-#include "string.h"
-#include "unistd.h"
-#include "stdio.h"
-#include "assert.h"
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <assert.h>
 
 #include "operations.h"
 #include "structure.h"
 #include "balance.h"
 #include "alloc.h"
 #include "util.h"
+
+rstat op_trigger( dict *d, void *key, dict_trigger *t, void *val ) {
+    location *locator = NULL;
+    set_spec sp = { 1, 0, NULL, NULL, t };
+    rstat err = do_set( d, &locator, key, val, &sp );
+    if ( locator != NULL ) {
+        free_location( d, locator );
+    }
+    return err;
+}
 
 rstat op_get( dict *d, void *key, void **val ) {
     location *loc = NULL;
@@ -68,7 +78,7 @@ rstat op_delete( dict *d, void *key ) {
 }
 
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
-    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, 11, 0 );
+    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, "NULL can not be used as the 'old value' in compare and swap", 0 );
     location *locator = NULL;
     set_spec sp = { 0, 1, old_val, NULL };
     rstat err = do_set( d, &locator, key, new_val, &sp );
@@ -171,7 +181,7 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
             size_t sc = swap->refcount;
 
             // If ref count goes to zero we cannot use it.
-            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, 13, 0 );
+            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, "Blah oops", 0 );
 
             success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
         }
@@ -260,11 +270,26 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 }
 
 int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat ) {
-    assert( !spec->usref );
+    assert( !spec->usref   );
+    assert( !spec->trigger );
+
+    if ( loc->sref->trigger ) {
+        const char *error = loc->sref->trigger->function(
+            loc->sref->trigger->arg,
+            val
+        );
+
+        if ( error ) {
+            *stat = rstat_trigg;
+            stat->bit.message = error;
+            return 0;
+        }
+    }
+
     xtrn *new_xtrn = NULL;
 
     if ( val ) {
-        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN, NULL );
+        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN, spec );
         if ( !new_xtrn ) {
             *stat = rstat_mem;
             return 0;
@@ -319,7 +344,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
 int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
     assert( !spec->usref );
-    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF, NULL );
+    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF, spec );
     if( !new_sref ) {
         *stat = rstat_mem;
         return 0;
@@ -337,7 +362,7 @@ int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, 
 }
 
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE, spec->usref );
+    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE, spec );
     if ( new_node == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -355,12 +380,12 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             break;
             case 0:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_UNKNOWN, 12, 0 );
+                *stat = error( 1, 0, DICT_UNKNOWN, "This should not be possible unless a nodes key has changed, which is not permitted.", 0 );
                 return 0;
             break;
             default:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_API_MISUSE, 10, 0 );
+                *stat = error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1", 0 );
                 return 0;
             break;
         }
@@ -400,7 +425,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 }
 
 int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT, spec->usref );
+    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT, spec );
     if ( new_slot == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -428,12 +453,12 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
     return 0;
 }
 
-void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, usref *us ) {
+void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, set_spec *spec ) {
     usref *new_usref = NULL;
-    if ( us ) {
+    if ( spec->usref ) {
         assert( type != CREATE_XTRN );
         assert( type != CREATE_SREF );
-        new_usref = us;
+        new_usref = spec->usref;
     }
     else {
         xtrn *new_xtrn = NULL;
@@ -445,7 +470,7 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, 
 
         if ( type == CREATE_XTRN ) return new_xtrn;
 
-        sref *new_sref = create_sref( new_xtrn );
+        sref *new_sref = create_sref( new_xtrn, spec->trigger );
         if( !new_sref ) {
             if( new_xtrn ) dispose( d, (trash *)new_xtrn );
             return NULL;

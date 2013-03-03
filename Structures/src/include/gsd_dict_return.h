@@ -48,21 +48,21 @@ typedef union {
             DICT_API_MISUSE,
             DICT_UNIMPLEMENTED,
             DICT_IMMUTABLE,
+            DICT_TRIGGER,
             DICT_UNKNOWN
         } error : 8;
-
-        // Index for error text
-        unsigned int message_idx : 8;
 
         // If this is set to true then the error left the dictionary in an
         // invalid state. This is bad an will require a call to dict_recover()
         unsigned int invalid_state: 8;
+
+        const char *message;
 
         size_t line_number;
         const char *file_name;
     } bit;
 } dict_stat;
 
-char *dict_stat_message( dict_stat s );
+const char *dict_stat_message( dict_stat s );
 
 #endif
