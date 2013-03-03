@@ -73,9 +73,9 @@ void free_node( dict *d, node *n ) {
     if ( n->right && !blocked_null( n->right ))
         free_node( d, n->right );
 
-    size_t count = __sync_sub_and_fetch( &(n->value.usref->refcount), 1 );
+    size_t count = __sync_sub_and_fetch( &(n->usref->refcount), 1 );
     if( count == 0 ) {
-        sref *r = n->value.usref->sref;
+        sref *r = n->usref->sref;
         if ( r && !blocked_null( r )) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
             // If refcount is SIZE_MAX we almost certainly have an underflow. 
@@ -83,7 +83,7 @@ void free_node( dict *d, node *n ) {
             if( count == 0 ) free_sref( d, r );
         }
 
-        free( n->value.usref );
+        free( n->usref );
     }
 
     free_xtrn( d, n->key );
@@ -181,7 +181,7 @@ node *create_node( xtrn *key, usref *ref, size_t min_start_refcount ) {
             break;
     }
     assert( ref->refcount );
-    new_node->value.usref = ref;
+    new_node->usref = ref;
     new_node->trash.type = NODE;
 
     return new_node;

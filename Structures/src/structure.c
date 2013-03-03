@@ -30,16 +30,10 @@ int iterate_node( dict *d, set *s, node *n, dict_handler *h, void *args ) {
     }
 
     xtrn *val = NULL;
-
-    if ( s->immutable ) {
-        val = n->value.xtrn;
-    }
-    else {
-        usref *ur = n->value.usref;
-        sref *sr = ur->sref;
-        if ( sr && !blocked_null( sr )) {
-            val = sr->xtrn;
-        }
+    usref *ur = n->usref;
+    sref *sr = ur->sref;
+    if ( sr && !blocked_null( sr )) {
+        val = sr->xtrn;
     }
 
     if ( val && !blocked_null( val )) {

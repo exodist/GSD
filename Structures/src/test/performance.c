@@ -186,11 +186,10 @@ int main() {
                     fflush( stdout );
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    rstat imut = dict_make_immutable( d, threads );
-                    if ( imut.bit.error ) {
-                        fprintf( stderr, "\nERROR: %i, %s\n", imut.bit.error, dict_stat_message(imut));
-                    }
+                    dict *copy = dict_clone_immutable( d, threads );
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
+                    if ( copy == NULL )
+                        fprintf( stderr, "\nERROR: Failed to make immutable clone\n" );
                     timespec imut_duration = time_diff( start, end );
                     fprintf( stdout, "%lli.%09li, ",
                         (long long)imut_duration.tv_sec, imut_duration.tv_nsec

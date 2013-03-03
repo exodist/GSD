@@ -122,7 +122,8 @@ dict_methods dict_get_methods( dict *d );
 // occurs if we run out of memory partway through a rebalance or reconfigure.
 int dict_health_check( dict *d );
 
-dict_stat dict_make_immutable( dict *d, size_t threads );
+// Create an immutible clone of a dictionary.
+dict *dict_clone_immutable( dict *d, size_t threads );
 
 // -- Informative --
 
@@ -160,7 +161,6 @@ dict_stat dict_delete( dict *d, void *key );
 // you expect.
 dict_stat dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
 dict_stat dict_cmp_delete( dict *d, void *key, void *old_val );
-dict_stat dict_cmp_dereference( dict *fromd, void *fromk, dict *cmpd, void *cmpk );
 
 // reference allows you to "tie" a key in one dictionary to a key in another
 // dictionary.

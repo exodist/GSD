@@ -80,11 +80,7 @@ struct node {
     node  *left;
     node  *right;
     xtrn  *key;
-
-    union {
-        usref *usref;
-        xtrn  *xtrn;
-    } value;
+    usref *usref;
 };
 
 struct usref {

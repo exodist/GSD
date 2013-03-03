@@ -96,6 +96,11 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
     out = locate_key( dest, dkey, &dloc );
     if ( out.bit.error ) goto OP_REFERENCE_CLEANUP;
 
+    if ( oloc->set->immutable || dloc->set->immutable ) {
+        out = rstat_imute;
+        goto OP_REFERENCE_CLEANUP;
+    }
+
     // No current value, and cannot insert
     if (( !oloc->sref || !oloc->xtrn ) && !osp->insert ) {
         out = rstat_trans;
@@ -155,6 +160,8 @@ rstat op_dereference( dict *d, void *key ) {
 }
 
 rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
+    if ( loc->set->immutable ) return rstat_imute;
+
     sref *r = loc->sref;
     if ( r == NULL ) return rstat_trans;
 
@@ -364,7 +371,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             __sync_add_and_fetch( &(d->item_count), 1 );
 
             loc->node  = new_node;
-            loc->usref = loc->node->value.usref;
+            loc->usref = loc->node->usref;
             loc->sref  = loc->usref->sref;
             if ( blocked_null( loc->sref )) loc->sref = NULL;
             loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
@@ -413,7 +420,7 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
 
     loc->slot  = new_slot;
     loc->node  = loc->slot->root;
-    loc->usref = loc->node->value.usref;
+    loc->usref = loc->node->usref;
     loc->sref  = loc->usref->sref;
     if ( blocked_null( loc->sref )) loc->sref = NULL;
     loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;

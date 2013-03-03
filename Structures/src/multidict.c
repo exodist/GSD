@@ -99,7 +99,7 @@ rstat merge_transfer_slot( set *oset, size_t idx, void **args ) {
         }
 
         // If this node has no sref we skip it.
-        usref *ur = n->value.usref;
+        usref *ur = n->usref;
         if ( null_swap ) __sync_bool_compare_and_swap( &(ur->sref), NULL, null_swap );
         sref *sr = ur->sref;
         xtrn *x  = (sr && !blocked_null( sr )) ? sr->xtrn : NULL;
@@ -166,7 +166,7 @@ rstat null_swap_slot( set *set, size_t idx, void **args ) {
             if ( out.bit.error ) goto NULL_SWAP_ERROR;
         }
 
-        __sync_bool_compare_and_swap( &(n->value.usref->sref), from, to );
+        __sync_bool_compare_and_swap( &(n->usref->sref), from, to );
 
         n = nlist_shift( nodes );
     }
@@ -174,4 +174,12 @@ rstat null_swap_slot( set *set, size_t idx, void **args ) {
     NULL_SWAP_ERROR:
     nlist_free( &nodes );
     return out;
+}
+
+dict *clone_immutable( dict *d, size_t threads ) {
+    dict *c = clone( d, 0, threads );
+    if ( c == NULL ) return NULL;
+    rebalance_all( c, 2, threads );
+    c->set->immutable = 1;
+    return c;
 }

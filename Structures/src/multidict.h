@@ -28,4 +28,6 @@ rstat do_null_swap( set *s, size_t start, size_t count, const void *from, const 
 
 rstat null_swap_slot( set *set, size_t idx, void **args );
 
+dict *clone_immutable( dict *d, size_t threads );
+
 #endif
