@@ -52,7 +52,9 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
 
     if ( success ) {
         *count_diff = old_slot->item_count - count;
+#ifdef METRICS
         __sync_add_and_fetch( &(d->rebalanced), 1 );
+#endif
         dispose( d, (trash *)old_slot );
         return rstat_ok;
     }

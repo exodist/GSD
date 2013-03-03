@@ -41,10 +41,13 @@ struct dict {
     uint8_t immutable;
     uint8_t invalid;
 
-    size_t rebalanced;
     size_t item_count;
+
+#ifdef GSD_METRICS
+    size_t rebalanced;
     size_t epoch_changed;
     size_t epoch_failed;
+#endif
 };
 
 struct set {
@@ -88,8 +91,10 @@ struct usref {
 struct sref {
     trash   trash;
     size_t  refcount;
+
+    // These must be paired!
+    size_t immutable;
     xtrn   *xtrn;
-    uint8_t immutable;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

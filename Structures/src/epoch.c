@@ -150,14 +150,18 @@ int advance_epoch( dict *d, epoch *e ) {
         // **** At this point we have a next epoch, and the dep relationship ****
         assert( __sync_bool_compare_and_swap( &(d->epoch), ci, i ));
 
+#ifdef METRICS
         __sync_add_and_fetch( &(d->epoch_changed), 1 );
+#endif
         return 1;
     }
 
     // Could not advance epoch, check if another thread has.
     int out = ci == d->epoch ? 0 : -1;
 
+#ifdef METRICS
     if ( out == 0 ) __sync_add_and_fetch( &(d->epoch_failed), 1 );
+#endif
 
     return out;
 }

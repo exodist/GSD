@@ -85,10 +85,7 @@ int main() {
         "Update Time, "
         "Resize Time, "
         "Lookup Time, "
-        "Immute Time, "
-        "Rebalanced, "
-        "Epoch Changed, "
-        "Epoch Change Failed\n"
+        "Immute Time\n"
     );
     fflush( stdout );
 
@@ -200,13 +197,7 @@ int main() {
                     );
                     fflush( stdout );
 
-                    fprintf( stdout, "%zi, %zi, %zi\n",
-                        d->rebalanced,
-                        d->epoch_changed,
-                        d->epoch_failed
-                    );
-                    fflush( stdout );
-
+                    fprintf( stdout, "\n" ); fflush( stdout );
                     free( pts );
                     free( args );
                     dict_free( &d );
