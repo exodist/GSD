@@ -228,7 +228,7 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     assert( !blocked_null(n) );
     rstat ret;
 
-    usref *ur = n->usref;
+    usref *ur = n->value.usref;
     sref *sr = ur->sref;
     size_t ref_count = sr ? sr->refcount : 0;
 

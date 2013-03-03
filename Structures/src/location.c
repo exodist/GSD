@@ -110,7 +110,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
         switch( dir ) {
             case 0:
                 lc->node = n;
-                lc->usref = lc->node->usref; // This is never NULL
+                lc->usref = lc->node->value.usref; // This is never NULL
                 lc->sref  = lc->usref->sref;
                 lc->xtrn  = lc->sref && !blocked_null( lc->sref ) ? lc->sref->xtrn : NULL;
 

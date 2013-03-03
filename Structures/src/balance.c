@@ -74,7 +74,7 @@ void rebalance_unblock( node *n ) {
     __sync_bool_compare_and_swap( &(n->right), RBAL, NULL );
     if ( n->right != NULL ) rebalance_unblock( n->right );
 
-    __sync_bool_compare_and_swap( &(n->usref->sref), RBAL, NULL );
+    __sync_bool_compare_and_swap( &(n->value.usref->sref), RBAL, NULL );
 
     __sync_bool_compare_and_swap( &(n->left), RBAL, NULL );
     if ( n->left != NULL ) rebalance_unblock( n->left );
@@ -86,10 +86,10 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
     if ( !blocked_null( n->right )) count = rebalance_add_node( n->right, all, size, count );
 
     // Mark a node with no sref as rebalance
-    __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBAL );
+    __sync_bool_compare_and_swap( &(n->value.usref->sref), NULL, RBAL );
 
     // If this node has an sref, add to the list.
-    sref *sr = n->usref->sref;
+    sref *sr = n->value.usref->sref;
     if ( !blocked_null( sr )) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
@@ -114,7 +114,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     xtrn *key = create_xtrn( d, n->key->value );
     if ( !key ) return rstat_mem;
 
-    node *new_node = create_node( key, n->usref, 1 );
+    node *new_node = create_node( key, n->value.usref, 1 );
     if ( !new_node ) {
         dispose( d, (trash *)key );
         return rstat_mem;

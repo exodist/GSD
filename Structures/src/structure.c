@@ -29,7 +29,7 @@ int iterate_node( dict *d, node *n, dict_handler *h, void *args ) {
         if ( stop ) return stop;
     }
 
-    usref *ur = n->usref;
+    usref *ur = n->value.usref;
     sref *sr = ur->sref;
     if ( sr && !blocked_null( sr )) {
         xtrn *x = sr->xtrn;

@@ -124,9 +124,9 @@ rstat immutable_callback( set *s, size_t idx, void **args ) {
             if ( out.bit.error ) goto IMUT_ERROR;
         }
 
-        __sync_bool_compare_and_swap( &(n->usref->sref), NULL, IMUT );
-        if ( n->usref->sref && !blocked_null( n->usref->sref )) {
-            __sync_bool_compare_and_swap( &(n->usref->sref->immutable), 0, 1 );
+        __sync_bool_compare_and_swap( &(n->value.usref->sref), NULL, IMUT );
+        if ( n->value.usref->sref && !blocked_null( n->value.usref->sref )) {
+            __sync_bool_compare_and_swap( &(n->value.usref->sref->immutable), 0, 1 );
         }
 
         n = nlist_shift( nodes );

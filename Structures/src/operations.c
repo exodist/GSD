@@ -374,8 +374,8 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             __sync_add_and_fetch( &(d->item_count), 1 );
 
             loc->node  = new_node;
-            loc->usref = new_node->usref;
-            loc->sref  = new_node->usref->sref;
+            loc->usref = loc->node->value.usref;
+            loc->sref  = loc->usref->sref;
             if ( blocked_null( loc->sref )) loc->sref = NULL;
             loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
@@ -422,9 +422,9 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
     }
 
     loc->slot  = new_slot;
-    loc->node  = new_slot->root;
-    loc->usref = new_slot->root->usref;
-    loc->sref  = new_slot->root->usref->sref;
+    loc->node  = loc->slot->root;
+    loc->usref = loc->node->value.usref;
+    loc->sref  = loc->usref->sref;
     if ( blocked_null( loc->sref )) loc->sref = NULL;
     loc->xtrn  = loc->sref ? loc->sref->xtrn : NULL;
 
