@@ -91,49 +91,5 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
 }
 
 rstat make_immutable( dict *d, size_t threads ) {
-    __sync_bool_compare_and_swap( &(d->immutable), 0, 1 );
-
-    // Wait for epochs to finish
-    epoch *e = wait_epoch( d );
-    if ( e == NULL ) return rstat_mem;
-
-    set *s = d->set;
-    rstat out = threaded_traverse( s, 0, s->settings.slot_count, immutable_callback, NULL, threads );
-
-    leave_epoch( d, e );
-    return out;
+    return rstat_unimp;
 }
-
-rstat immutable_callback( set *s, size_t idx, void **args ) {
-    rstat out = rstat_ok;
-    slot *sl = s->slots[idx];
-    if ( sl == NULL ) return out;
-
-    nlist *nodes = nlist_create();
-    if ( !nodes ) return rstat_mem;
-
-    node *n = sl->root;
-    while( n != NULL ) {
-        if ( n->right && !blocked_null( n->right )) {
-            out = nlist_push( nodes, n->right );
-            if ( out.bit.error ) goto IMUT_ERROR;
-        }
-
-        if ( n->left && !blocked_null( n->left )) {
-            out = nlist_push( nodes, n->left );
-            if ( out.bit.error ) goto IMUT_ERROR;
-        }
-
-        __sync_bool_compare_and_swap( &(n->value.usref->sref), NULL, IMUT );
-        if ( n->value.usref->sref && !blocked_null( n->value.usref->sref )) {
-            __sync_bool_compare_and_swap( &(n->value.usref->sref->immutable), 0, 1 );
-        }
-
-        n = nlist_shift( nodes );
-    }
-
-    IMUT_ERROR:
-    nlist_free( &nodes );
-    return out;
-}
-

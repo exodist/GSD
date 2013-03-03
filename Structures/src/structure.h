@@ -38,7 +38,6 @@ struct dict {
 
     epoch epochs[EPOCH_LIMIT];
     uint8_t epoch;
-    uint8_t immutable;
     uint8_t invalid;
 
     size_t item_count;
@@ -55,6 +54,7 @@ struct set {
     slot **slots;
     dict_settings settings;
 
+    uint8_t immutable;
     uint8_t rebuild;
 };
 
@@ -95,9 +95,6 @@ struct usref {
 struct sref {
     trash   trash;
     size_t  refcount;
-
-    // These must be paired!
-    size_t immutable;
     xtrn   *xtrn;
 };
 

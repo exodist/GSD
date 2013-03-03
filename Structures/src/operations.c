@@ -31,7 +31,6 @@ rstat op_get( dict *d, void *key, void **val ) {
 }
 
 rstat op_set( dict *d, void *key, void *val ) {
-    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
     set_spec sp = { 1, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
@@ -44,7 +43,6 @@ rstat op_set( dict *d, void *key, void *val ) {
 
 
 rstat op_insert( dict *d, void *key, void *val ) {
-    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
     set_spec sp = { 1, 0, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
@@ -55,7 +53,6 @@ rstat op_insert( dict *d, void *key, void *val ) {
 }
 
 rstat op_update( dict *d, void *key, void *val ) {
-    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
     set_spec sp = { 0, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, val, &sp );
@@ -64,7 +61,6 @@ rstat op_update( dict *d, void *key, void *val ) {
 }
 
 rstat op_delete( dict *d, void *key ) {
-    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
     set_spec sp = { 0, 1, NULL, NULL };
     rstat err = do_set( d, &locator, key, NULL, &sp );
@@ -73,7 +69,6 @@ rstat op_delete( dict *d, void *key ) {
 }
 
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
-    if ( d->immutable ) return rstat_imute;
     if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, 11, 0 );
     location *locator = NULL;
     set_spec sp = { 0, 1, old_val, NULL };
@@ -83,7 +78,6 @@ rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
 }
 
 rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
-    if ( d->immutable ) return rstat_imute;
     location *locator = NULL;
     set_spec sp = { 0, 1, old_val, NULL };
     rstat err = do_set( d, &locator, key, NULL, &sp );
@@ -92,7 +86,6 @@ rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
 }
 
 rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dkey, set_spec *dsp ) {
-    if ( dest->immutable ) return rstat_imute;
     rstat out = rstat_ok;
     assert( dsp->swap_from == NULL );
     location *oloc = NULL;
@@ -105,7 +98,7 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
     if ( out.bit.error ) goto OP_REFERENCE_CLEANUP;
 
     // No current value, and cannot insert
-    if (( !oloc->sref || !oloc->xtrn ) && ( !osp->insert || orig->immutable )) {
+    if (( !oloc->sref || !oloc->xtrn ) && !osp->insert ) {
         out = rstat_trans;
         goto OP_REFERENCE_CLEANUP;
     }
@@ -153,7 +146,6 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
 }
 
 rstat op_dereference( dict *d, void *key ) {
-    if ( d->immutable ) return rstat_imute;
     location *loc = NULL;
     rstat err = locate_key( d, key, &loc );
 
@@ -164,7 +156,6 @@ rstat op_dereference( dict *d, void *key ) {
 }
 
 rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
-    if ( d->immutable ) return rstat_imute;
     sref *r = loc->sref;
     if ( r == NULL ) return rstat_trans;
 
@@ -209,7 +200,6 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
     rstat stat = rstat_ok;
 
     while ( 1 ) {
-        if ( d->immutable ) return rstat_imute;
         stat = locate_key( d, key, locator );
         if ( stat.num ) return stat;
         location *loc = *locator;
