@@ -6,9 +6,10 @@
 
 #include "gsd_dict_return.h"
 
-typedef struct merge_settings merge_settings;
+typedef struct dict_merge_settings dict_merge_settings;
 typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
+typedef struct dict_trigger dict_trigger;
 typedef struct dict dict;
 
 typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
@@ -19,6 +20,7 @@ typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
 typedef char * (dict_dot)( void *key, void *val );
 typedef void   (dict_immute)( void *meta );
 typedef void   (dict_ref_immute)( void *meta, void *ref );
+typedef int    (dict_ref_trigger)( void *arg, void *value );
 
 struct dict;
 
@@ -84,7 +86,7 @@ struct dict_settings {
     void *meta;
 };
 
-struct merge_settings {
+struct dict_merge_settings {
     enum {
         // Pairs in origin override destination
         MERGE_SET,
@@ -98,6 +100,11 @@ struct merge_settings {
     uint8_t reference;
 };
 
+struct dict_trigger {
+    dict_ref_trigger *function;
+    void *arg;
+};
+
 // -- Creation and meta data --
 
 dict *dict_build( size_t slots, dict_methods m, void *meta );
@@ -105,7 +112,7 @@ dict *dict_build( size_t slots, dict_methods m, void *meta );
 dict_stat dict_create( dict **d, dict_settings settings, dict_methods methods );
 
 // Copying and cloning
-dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads );
+dict_stat dict_merge( dict *from, dict *to, dict_merge_settings s, size_t threads );
 dict *dict_clone( dict *d, uint8_t reference, size_t threads );
 
 // Used to free a dict structure.
@@ -142,7 +149,7 @@ dict_stat dict_recover( dict *d, size_t max_threads );
 
 // Allows you to rebalance at will, ideal to do after a lot fo inserts, before
 // a lot up lookups/updates.
-dict_stat dict_rebalance( dict *d, size_t threshold, size_t threads );
+dict_stat dict_rebalance( dict *d, size_t threads );
 
 // Get never blocks
 // Set will insert or update as necessary

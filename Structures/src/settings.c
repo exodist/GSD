@@ -74,7 +74,7 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     if ( !out.bit.error ) {
         assert( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set ));
         d->set->settings.max_imbalance = s->settings.max_imbalance;
-        rebalance_all( d, 2, max_threads );
+        rebalance_all( d, max_threads );
         dispose( d, (trash *)s );
         new_dict->set = NULL;
     }

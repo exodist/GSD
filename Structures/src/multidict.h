@@ -14,6 +14,8 @@
 #include "structure.h"
 #include "error.h"
 
+typedef struct dict_merge_settings merge_settings;
+
 dict *clone( dict *d, uint8_t reference, size_t threads );
 
 rstat merge( dict *from, dict *to, merge_settings s, size_t threads );

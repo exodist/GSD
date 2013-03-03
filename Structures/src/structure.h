@@ -27,18 +27,17 @@ typedef struct sref  sref;
 struct trash {
     trash *next;
     enum { OOPS = 0, SET, SLOT, NODE, SREF, XTRN } type;
+
+#ifdef TRASH_CHECK
     char *fn;
     size_t ln;
+#endif
 };
 
 struct dict {
     dict_methods methods;
 
     set *set;
-
-    epoch epochs[EPOCH_LIMIT];
-    uint8_t epoch;
-    uint8_t invalid;
 
     size_t item_count;
 
@@ -47,6 +46,9 @@ struct dict {
     size_t epoch_changed;
     size_t epoch_failed;
 #endif
+
+    epoch epochs[EPOCH_LIMIT];
+    uint8_t epoch;
 };
 
 struct set {
@@ -63,9 +65,8 @@ struct slot {
     node   *root;
 
     size_t  item_count;
-    uint8_t ideal_height;
-    size_t  deref_count;
 
+    uint8_t ideal_height;
     uint8_t rebuild;
     uint8_t patho;
 };
@@ -92,6 +93,7 @@ struct sref {
     trash   trash;
     size_t  refcount;
     xtrn   *xtrn;
+    dict_trigger *trigger;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

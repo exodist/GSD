@@ -50,8 +50,8 @@ char *dict_dump_dot( dict *d, dict_dot *decode ) {
 rstat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads ) {
     return reconfigure( d, settings, max_threads );
 }
-dict_stat dict_rebalance( dict *d, size_t threshold, size_t threads ) {
-    return rebalance_all( d, threshold, threads );
+dict_stat dict_rebalance( dict *d, size_t threads ) {
+    return rebalance_all( d, threads );
 }
 
 rstat dict_get( dict *d, void *key, void **val ) {

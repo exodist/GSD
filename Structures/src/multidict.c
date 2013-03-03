@@ -179,7 +179,7 @@ rstat null_swap_slot( set *set, size_t idx, void **args ) {
 dict *clone_immutable( dict *d, size_t threads ) {
     dict *c = clone( d, 0, threads );
     if ( c == NULL ) return NULL;
-    rebalance_all( c, 2, threads );
+    rebalance_all( c, threads );
     c->set->immutable = 1;
     return c;
 }

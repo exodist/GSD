@@ -10,12 +10,14 @@
 void x_dispose( dict *d, trash *garbage, char *fn, size_t ln ) {
     if ( garbage == NULL ) return;
 
+#ifdef TRASH_CHECK
     if ( garbage->fn ) {
         fprintf( stderr, "\n********\nDouble dispose: %s:%zi - %s,%zi\n*******\n", fn, ln, garbage->fn, garbage->ln );
         assert( 0 );
     }
     garbage->fn = fn;
     garbage->ln = ln;
+#endif
 
     epoch *e = join_epoch( d );
 

@@ -128,7 +128,7 @@ int main() {
                     fflush( stdout );
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
-                    dict_rebalance( d, 3, threads );
+                    dict_rebalance( d, threads );
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec rebalance_duration = time_diff( start, end );
                     fprintf( stdout, "%lli.%09li, ",

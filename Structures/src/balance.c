@@ -236,7 +236,7 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     return rstat_ok;
 }
 
-dict_stat rebalance_all( dict *d, size_t threshold, size_t threads ) {
+dict_stat rebalance_all( dict *d, size_t threads ) {
     epoch *e = join_epoch( d );
     set *s = d->set;
 
