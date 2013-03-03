@@ -71,6 +71,10 @@ grind_performance: libGrindGSDDict.so
 						./performance.run 2> grind.txt
 
 debug_performance: libDBGGSDDict.so
-	$(GCC) $(CFLAGS) -O0 -I. -L. test/performance.c -lDBGGSDDict -lpthread -lrt -operformance.run
+	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/performance.c -lDBGGSDDict -lpthread -lrt -operformance.run
 	LD_LIBRARY_PATH="." gdb ./performance.run
+
+debug_apitest: libDBGGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/apitest.c -lDBGGSDDict -lpthread -oapitest.run
+	LD_LIBRARY_PATH="." gdb ./apitest.run
 
