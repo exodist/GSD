@@ -92,4 +92,7 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
 
 rstat make_immutable( dict *d, size_t threads ) {
     return rstat_unimp;
+
+    // Create a new set, same size
+    // spawn threads
 }

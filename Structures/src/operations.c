@@ -14,7 +14,7 @@ rstat op_get( dict *d, void *key, void **val ) {
     rstat err = locate_key( d, key, &loc );
 
     if ( !err.num ) {
-        if ( loc->sref == NULL || loc->xtrn == NULL ) {
+        if ( loc->xtrn == NULL ) {
             *val = NULL;
         }
         else {
@@ -40,7 +40,6 @@ rstat op_set( dict *d, void *key, void *val ) {
     }
     return err;
 }
-
 
 rstat op_insert( dict *d, void *key, void *val ) {
     location *locator = NULL;
@@ -203,6 +202,7 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
         stat = locate_key( d, key, locator );
         if ( stat.num ) return stat;
         location *loc = *locator;
+        if ( loc->set->immutable ) return rstat_imute;
 
         // Check for an existing sref, updating srefs is not blocked by a
         // rebuild.

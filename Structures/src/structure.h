@@ -100,7 +100,7 @@ struct sref {
 
 int iterate( dict *d, dict_handler *h, void *args );
 
-int iterate_node( dict *d, node *n, dict_handler *h, void *args );
+int iterate_node( dict *d, set *s, node *n, dict_handler *h, void *args );
 
 #endif
 
