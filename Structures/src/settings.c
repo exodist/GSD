@@ -1,10 +1,10 @@
 #include <pthread.h>
-#include <assert.h>
 #include <unistd.h>
 #include <stdio.h>
 
 #include "include/gsd_dict.h"
 
+#include "devtools.h"
 #include "settings.h"
 #include "structure.h"
 #include "node_list.h"
@@ -72,7 +72,7 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     out = do_merge( d, new_dict, ms, max_threads, RBLD );
 
     if ( !out.bit.error ) {
-        assert( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set ));
+        dev_assert_or_do( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set ));
         d->set->settings.max_imbalance = s->settings.max_imbalance;
         rebalance_all( d, max_threads );
         dispose( d, (trash *)s );

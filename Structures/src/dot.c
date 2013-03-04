@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
+#include "devtools.h"
 #include "structure.h"
 #include "node_list.h"
 #include "dot.h"
@@ -225,7 +225,7 @@ rstat dump_dot_slots_slot( dot *dd, slot *sl, size_t id, size_t previous ) {
 }
 
 rstat dump_dot_slots_node( dot *dd, node *n ) {
-    assert( !blocked_null(n) );
+    dev_assert( !blocked_null(n) );
     rstat ret;
 
     usref *ur = n->usref;

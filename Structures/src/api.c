@@ -1,7 +1,7 @@
-#include <assert.h>
 
 #include "include/gsd_dict.h"
 
+#include "devtools.h"
 #include "alloc.h"
 #include "dot.h"
 #include "multidict.h"
@@ -22,12 +22,12 @@ rstat dict_create( dict **d, dict_settings settings, dict_methods methods ) {
 }
 
 dict_stat dict_merge( dict *from, dict *to, merge_settings s, size_t threads ) {
-    assert( s.reference == 0 || s.reference == 1 );
+    dev_assert( s.reference == 0 || s.reference == 1 );
     return merge( from, to, s, threads );
 }
 
 dict *dict_clone( dict *d, uint8_t reference, size_t threads ) {
-    assert( reference == 0 || reference == 1 );
+    dev_assert( reference == 0 || reference == 1 );
     return clone( d, reference, threads );
 }
 

@@ -62,14 +62,14 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    size_t min_ops = 1048576;
-    size_t max_ops = 1048576;
+    size_t min_ops = 1048576 / 2;
+    size_t max_ops = 1048576 * 2;
     size_t min_slots = 1024;
-    size_t max_slots = 1024 * 4;
+    size_t max_slots = 1024 * 4 * 4 * 4;
     size_t min_imbalance = 16;
     size_t max_imbalance = 16;
-    size_t min_threads = 32;
-    size_t max_threads = 64;
+    size_t min_threads = 1;
+    size_t max_threads = 1024;
 
     dict_settings set = { 0, 0, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
@@ -89,7 +89,7 @@ int main() {
     );
     fflush( stdout );
 
-    for ( size_t threads = min_threads; threads <= max_threads; threads *= 2 ) {
+    for ( size_t threads = min_threads; threads <= max_threads; threads *= 4 ) {
         for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
             for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 4 ) {
                 for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {

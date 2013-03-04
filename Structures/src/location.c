@@ -1,6 +1,6 @@
 #include <string.h>
-#include <assert.h>
 
+#include "devtools.h"
 #include "epoch.h"
 #include "structure.h"
 #include "location.h"
@@ -95,9 +95,9 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
 
     // Assure we have a set.
     if ( !lc->set ) lc->set = s;
-    assert( lc->set );
-    assert( in );
-    assert( key );
+    dev_assert( lc->set );
+    dev_assert( in );
+    dev_assert( key );
 
     lc->node  = NULL;
     lc->usref = NULL;
@@ -140,7 +140,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
             break;
         }
     }
-    assert( lc->parent || lc->node == in );
+    dev_assert( lc->parent || lc->node == in );
 
     return rstat_ok;
 }

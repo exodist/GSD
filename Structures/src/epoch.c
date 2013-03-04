@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
 
+#include "devtools.h"
 #include "structure.h"
 #include "epoch.h"
 #include "alloc.h"
@@ -13,7 +13,7 @@ void x_dispose( dict *d, trash *garbage, char *fn, size_t ln ) {
 #ifdef TRASH_CHECK
     if ( garbage->fn ) {
         fprintf( stderr, "\n********\nDouble dispose: %s:%zi - %s,%zi\n*******\n", fn, ln, garbage->fn, garbage->ln );
-        assert( 0 );
+        dev_assert( 0 );
     }
     garbage->fn = fn;
     garbage->ln = ln;
@@ -150,7 +150,7 @@ int advance_epoch( dict *d, epoch *e ) {
         }
 
         // **** At this point we have a next epoch, and the dep relationship ****
-        assert( __sync_bool_compare_and_swap( &(d->epoch), ci, i ));
+        dev_assert_or_do( __sync_bool_compare_and_swap( &(d->epoch), ci, i ));
 
 #ifdef METRICS
         __sync_add_and_fetch( &(d->epoch_changed), 1 );

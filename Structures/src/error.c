@@ -1,7 +1,6 @@
-#include <assert.h>
-
 #include "include/gsd_dict_return.h"
 #include "error.h"
+#include "devtools.h"
 
 const char *dict_stat_message( dict_stat s ) {
     return error_message( s );

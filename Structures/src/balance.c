@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <pthread.h>
 
+#include "devtools.h"
 #include "epoch.h"
 #include "structure.h"
 #include "balance.h"
@@ -137,9 +137,9 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
         dispose( d, (trash *)new_node );
         return stat;
     }
-    assert( loc );
-    assert( loc->parent );
-    assert( loc->dir );
+    dev_assert( loc );
+    dev_assert( loc->parent );
+    dev_assert( loc->dir );
 
     if ( loc->dir == -1 ) {
         loc->parent->left = new_node;

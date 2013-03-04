@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <string.h>
-#include <assert.h>
 #include <stdio.h>
 
+#include "devtools.h"
 #include "structure.h"
 #include "alloc.h"
 #include "epoch.h"
@@ -28,9 +28,9 @@ void free_trash( dict *d, trash *t ) {
         trash *goner = t;
         t = t->next;
 
-        assert( goner->type );
+        dev_assert( goner->type );
         switch ( goner->type ) {
-            // Not reachable, OOPS = 0, will be caught by the assert above. This is
+            // Not reachable, OOPS = 0, will be caught by the dev_assert above. This is
             // here to silence a warning.
             case OOPS:
                 return;
@@ -79,7 +79,7 @@ void free_node( dict *d, node *n ) {
         if ( r && !blocked_null( r )) {
             count = __sync_sub_and_fetch( &(r->refcount), 1 );
             // If refcount is SIZE_MAX we almost certainly have an underflow. 
-            assert( count != SIZE_MAX );
+            dev_assert( count != SIZE_MAX );
             if( count == 0 ) free_sref( d, r );
         }
 
@@ -151,7 +151,7 @@ set *create_set( dict_settings settings, size_t slot_count ) {
 }
 
 slot *create_slot( node *root ) {
-    assert( root );
+    dev_assert( root );
     slot *new_slot = malloc( sizeof( slot ));
     if ( !new_slot ) return NULL;
     memset( new_slot, 0, sizeof( slot ));
@@ -162,8 +162,8 @@ slot *create_slot( node *root ) {
 }
 
 node *create_node( xtrn *key, usref *ref, size_t min_start_refcount ) {
-    assert( ref );
-    assert( key );
+    dev_assert( ref );
+    dev_assert( key );
 
     node *new_node = malloc( sizeof( node ));
     if ( !new_node ) return NULL;
@@ -180,7 +180,7 @@ node *create_node( xtrn *key, usref *ref, size_t min_start_refcount ) {
         if ( __sync_bool_compare_and_swap( &(ref->refcount), rc, rc + 1 ))
             break;
     }
-    assert( ref->refcount );
+    dev_assert( ref->refcount );
     new_node->usref = ref;
     new_node->trash.type = NODE;
 
@@ -210,8 +210,8 @@ sref *create_sref( xtrn *x, dict_trigger *t ) {
 }
 
 xtrn *create_xtrn( dict *d, void *value ) {
-    assert( value );
-    assert( d );
+    dev_assert( value );
+    dev_assert( d );
     xtrn *new_xtrn = malloc( sizeof( xtrn ));
     if ( !new_xtrn ) return NULL;
     memset( new_xtrn, 0, sizeof( xtrn ));

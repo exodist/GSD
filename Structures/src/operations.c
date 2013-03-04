@@ -1,8 +1,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <assert.h>
 
+#include "devtools.h"
 #include "operations.h"
 #include "structure.h"
 #include "balance.h"
@@ -96,7 +96,7 @@ rstat op_cmp_delete( dict *d, void *key, void *old_val ) {
 
 rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dkey, set_spec *dsp ) {
     rstat out = rstat_ok;
-    assert( dsp->swap_from == NULL );
+    dev_assert( dsp->swap_from == NULL );
     location *oloc = NULL;
     location *dloc = NULL;
 
@@ -143,11 +143,11 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
             goto OP_REFERENCE_CLEANUP;
     }
 
-    assert( oloc->sref );
-    assert( dloc->usref );
+    dev_assert( oloc->sref );
+    dev_assert( dloc->usref );
 
-    assert( !blocked_null( oloc->sref ));
-    assert( !blocked_null( dloc->usref ));
+    dev_assert( !blocked_null( oloc->sref ));
+    dev_assert( !blocked_null( dloc->usref ));
 
     out = do_deref( dest, dkey, dloc, oloc->usref->sref );
 
@@ -254,7 +254,7 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
             break;
         }
 
-        assert( loc->slotn_set );
+        dev_assert( loc->slotn_set );
         retry = do_set_slot( d, loc, key, val, spec, &stat );
         if ( retry ) continue;
         break;
@@ -270,8 +270,8 @@ rstat do_set( dict *d, location **locator, void *key, void *val, set_spec *spec 
 }
 
 int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, void **old_val, rstat *stat ) {
-    assert( !spec->usref   );
-    assert( !spec->trigger );
+    dev_assert( !spec->usref   );
+    dev_assert( !spec->trigger );
 
     if ( loc->sref->trigger ) {
         const char *error = loc->sref->trigger->function(
@@ -343,7 +343,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 }
 
 int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    assert( !spec->usref );
+    dev_assert( !spec->usref );
     sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF, spec );
     if( !new_sref ) {
         *stat = rstat_mem;
@@ -456,14 +456,14 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
 void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, set_spec *spec ) {
     usref *new_usref = NULL;
     if ( spec->usref ) {
-        assert( type != CREATE_XTRN );
-        assert( type != CREATE_SREF );
+        dev_assert( type != CREATE_XTRN );
+        dev_assert( type != CREATE_SREF );
         new_usref = spec->usref;
     }
     else {
         xtrn *new_xtrn = NULL;
         if ( val || type == CREATE_XTRN ) {
-            assert( val );
+            dev_assert( val );
             new_xtrn = create_xtrn( d, val );
             if ( !new_xtrn ) return NULL;
         }
