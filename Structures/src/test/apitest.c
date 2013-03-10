@@ -100,8 +100,241 @@ uint64_t hash_bytes( uint8_t *data, size_t length ) {
     return key;
 }
 
+void test_build();
+void test_create();
+void test_merge();
+void test_clone();
+void test_meta();
+void test_immute();
+void test_reconf();
+void test_health();
+void test_balance();
+void test_operations();
+void test_transactions();
+void test_references();
+void test_triggers();
+void test_iterate();
+
+dict_methods  DMET = { kv_cmp, kv_loc, kv_change, kv_ref };
+dict_settings DSET = { 1024, 16, NULL };
+
 int main() {
-    
-    return 1;
+    test_build();
+    test_create();
+    test_merge();
+    test_clone();
+    test_meta();
+    test_immute();
+    test_reconf();
+    test_health();
+    test_balance();
+    test_operations();
+    test_transactions();
+    test_references();
+    test_triggers();
+    test_iterate();
+
+    return 0;
 }
 
+void test_build() {
+    dict *d = dict_build( 1024, DMET, NULL );
+    assert( d );
+
+    kv *it = new_kv( 10 );
+    dict_stat s = dict_insert( d, it, it );
+    if ( s.bit.error ) {
+        fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+        exit( 1 );
+    }
+    kv_ref( d, it, -1 );
+
+    dict_free( &d );
+    assert( !d );
+}
+
+void test_create() {
+    dict *d = NULL;
+    rstat c = dict_create( &d, DSET, DMET );
+    assert( !c.bit.error );
+    assert( d );
+
+    kv *it = new_kv( 10 );
+    dict_stat s = dict_insert( d, it, it );
+    if ( s.bit.error ) {
+        fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+        exit( 1 );
+    }
+    kv_ref( d, it, -1 );
+
+    dict_free( &d );
+    assert( !d );
+}
+
+void test_merge() {
+    dict *d = dict_build( 1024, DMET, NULL );
+    assert( d );
+
+    for ( int i = 0; i < 20; i++ ) {
+        kv *it = new_kv( i );
+        dict_stat s = dict_insert( d, it, it );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        kv_ref( d, it, -1 );
+    }
+
+    dict *d2 = dict_build( 128, DMET, NULL );
+    assert( d2 );
+
+    dict_merge_settings mset = { MERGE_INSERT, 0 };
+    dict_merge( d, d2, mset, 8 );
+    for ( int i = 0; i < 20; i++ ) {
+        kv *k = new_kv( i );
+        kv *v = NULL;
+        dict_stat s = dict_get( d2, k, (void **)&v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        assert( v->value == i );
+        kv_ref( d, k, -1 );
+        kv_ref( d, v, -1 );
+    }
+
+    // TODO:
+    // Ensure the merge did not make references
+    // Merge again with references, verify
+    // merge 'update'
+    // merge 'set'
+
+    dict_free( &d );
+    dict_free( &d2 );
+}
+
+void test_clone() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // clone no refs
+    // clone refs
+
+    dict_free( &d );
+}
+
+void test_meta() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // get_settings
+    // get_methods
+
+    dict_free( &d );
+}
+
+void test_immute() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // clone immutable
+    // attempt to modify
+
+    dict_free( &d );
+}
+
+void test_reconf() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Reconfigure
+
+    dict_free( &d );
+}
+
+void test_health() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Fake an invalid state
+    // Health check
+    // recover
+
+    dict_free( &d );
+}
+
+void test_balance() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Make very imbalanced tree
+    // rebalance
+
+    dict_free( &d );
+}
+
+void test_operations() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Insert success
+    // Insert fail
+    // update success
+    // update fail
+    // set
+    // delete success
+    // delete fail
+    // get success
+    // get fail
+
+    dict_free( &d );
+}
+
+void test_transactions() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // cmp_update
+    // cmp_delete
+
+    dict_free( &d );
+}
+
+void test_references() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Make reference
+    // Change+test reference
+    // dereference
+
+    dict_free( &d );
+}
+
+void test_triggers() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // insert trigger
+    // give good value
+    // give bad value
+
+    dict_free( &d );
+}
+
+void test_iterate() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Make sure all inserted key+value pairs are hit.
+    // Probably use 2 arrays, keys and values, set all to all 0's then have
+    // iteration callback set to 1 for each array as encountered.
+
+    dict_free( &d );
+}
+
+void test_x() {
+    dict *d = dict_build( 1024, DMET, NULL );
+
+    dict_free( &d );
+}
