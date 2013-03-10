@@ -236,49 +236,29 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     return rstat_ok;
 }
 
-dict_stat rebalance_all( dict *d, size_t threads ) {
+rstat rebalance_all( dict *d, size_t threads ) {
     epoch *e = join_epoch( d );
     set *s = d->set;
 
-    size_t index = 0;
-    void *args[3] = { &index, s, d };
+    void *args[1] = { d };
 
-    if ( threads < 2 ) {
-        rebalance_worker( args );
-    }
-    else {
-        size_t tcount = threads < s->settings.slot_count ? threads : s->settings.slot_count;
-        pthread_t *pts = malloc( tcount * sizeof( pthread_t ));
-        if ( !pts ) {
-            leave_epoch( d, e );
-            return rstat_mem;
-        }
-        for ( int i = 0; i < tcount; i++ ) {
-            pthread_create( &(pts[i]), NULL, rebalance_worker, args );
-        }
-        for ( int i = 0; i < tcount; i++ ) {
-            pthread_join( pts[i], NULL );
-        }
-        free( pts );
-    }
+    rstat out = threaded_traverse(
+        s, 0, s->settings.slot_count,
+        rebalance_callback,
+        args,
+        threads
+    );
 
     leave_epoch( d, e );
-    return rstat_ok;
+    return out;
 }
 
-void *rebalance_worker( void *in ) {
-    void **args = (void **)in;
-    size_t *index = args[0];
-    set    *s     = args[1];
-    dict   *d     = args[2];
+rstat rebalance_callback( set *s, size_t idx, void **cb_args ) {
+    dict *d = cb_args[0];
+    size_t count_diff = 0;
 
-    while ( 1 ) {
-        size_t idx = __sync_fetch_and_add( index, 1 );
-        if ( idx >= s->settings.slot_count ) return NULL;
+    rstat out = rebalance( d, s, idx, &count_diff );
+    __sync_fetch_and_sub( &(d->item_count), count_diff );
 
-        size_t count_diff = 0;
-        rebalance( d, s, idx, &count_diff );
-        __sync_fetch_and_sub( &(d->item_count), count_diff );
-    }
+    return out;
 }
-

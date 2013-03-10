@@ -26,8 +26,8 @@ rstat balance_check( dict *d, location *loc, size_t count );
 
 void rebalance_unblock( node *n );
 
-dict_stat rebalance_all( dict *d, size_t threads );
+rstat rebalance_all( dict *d, size_t threads );
 
-void *rebalance_worker( void *args );
+rstat rebalance_callback( set *s, size_t idx, void **cb_args );
 
 #endif

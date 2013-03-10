@@ -44,19 +44,25 @@ dottest: libGSDDict.so
 	LD_LIBRARY_PATH="." ./testdot.run > /tmp/testdot.dot
 	dot -Tx11 /tmp/testdot.dot
 
-stresstest: libGrindGSDDict.so
-	$(GCC) $(CFLAGS) -O2 -I. -L. test/stress.c -lGrindGSDDict -lpthread -DDEV_ASSERTS -oteststress.run
-	LD_LIBRARY_PATH="." ./teststress.run
-#	LD_LIBRARY_PATH="." gdb ./teststress.run
-#	LD_LIBRARY_PATH="." valgrind --leak-check=full \
-#								 --read-var-info=yes \
-#								 --track-origins=yes \
-#								 --show-reachable=yes \
-#						./teststress.run 2> grind.txt
+debug_stress: libDBGGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/stress.c -lDBGGSDDict -lpthread -DDEV_ASSERTS -ostress.run
+	LD_LIBRARY_PATH="." gdb ./teststress.run
+
+grind_stress: libGrindGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -I. -L. test/stress.c -lGrindGSDDict -lpthread -DDEV_ASSERTS -ostress.run
+	LD_LIBRARY_PATH="." valgrind --leak-check=full \
+								 --read-var-info=yes \
+								 --track-origins=yes \
+								 --show-reachable=yes \
+						./teststress.run 2> grind.txt
 #	LD_LIBRARY_PATH="." valgrind --tool=helgrind \
 #								 --read-var-info=yes \
 #								 --history-level=full \
 #						./teststress.run 2> grind.txt
+
+stress: libGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/stress.c -lGSDDict -lpthread -ostress.run
+	LD_LIBRARY_PATH="." ./stress.run
 
 performance: libGSDDict.so
 	$(GCC) $(CFLAGS) -O2 -I. -L. test/performance.c -lGSDDict -lpthread -lrt -operformance.run
