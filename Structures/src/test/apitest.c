@@ -19,8 +19,7 @@ struct kv {
 kv NKV = { 0, 0, 0 };
 
 // If true FNV will be used to locate and compare keys, otherwise the raw
-// integer value is used (which is a worst case scenario as that means sorted
-// insert into all the trees.
+// integer value is used
 int USE_FNV = 1;
 
 kv    *new_kv( uint64_t val );

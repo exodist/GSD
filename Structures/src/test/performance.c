@@ -25,7 +25,7 @@ kv NKV = { 0, 0, 0, __FILE__, __LINE__ };
 
 // If true FNV will be used to locate and compare keys, otherwise the raw
 // integer value is used (which is a worst case scenario as that means sorted
-// insert into all the trees.
+// insert into all the trees.)
 int USE_FNV = 1;
 
 void   kv_ref( dict *d, void *ref, int delta );
