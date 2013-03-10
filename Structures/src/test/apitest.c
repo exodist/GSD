@@ -133,6 +133,7 @@ int main() {
     test_references();
     test_triggers();
     test_iterate();
+    test_sort();
 
     return 0;
 }
@@ -333,8 +334,12 @@ void test_iterate() {
     dict_free( &d );
 }
 
-void test_x() {
+void test_sort() {
     dict *d = dict_build( 1024, DMET, NULL );
+
+    // TODO:
+    // Make array with 1 slot, and a non fnv sort, make sure iterate gives us
+    // sorted order.
 
     dict_free( &d );
 }
