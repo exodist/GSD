@@ -43,10 +43,11 @@ digraph overview {
     node [shape=hexagon]
     edge [color=grey]
 
-    Epoch0->Epoch1
-    Epoch1->Epoch2
-    Epoch2->Epoch3
-    Epoch3->Epoch0
+    Dictionary->Epoch1 [color=green]
+    Dictionary->Epoch0 [style=dotted,color=magenta]
 
-    Dictionary->Epoch1
+    Epoch0->Epoch1 [style=dotted,color=blue]
+    Epoch1->Epoch2 [style=dotted,color=blue]
+    Epoch2->Epoch3 [style=dotted,color=blue]
+    Epoch3->Epoch0 [style=dotted,color=blue]
 }
