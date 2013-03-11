@@ -484,13 +484,58 @@ void test_merge() {
 }
 
 void test_clone() {
-    dict *d = dict_build( 1024, DMET, NULL );
+    dict *d1 = NULL;
+    dict *d2 = NULL;
 
-    // TODO:
-    // clone no refs
-    // clone refs
+    kv *k = new_kv( 10 );
+    kv *v = new_kv( 99 );
+    kv *g = NULL;
 
-    dict_free( &d );
+    // Clone no refs
+    d1 = init_dict_20();
+    d2 = dict_clone( d1, 0, 8 );
+    assert( d2 );
+
+    // Check clone
+    dict_get( d2, k, (void **)&g );
+    assert( g );
+    assert( g->value == 10 );
+    kv_ref( d2, g, -1 );
+
+    // Set original
+    dict_set( d1, k, v );
+
+    // Check that clone does not see change
+    dict_get( d2, k, (void **)&g );
+    assert( g->value == 10 );
+    kv_ref( d2, g, -1 );
+
+    // Clone with refs
+    dict_free( &d1 );
+    dict_free( &d2 );
+    d1 = init_dict_20();
+    d2 = dict_clone( d1, 1, 8 );
+    assert( d2 );
+
+    // Check clone
+    dict_get( d2, k, (void **)&g );
+    assert( g );
+    assert( g->value == 10 );
+    kv_ref( d2, g, -1 );
+
+    // Set original
+    dict_set( d1, k, v );
+
+    // Check that clone sees change
+    dict_get( d2, k, (void **)&g );
+    assert( g->value == 99 );
+    kv_ref( d2, g, -1 );
+
+    // Cleanup
+    kv_ref( d2, k, -1 );
+    kv_ref( d2, v, -1 );
+    dict_free( &d1 );
+    dict_free( &d2 );
 }
 
 void test_meta() {
