@@ -84,3 +84,16 @@ debug_apitest: libDBGGSDDict.so
 	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/apitest.c -lDBGGSDDict -lpthread -DDEV_ASSERTS -oapitest.run
 	LD_LIBRARY_PATH="." gdb ./apitest.run
 
+apitest: libGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/apitest.c -lGSDDict -lpthread -oapitest.run
+	LD_LIBRARY_PATH="." ./apitest.run
+
+grind_apitest: libGrindGSDDict.so
+	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/apitest.c -lGrindGSDDict -lpthread -DDEV_ASSERTS -oapitest.run
+	LD_LIBRARY_PATH="." valgrind --leak-check=full \
+								 --read-var-info=yes \
+								 --track-origins=yes \
+								 --show-reachable=yes \
+						./apitest.run 2> grind.txt
+
+

@@ -114,6 +114,7 @@ void test_transactions();
 void test_references();
 void test_triggers();
 void test_iterate();
+void test_sort();
 
 dict_methods  DMET = { kv_cmp, kv_loc, kv_change, kv_ref };
 dict_settings DSET = { 1024, 16, NULL };
@@ -172,11 +173,11 @@ void test_create() {
     assert( !d );
 }
 
-void test_merge() {
+dict *init_dict_20() {
     dict *d = dict_build( 1024, DMET, NULL );
     assert( d );
 
-    for ( int i = 0; i < 20; i++ ) {
+    for ( int i = 0; i <= 20; i++ ) {
         kv *it = new_kv( i );
         dict_stat s = dict_insert( d, it, it );
         if ( s.bit.error ) {
@@ -186,32 +187,300 @@ void test_merge() {
         kv_ref( d, it, -1 );
     }
 
-    dict *d2 = dict_build( 128, DMET, NULL );
-    assert( d2 );
+    return d;
+}
+
+void test_merge_insert() {
+    kv *k = NULL;
+    kv *v = NULL;
+    kv *got = NULL;
+    dict *d1 = init_dict_20();
+    dict *d2 = dict_build( 1024, DMET, NULL );
+    dict_stat s = { 0 };
+
+    // Set #20 in d2 so it is set before merge
+    k = new_kv( 20 );
+    v = new_kv( 99 );
+    dict_set( d2, k, v );
+    kv_ref( d1, k, -1 );
+    kv_ref( d1, v, -1 );
 
     dict_merge_settings mset = { MERGE_INSERT, 0 };
-    dict_merge( d, d2, mset, 8 );
+    dict_merge( d1, d2, mset, 8 );
+
+    // Check that merge succeded
     for ( int i = 0; i < 20; i++ ) {
-        kv *k = new_kv( i );
-        kv *v = NULL;
-        dict_stat s = dict_get( d2, k, (void **)&v );
+        k = new_kv( i );
+        v = NULL;
+        s = dict_get( d2, k, (void **)&v );
         if ( s.bit.error ) {
             fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
             exit( 1 );
         }
         assert( v->value == i );
-        kv_ref( d, k, -1 );
-        kv_ref( d, v, -1 );
+        kv_ref( d2, k, -1 );
+        kv_ref( d2, v, -1 );
     }
 
-    // TODO:
-    // Ensure the merge did not make references
-    // Merge again with references, verify
-    // merge 'update'
-    // merge 'set'
+    // Check that #20 did NOT get updated
+    got = NULL;
+    k = new_kv( 20 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 99 );
+    kv_ref( d1, k,   -1 );
+    kv_ref( d1, got, -1 );
 
-    dict_free( &d );
+    // Change d1 and ensure d2 is not also changed.
+    k = new_kv( 10 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    dict_get( d1, k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 10 );
+    kv_ref( d1, got, -1 );
+    kv_ref( d1, k,   -1 );
+    kv_ref( d1, v,   -1 );
+
+    // Check references
+    dict_free( &d1 );
     dict_free( &d2 );
+    d1 = init_dict_20();
+    d2 = dict_build( 1024, DMET, NULL );
+
+    mset.reference = 1;
+    dict_merge( d1, d2, mset, 8 );
+    // Check that merge succeded
+    for ( int i = 0; i < 20; i++ ) {
+        k = new_kv( i );
+        v = NULL;
+        s = dict_get( d2, k, (void **)&v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        assert( v->value == i );
+        kv_ref( d2, k, -1 );
+        kv_ref( d2, v, -1 );
+    }
+
+    // Change d1 and ensure d2 reflects the change
+    k = new_kv( 10 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    got = NULL;
+    dict_get( d1,  k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d2, got, -1 );
+
+    kv_ref( d1, k, -1 );
+    kv_ref( d1, v, -1 );
+
+    dict_free( &d1 );
+    dict_free( &d2 );
+}
+
+void test_merge_update() {
+    kv *k = NULL;
+    kv *v = NULL;
+    kv *got = NULL;
+    dict *d1 = init_dict_20();
+    //dict *d1 = dict_build( 1, DMET, NULL );
+    dict *d2 = dict_build( 1, DMET, NULL );
+    dict_stat s = { 0 };
+
+    // Set #20 in d2 so it is set before merge
+    k = new_kv( 20 );
+    v = new_kv( 99 );
+    dict_set( d1, k, k );
+    dict_set( d2, k, v );
+    kv_ref( d2, k, -1 );
+    kv_ref( d2, v, -1 );
+
+    dict_merge_settings mset = { MERGE_UPDATE, 0 };
+    dict_merge( d1, d2, mset, 8 );
+
+    // Check that merge ignored keys not already set in dest
+    for ( int i = 0; i < 20; i++ ) {
+        k = new_kv( i );
+        v = NULL;
+        s = dict_get( d2, k, (void **)&v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        assert( v == NULL );
+        kv_ref( d2, k, -1 );
+    }
+
+    // Check that #20 did get updated
+    got = NULL;
+    k = new_kv( 20 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 20 );
+    kv_ref( d2, k,   -1 );
+    kv_ref( d2, got, -1 );
+
+    // Change d1 and ensure d2 is not also changed.
+    k = new_kv( 20 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    dict_get( d1, k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 20 );
+    kv_ref( d1, got, -1 );
+    kv_ref( d1, k,   -1 );
+    kv_ref( d1, v,   -1 );
+
+    // Check references
+    dict_free( &d1 );
+    dict_free( &d2 );
+    d1 = init_dict_20();
+    d2 = dict_build( 1024, DMET, NULL );
+
+    // Set #20 in d2 so it is set before merge
+    k = new_kv( 20 );
+    v = new_kv( 99 );
+    dict_set( d2, k, v );
+    kv_ref( d2, k, -1 );
+    kv_ref( d2, v, -1 );
+
+    mset.reference = 1;
+    s = dict_merge( d1, d2, mset, 8 );
+    if ( s.bit.error ) {
+        fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+        exit( 1 );
+    }
+
+    // Change d1 and ensure d2 reflects the change
+    k = new_kv( 20 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    got = NULL;
+    dict_get( d1, k, (void **)&got );
+    assert( got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got );
+    assert( got->value == 100 );
+    kv_ref( d2, got, -1 );
+
+    kv_ref( d1, k, -1 );
+    kv_ref( d1, v, -1 );
+
+    dict_free( &d1 );
+    dict_free( &d2 );
+}
+
+void test_merge_set() {
+    kv *k = NULL;
+    kv *v = NULL;
+    kv *got = NULL;
+    dict *d1 = init_dict_20();
+    dict *d2 = dict_build( 1024, DMET, NULL );
+    dict_stat s = { 0 };
+
+    // Set #20 in d2 so it is set before merge
+    k = new_kv( 20 );
+    v = new_kv( 99 );
+    dict_set( d2, k, v );
+    kv_ref( d1, k, -1 );
+    kv_ref( d1, v, -1 );
+
+    dict_merge_settings mset = { MERGE_SET, 0 };
+    dict_merge( d1, d2, mset, 8 );
+
+    // Check that merge succeded
+    for ( int i = 0; i <= 20; i++ ) {
+        k = new_kv( i );
+        v = NULL;
+        s = dict_get( d2, k, (void **)&v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        assert( v->value == i );
+        kv_ref( d2, k, -1 );
+        kv_ref( d2, v, -1 );
+    }
+
+    // Check that #20 did get updated
+    got = NULL;
+    k = new_kv( 20 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 20 );
+    kv_ref( d1, k,   -1 );
+    kv_ref( d1, got, -1 );
+
+    // Change d1 and ensure d2 is not also changed.
+    k = new_kv( 10 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    dict_get( d1, k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 10 );
+    kv_ref( d1, got, -1 );
+    kv_ref( d1, k,   -1 );
+    kv_ref( d1, v,   -1 );
+
+    // Check references
+    dict_free( &d1 );
+    dict_free( &d2 );
+    d1 = init_dict_20();
+    d2 = dict_build( 1024, DMET, NULL );
+
+    mset.reference = 1;
+    dict_merge( d1, d2, mset, 8 );
+    // Check that merge succeded
+    for ( int i = 0; i < 20; i++ ) {
+        k = new_kv( i );
+        v = NULL;
+        s = dict_get( d2, k, (void **)&v );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        assert( v->value == i );
+        kv_ref( d2, k, -1 );
+        kv_ref( d2, v, -1 );
+    }
+
+    // Change d1 and ensure d2 reflects the change
+    k = new_kv( 10 );
+    v = new_kv( 100 );
+    dict_update( d1, k, v );
+    if ( s.bit.error ) {
+        fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+        exit( 1 );
+    }
+    got = NULL;
+    dict_get( d1,  k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d1, got, -1 );
+    dict_get( d2, k, (void **)&got );
+    assert( got->value == 100 );
+    kv_ref( d2, got, -1 );
+
+    kv_ref( d1, k, -1 );
+    kv_ref( d1, v, -1 );
+
+    dict_free( &d1 );
+    dict_free( &d2 );
+}
+
+void test_merge() {
+    test_merge_insert();
+    test_merge_update();
+    test_merge_set();
 }
 
 void test_clone() {
