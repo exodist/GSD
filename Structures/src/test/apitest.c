@@ -75,12 +75,12 @@ int kv_cmp( void *meta, void *key1, void *key2 ) {
             k2->fnv_hash = hash_bytes( (void *)&(k2->value), sizeof( k2->value ));
         }
 
-        if ( k1->fnv_hash > k2->fnv_hash ) return -1;
-        if ( k1->fnv_hash < k2->fnv_hash ) return  1;
+        if ( k1->fnv_hash > k2->fnv_hash ) return  1;
+        if ( k1->fnv_hash < k2->fnv_hash ) return -1;
     }
 
-    if ( k1->value > k2->value ) return -1;
-    if ( k1->value < k2->value ) return  1;
+    if ( k1->value > k2->value ) return  1;
+    if ( k1->value < k2->value ) return -1;
 
     return 0;
 }
@@ -122,19 +122,21 @@ dict_settings DSET = { 1024, 16, NULL };
 int main() {
     test_build();
     test_create();
-    test_merge();
-    test_clone();
-    test_meta();
-    test_immute();
-    test_reconf();
-    test_health();
+
+    // The rest are in alphabetical order, order really doesn't matter.
     test_balance();
-    test_operations();
-    test_transactions();
-    test_references();
-    test_triggers();
+    test_clone();
+    test_health();
+    test_immute();
     test_iterate();
+    test_merge();
+    test_meta();
+    test_operations();
+    test_reconf();
+    test_references();
     test_sort();
+    test_transactions();
+    test_triggers();
 
     return 0;
 }
@@ -547,38 +549,131 @@ void test_meta() {
     dict_free( &d );
 }
 
+int test_iter_handler( void *key, void *value, void *args ) {
+    size_t *count = args;
+    assert( key );
+    assert( value );
+    (*count)++;
+    return 0;
+}
+
 void test_immute() {
-    dict *d = dict_build( 1024, DMET, NULL );
+    dict *d1 = init_dict_20();
+    dict *c1 = dict_clone_immutable( d1, 8 );
+    assert( c1 );
 
-    // TODO:
-    // clone immutable
-    // attempt to modify with all operations
+    kv *k1 = new_kv( 10 );
+    kv *k2 = new_kv( 99 );
+    dict_stat s = dict_set( c1, k1, k2 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_set( c1, k2, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_update( c1, k2, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_insert( c1, k2, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_reference( d1, k1, c1, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_dereference( c1, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_delete( c1, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_cmp_delete( c1, k1, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    s = dict_cmp_update( c1, k1, k1, k2 );
+    assert( s.bit.error == DICT_IMMUTABLE );
+
+    kv *get = NULL;
+    s = dict_get( c1, k1, (void **)&get );
+    assert( !s.bit.error );
+    assert( get->value == k1->value );
+    kv_ref( d1, get, -1 );
+
+    s = dict_rebalance( c1, 8 );
+    assert( !s.bit.error );
+
     // Check reconfigure...
-    // Check clone
-    // Check rebalance
-    // Check iterate
+    dict_settings st = { 128, 2, NULL };
+    s = dict_reconfigure( c1, st, 8 );
+    assert( !s.bit.error );
+    s = dict_update( c1, k2, k1 );
+    assert( s.bit.error == DICT_IMMUTABLE );
 
-    dict_free( &d );
+    // Check iterate
+    size_t count = 0;
+    dict_iterate( c1, test_iter_handler, &count );
+    assert( count == 21 );
+
+    kv_ref( d1, k1, -1 );
+    kv_ref( d1, k2, -1 );
+    dict_free( &c1 );
+    dict_free( &d1 );
 }
 
 void test_reconf() {
-    dict *d = dict_build( 1024, DMET, NULL );
+    dict *d = init_dict_20();
+    assert( d->set->settings.slot_count == 1024 );
 
-    // TODO:
-    // Reconfigure
+    dict_settings st = { 128, 2, NULL };
+    dict_stat s = dict_reconfigure( d, st, 8 );
+    assert( !s.bit.error );
+    assert( d->set->settings.slot_count == 128 );
 
     dict_free( &d );
 }
 
-void test_health() {
-    dict *d = dict_build( 1024, DMET, NULL );
+void test_iterate() {
+    dict *d = init_dict_20();
 
-    // TODO:
-    // Fake an invalid state
-    // Health check
-    // recover
+    // Check iterate
+    size_t count = 0;
+    dict_iterate( d, test_iter_handler, &count );
+    assert( count == 21 );
 
     dict_free( &d );
+}
+
+int test_sort_handler( void *key, void *value, void *args ) {
+    kv *k = key;
+    assert( key );
+
+    int *last = args;
+    assert( k->value == ++(*last) );
+    printf( "%zi ", k->value );
+    return 0;
+}
+
+void test_sort() {
+    USE_FNV = 0;
+    dict *d = dict_build( 1, DMET, NULL );
+
+    int unsorted[10] = { 2, 5, 9, 10, 4, 3, 8, 7, 6, 1 };
+
+    for ( int i = 0; i < 10; i++ ) {
+        kv *k = new_kv( unsorted[i] );
+        dict_stat s = dict_insert( d, k, k );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        kv_ref( d, k, -1 );
+    }
+
+    printf( "Order: " );
+    int last = 0;
+    dict_iterate( d, test_sort_handler, &last );
+    printf( "\n" );
+
+    dict_free( &d );
+    USE_FNV = 1;
 }
 
 void test_balance() {
@@ -640,23 +735,15 @@ void test_triggers() {
     dict_free( &d );
 }
 
-void test_iterate() {
+void test_health() {
     dict *d = dict_build( 1024, DMET, NULL );
 
     // TODO:
-    // Make sure all inserted key+value pairs are hit.
-    // Probably use 2 arrays, keys and values, set all to all 0's then have
-    // iteration callback set to 1 for each array as encountered.
+    // Fake an invalid state
+    // Health check
+    // recover
 
     dict_free( &d );
 }
 
-void test_sort() {
-    dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // Make array with 1 slot, and a non fnv sort, make sure iterate gives us
-    // sorted order.
-
-    dict_free( &d );
-}
