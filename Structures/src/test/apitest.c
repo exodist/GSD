@@ -541,9 +541,8 @@ void test_clone() {
 void test_meta() {
     dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // get_settings
-    // get_methods
+    assert( dict_get_methods(d).cmp == DMET.cmp );
+    assert( dict_get_settings(d).slot_count == 1024 );
 
     dict_free( &d );
 }
@@ -553,7 +552,11 @@ void test_immute() {
 
     // TODO:
     // clone immutable
-    // attempt to modify
+    // attempt to modify with all operations
+    // Check reconfigure...
+    // Check clone
+    // Check rebalance
+    // Check iterate
 
     dict_free( &d );
 }
