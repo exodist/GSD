@@ -110,7 +110,6 @@ rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
     if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'loc' method may not be NULL.", 0 );
 
     if( !settings.slot_count )    settings.slot_count    = 128;
-    if( !settings.max_imbalance ) settings.max_imbalance = 8;
 
     dict *out = malloc( sizeof( dict ));
     if ( out == NULL ) return rstat_mem;

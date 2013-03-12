@@ -1,6 +1,8 @@
 #include "../include/gsd_dict.h"
 #include "../include/gsd_dict_return.h"
 #include "structure.h"
+#include "location.h"
+#include "util.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -677,13 +679,44 @@ void test_sort() {
 }
 
 void test_balance() {
-    dict *d = dict_build( 1024, DMET, NULL );
+    USE_FNV = 0;
+    dict_settings st = { 1, 0, NULL };
+    dict *d = NULL;
+    dict_create( &d, st, DMET );
 
-    // TODO:
-    // Make very imbalanced tree
-    // rebalance
+    for ( int i = 0; i < 100; i++ ) {
+        kv *k = new_kv( i );
+        dict_stat s = dict_insert( d, k, k );
+        if ( s.bit.error ) {
+            fprintf( stderr, "\nERROR: %i, %s\n", s.bit.error, dict_stat_message(s));
+            exit( 1 );
+        }
+        kv_ref( d, k, -1 );
+    }
+
+    kv *k = new_kv( 99 );
+    location *loc = NULL;
+    locate_key( d, k, &loc );
+    assert( loc != NULL );
+    assert( loc->height >= 99 ); // Check that we are very imbalanced
+    free_location( d, loc );
+
+    // Note: Rebalance is divided into threads by giving each thread 1 slot at
+    // a time. Our imbalanced dict only has 1 slot, so only 1 thread can
+    // actually do anything.
+    dict_rebalance( d, 1 );
+
+    loc = NULL;
+    locate_key( d, k, &loc );
+    assert( loc != NULL );
+    // Check that we are not imbalanced
+    // (note: 100 items has an ideal height of 7)
+    assert( loc->height <= 7 );
+    free_location( d, loc );
+    kv_ref( d, k, -1 );
 
     dict_free( &d );
+    USE_FNV = 1;
 }
 
 void test_operations() {
