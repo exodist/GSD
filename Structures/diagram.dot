@@ -1,15 +1,42 @@
 digraph overview {
     ordering=out
     bgcolor=black
-    node [color=white,fontcolor=white]
+    node [color=white,fontcolor=white,shape=hexagon]
 
     Dictionary [shape=hexagon]
 
+    edge [color=grey]
+
+    Dictionary->Epoch1 [color=green]
+    Dictionary->Epoch0 [style=dotted,color=magenta]
+
+    Epoch0->Epoch1 [style=dotted,color=blue]
+    Epoch1->Epoch2 [style=dotted,color=blue]
+    Epoch2->Epoch3 [style=dotted,color=blue]
+    Epoch3->Epoch0 [style=dotted,color=blue]
+
+    node [color=magenta,style=dashed]
+    Methods
+    Settings
+    Set [color=cyan,shape=oval,style=solid]
+    {rank=same; Settings Methods Set}
+
+    node [shape=oval]
+    edge [color=pink]
+    Set->Settings
+
+    edge [color=pink]
+    Dictionary->Methods
+
+    node [color=green,style=solid]
+    edge [color=blue]
+    Dictionary->Set
+
     edge [color=blue]
     node [color=green,fontcolor=white]
-    Dictionary->HashSlot0
-    Dictionary->HashSlot1
-    Dictionary->HashSlot2
+    Set->HashSlot0
+    Set->HashSlot1
+    Set->HashSlot2
 
     node [color=yellow,fontcolor=white]
     edge [color=cyan]
@@ -38,16 +65,6 @@ digraph overview {
 
     {rank=same; HashSlot0 HashSlot1 HashSlot2}
     {rank=same; Node0 Node2}
+    {rank=same; XtrnA XtrnB}
     {rank=sink; Key Value}
-
-    node [shape=hexagon]
-    edge [color=grey]
-
-    Dictionary->Epoch1 [color=green]
-    Dictionary->Epoch0 [style=dotted,color=magenta]
-
-    Epoch0->Epoch1 [style=dotted,color=blue]
-    Epoch1->Epoch2 [style=dotted,color=blue]
-    Epoch2->Epoch3 [style=dotted,color=blue]
-    Epoch3->Epoch0 [style=dotted,color=blue]
 }
