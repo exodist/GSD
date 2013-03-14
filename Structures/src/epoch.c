@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "devtools.h"
 #include "structure.h"
@@ -66,6 +67,24 @@ epoch *join_epoch( dict *d ) {
     return e;
 }
 
+void *free_trash_worker( void *args ) {
+    void **a = args;
+    dict  *d    = a[0];
+    trash *garb = a[1];
+    epoch *dep  = a[2];
+
+    // Free Garbage
+    if ( garb != NULL ) free_trash( d, garb );
+
+    // dec dep
+    if ( dep != NULL ) leave_epoch( d, dep );
+
+    free( args );
+
+    __sync_sub_and_fetch( &(d->detached_threads), 1 );
+    return NULL;
+}
+
 void leave_epoch( dict *d, epoch *e ) {
     size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
 
@@ -85,11 +104,23 @@ void leave_epoch( dict *d, epoch *e ) {
         // not want the other threads to spin.
         __sync_bool_compare_and_swap( &(e->active), 1, 0 );
 
-        // Free Garbage
-        if ( garb != NULL ) free_trash( d, garb );
+        // Don't spawn a new thread without garbage worth the effort
+        if ( !garb || (garb->type < NODE && !garb->next) ) {
+            if ( garb != NULL ) free_trash( d, garb );
+            if ( dep != NULL ) leave_epoch( d, dep );
+            return;
+        }
 
-        // dec dep
-        if ( dep != NULL ) leave_epoch( d, dep );
+        __sync_add_and_fetch( &(d->detached_threads), 1 );
+
+        void **args = malloc( sizeof(void *) * 3 );
+        args[0] = d;
+        args[1] = garb;
+        args[2] = dep;
+
+        pthread_t p;
+        pthread_create( &p, NULL, free_trash_worker, args );
+        pthread_detach( p );
     }
 }
 

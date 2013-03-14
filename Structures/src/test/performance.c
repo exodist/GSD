@@ -15,7 +15,7 @@ typedef struct timespec timespec;
 typedef struct kv kv;
 struct kv {
     uint64_t  value;
-    size_t    refcount;
+    volatile size_t refcount;
     uint64_t  fnv_hash;
     char      *fname;
     size_t    line;

@@ -17,6 +17,10 @@ rstat do_free( dict **dr ) {
     for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
         while( d->epochs[i].active ) sleep( 0 );
     }
+
+    // Wait for garbage collection threads
+    while ( d->detached_threads ) sleep( 0 );
+
     if ( d->set != NULL ) free_set( d, d->set );
 
     free( d );

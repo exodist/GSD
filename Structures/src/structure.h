@@ -26,7 +26,14 @@ typedef struct sref  sref;
 
 struct trash {
     trash * volatile next;
-    enum { OOPS = 0, SET, SLOT, NODE, SREF, XTRN } type;
+    enum {
+        OOPS = 0,
+        XTRN = 1,
+        SREF = 2,
+        NODE = 3,
+        SLOT = 4,
+        SET  = 5
+    } type;
 
 #ifdef TRASH_CHECK
     char *fn;
@@ -47,6 +54,8 @@ struct dict {
     size_t epoch_failed;
 #endif
 
+    volatile size_t detached_threads;
+
     epoch epochs[EPOCH_LIMIT];
     volatile uint8_t epoch;
 };
@@ -57,7 +66,7 @@ struct set {
     dict_settings settings;
 
     uint8_t immutable;
-    uint8_t rebuild;
+    volatile uint8_t rebuild;
 };
 
 struct slot {
