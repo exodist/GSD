@@ -369,7 +369,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
     }
 
     while ( 1 ) {
-        node **branch = NULL;
+        node * volatile *branch = NULL;
         int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key->value );
         switch( dir ) {
             case -1:

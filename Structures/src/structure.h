@@ -25,7 +25,7 @@ typedef struct usref usref;
 typedef struct sref  sref;
 
 struct trash {
-    trash *next;
+    trash * volatile next;
     enum { OOPS = 0, SET, SLOT, NODE, SREF, XTRN } type;
 
 #ifdef TRASH_CHECK
@@ -37,7 +37,7 @@ struct trash {
 struct dict {
     dict_methods methods;
 
-    set *set;
+    set * volatile set;
 
     size_t item_count;
 
@@ -48,12 +48,12 @@ struct dict {
 #endif
 
     epoch epochs[EPOCH_LIMIT];
-    uint8_t epoch;
+    volatile uint8_t epoch;
 };
 
 struct set {
     trash  trash;
-    slot **slots;
+    slot ** volatile slots;
     dict_settings settings;
 
     uint8_t immutable;
@@ -62,13 +62,13 @@ struct set {
 
 struct slot {
     trash   trash;
-    node   *root;
+    node   * volatile root;
 
-    size_t  item_count;
+    volatile size_t  item_count;
 
-    uint8_t ideal_height;
-    uint8_t rebuild;
-    uint8_t patho;
+    volatile uint8_t ideal_height;
+    volatile uint8_t rebuild;
+    volatile uint8_t patho;
 };
 
 struct xtrn {
@@ -78,21 +78,21 @@ struct xtrn {
 
 struct node {
     trash trash;
-    node  *left;
-    node  *right;
+    node  * volatile left;
+    node  * volatile right;
     xtrn  *key;
-    usref *usref;
+    usref * volatile usref;
 };
 
 struct usref {
-    size_t  refcount;
-    sref   *sref;
+    volatile size_t refcount;
+    sref   * volatile sref;
 };
 
 struct sref {
     trash   trash;
-    size_t  refcount;
-    xtrn   *xtrn;
+    volatile size_t refcount;
+    xtrn * volatile xtrn;
     dict_trigger *trigger;
 };
 
