@@ -73,13 +73,11 @@ void leave_epoch( dict *d, epoch *e ) {
         // Get references to things that need to be cleaned
         trash *garb = e->trash;
         epoch *dep  = e->dep;
-        wait_list *w = e->wait_list;
 
         // This is safe, if nactive is 1 it means no others are active on this
         // epoch, and none will ever join
         e->trash = NULL;
         e->dep   = NULL;
-        e->wait_list = NULL;
 
         // re-open epoch, including memory barrier
         // We want to be sure the epoch is made available before we free the
@@ -92,34 +90,7 @@ void leave_epoch( dict *d, epoch *e ) {
 
         // dec dep
         if ( dep != NULL ) leave_epoch( d, dep );
-
-        while ( w != NULL ) {
-            wait_list *goner = w;
-            w = goner->next;
-            // Use atomic swap for memory barrier.
-            __sync_bool_compare_and_swap( &(goner->marker), 0, 1 );
-        }
     }
-}
-
-epoch *wait_epoch( dict *d ) {
-    epoch *e = join_epoch( d );
-
-    wait_list w = { NULL, 0 };
-
-    int success = 0;
-    while ( !success ) {
-        wait_list *next = e->wait_list;
-        w.next = next;
-        w.marker = 0;
-        success = __sync_bool_compare_and_swap( &(e->wait_list), next, &w );
-    }
-
-    while ( !advance_epoch( d, e )) sleep(0);
-    leave_epoch( d, e );
-    while ( !w.marker ) sleep(0);
-
-    return join_epoch( d );
 }
 
 int advance_epoch( dict *d, epoch *e ) {
