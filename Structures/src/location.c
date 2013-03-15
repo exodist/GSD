@@ -91,6 +91,14 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
         *locate = create_location( d );
         if ( *locate == NULL ) return rstat_mem;
     }
+    else {
+        (*locate)->node   = NULL;
+        (*locate)->usref  = NULL;
+        (*locate)->sref   = NULL;
+        (*locate)->xtrn   = NULL;
+        (*locate)->height = 0;
+    }
+
     location *lc = *locate;
 
     // Assure we have a set.
@@ -98,11 +106,6 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
     dev_assert( lc->set );
     dev_assert( in );
     dev_assert( key );
-
-    lc->node  = NULL;
-    lc->usref = NULL;
-    lc->sref  = NULL;
-    lc->xtrn  = NULL;
 
     node *n = in;
     while ( n != NULL && !blocked_null( n )) {

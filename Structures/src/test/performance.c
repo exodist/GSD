@@ -318,6 +318,9 @@ int kv_cmp( void *meta, void *key1, void *key2 ) {
     kv *k1 = key1;
     kv *k2 = key2;
 
+    // Short-cut
+    if( k1->value == k2->value ) return 0;
+
     if ( USE_FNV ) {
         if ( !k1->fnv_hash ) {
             k1->fnv_hash = hash_bytes( (void *)&(k1->value), sizeof( k1->value ));

@@ -46,7 +46,7 @@ struct dict {
 
     set * volatile set;
 
-    size_t item_count;
+    volatile size_t item_count;
 
 #ifdef GSD_METRICS
     size_t rebalanced;
@@ -70,8 +70,8 @@ struct set {
 };
 
 struct slot {
-    trash   trash;
-    node   * volatile root;
+    trash trash;
+    node * volatile root;
 
     volatile size_t  item_count;
 
@@ -89,13 +89,13 @@ struct node {
     trash trash;
     node  * volatile left;
     node  * volatile right;
-    xtrn  *key;
+    xtrn  * key;
     usref * volatile usref;
 };
 
 struct usref {
     volatile size_t refcount;
-    sref   * volatile sref;
+    sref * volatile sref;
 };
 
 struct sref {
