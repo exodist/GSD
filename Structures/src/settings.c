@@ -83,11 +83,30 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
     // Unblock trees if there was an error
     if ( out.bit.error ) {
         rstat cleanup = do_null_swap( s, 0, s->settings.slot_count, RBLD, NULL, max_threads );
-        if ( cleanup.bit.error ) out.bit.invalid_state = 1;
+        if ( cleanup.bit.error ) {
+            // Cannot let this fail.
+            for ( size_t i = 0; i < s->settings.slot_count; i++ ) {
+                slot *sl = s->slots[i];
+                if ( !sl ) continue;
+                node *root = sl->root;
+                if ( !root ) continue;
+                reconf_unblock( root );
+            }
+        }
     }
 
     do_free( &new_dict );
 
     return out;
+}
+
+void reconf_unblock( node *n ) {
+    __sync_bool_compare_and_swap( &(n->right), RBLD, NULL );
+    if ( n->right != NULL ) reconf_unblock( n->right );
+
+    __sync_bool_compare_and_swap( &(n->usref->sref), RBLD, NULL );
+
+    __sync_bool_compare_and_swap( &(n->left), RBLD, NULL );
+    if ( n->left != NULL ) reconf_unblock( n->left );
 }
 

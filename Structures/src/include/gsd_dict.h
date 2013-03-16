@@ -137,10 +137,6 @@ char *dict_dump_dot( dict *d, dict_dot *decode );
 // your dictionary appears to be pathalogical
 dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads );
 
-// If the dictionary is left in an invalid state, this can be used to repair
-// it.
-dict_stat dict_recover( dict *d, size_t max_threads );
-
 // Allows you to rebalance at will, ideal to do after a lot fo inserts, before
 // a lot up lookups/updates.
 dict_stat dict_rebalance( dict *d, size_t threads );

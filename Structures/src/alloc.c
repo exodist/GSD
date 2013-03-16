@@ -117,8 +117,8 @@ void free_xtrn( dict *d, xtrn *x ) {
 }
 
 rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
-    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'cmp' method may not be NULL.", 0 );
-    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'loc' method may not be NULL.", 0 );
+    if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'cmp' method may not be NULL." );
+    if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'loc' method may not be NULL." );
 
     if( !settings.slot_count )    settings.slot_count    = 128;
 

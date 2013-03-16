@@ -24,4 +24,6 @@ void *reconf_worker( void *in );
 
 rstat reconf_prep_slot( set *set, size_t idx, void *from, void *to );
 
+void reconf_unblock( node *n );
+
 #endif

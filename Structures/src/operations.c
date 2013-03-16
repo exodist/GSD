@@ -78,7 +78,7 @@ rstat op_delete( dict *d, void *key ) {
 }
 
 rstat op_cmp_update( dict *d, void *key, void *old_val, void *new_val ) {
-    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, "NULL can not be used as the 'old value' in compare and swap", 0 );
+    if ( old_val == NULL ) return error( 1, 0, DICT_API_MISUSE, "NULL can not be used as the 'old value' in compare and swap" );
     location *locator = NULL;
     set_spec sp = { 0, 1, old_val, NULL };
     rstat err = do_set( d, &locator, key, new_val, &sp );
@@ -181,7 +181,7 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
             size_t sc = swap->refcount;
 
             // If ref count goes to zero we cannot use it.
-            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, "Blah oops", 0 );
+            if ( sc == 0 ) return error( 1, 0, DICT_UNKNOWN, "Blah oops" );
 
             success = __sync_bool_compare_and_swap( &(swap->refcount), sc, sc + 1 );
         }
@@ -380,12 +380,12 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
             break;
             case 0:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_UNKNOWN, "This should not be possible unless a nodes key has changed, which is not permitted.", 0 );
+                *stat = error( 1, 0, DICT_UNKNOWN, "This should not be possible unless a nodes key has changed, which is not permitted." );
                 return 0;
             break;
             default:
                 dispose( d, (trash *)new_node );
-                *stat = error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1", 0 );
+                *stat = error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1" );
                 return 0;
             break;
         }

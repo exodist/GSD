@@ -8,10 +8,10 @@
 // rstat stands for return_stat
 typedef dict_stat rstat;
 
-#define error( f, r, c, m, i ) make_error( f, r, c, m, i, __LINE__, __FILE__ )
+#define error( f, r, c, m ) make_error( f, r, c, m, __LINE__, __FILE__ )
 
 const char *error_message( dict_stat s );
-rstat make_error( uint8_t fail, uint8_t rebal, uint8_t cat, const char *msg, uint8_t i, size_t ln, const char *fn );
+rstat make_error( uint8_t fail, uint8_t rebal, uint8_t cat, const char *msg, size_t ln, const char *fn );
 
 extern rstat rstat_ok;
 extern rstat rstat_mem;

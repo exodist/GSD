@@ -139,7 +139,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
                 n = n->right;
             break;
             default:
-                return error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1", 0 );
+                return error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1" );
             break;
         }
     }

@@ -52,10 +52,6 @@ typedef union {
             DICT_UNKNOWN
         } error : 8;
 
-        // If this is set to true then the error left the dictionary in an
-        // invalid state. This is bad an will require a call to dict_recover()
-        unsigned int invalid_state: 8;
-
         const char *message;
 
         size_t line_number;

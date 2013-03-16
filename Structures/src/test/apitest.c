@@ -109,7 +109,6 @@ void test_clone();
 void test_meta();
 void test_immute();
 void test_reconf();
-void test_health();
 void test_balance();
 void test_operations();
 void test_transactions();
@@ -132,8 +131,6 @@ int main() {
     printf( "ok - Balance\n" );
     test_clone();
     printf( "ok - Clone\n" );
-    test_health();
-    printf( "ok - Health\n" );
     test_immute();
     printf( "ok - Immute\n" );
     test_iterate();
@@ -940,16 +937,3 @@ void test_triggers() {
     kv_ref( d, val2, -1 );
     dict_free( &d );
 }
-
-void test_health() {
-    dict *d = dict_build( 1024, DMET, NULL );
-
-    // TODO:
-    // Fake an invalid state
-    // Health check
-    // recover
-
-    dict_free( &d );
-}
-
-
