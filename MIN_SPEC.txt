@@ -1,0 +1,273 @@
+=Minimum specification for a GSD implementation:
+
+ * Threading
+ * Garbage Collection
+ * Parser
+ * Primitive Types
+ * Runtime/Interpreter/Compiler/VM - Take your pick
+ * File Types and structure
+ * Global Variables
+ * Standard Library
+
+== Threading:
+
+A GSD implementation should use native/os threads, however "green" threads are
+permited as long as a warning is issued when the first non-primary thread is
+started.
+
+== Garbage Collection:
+
+A GSD Implementation must have garbage collection. Any garbage collection
+schemes are allowed, however reference counting must be used for objects that
+have a refcount flag set. For objects like filehandles refounting is useful in
+assuring the resource is freed as soon as possible. An implementation may
+choose to oly use refcounting, or use refcounting when asked in addition to
+another scheme.
+
+If an object has a 'DESTROY' method it should be called when the collector is
+about to free it.
+
+== Parser:
+
+Any GSD source file should be parsed as a subroutine which is immedietly run.
+
+Rules:
+ * whitespace seperates tokens
+ * underscore '_' counts as alphanumeric
+ * Transition between symbolic and alphanumeric seperates tokens, that is
+   'foo++bar' is 3 tokens 'foo', '++', 'bar'
+ * newline ends a statement unless an operator or keyword tells parsing to
+   continue for the statement.
+ * A token starting with a number is a numeric literal
+ * A token starting with a letter or underscore is a symbol token
+ * A token may be alphanumeric, or symbols, not both
+ * When a token is read the parser will look it up, if it is defined and a
+   keyword the parser will run the keyword with the parser itself as an
+   argument, the output of the keyword will be treated as additional tokens to
+   the statement being parsed.
+ * A symbol on its own (including lookup: foo.bar) is called as a subroutine
+ * 2 non-operator symbols seperated by only whitespace (except newline) calls
+   the first as a subroutine, the second as the argument, the second may be a
+   list.
+ * A subroutine declaration alone in a statement should be run immedietly
+ * Symbols must be declared BEFORE they are used, no exceptions
+ * An argument list must be used in the statement that defines it, otherwise
+   there is a syntax error
+
+== Primitive Types:
+
+Implementations are allowed to take shortcuts with primitive types internally.
+For example if someone overrides the lookup method on the dictionary type, the
+implementation may ignore this fact internally. However subclasses of the
+dictionary type should use the override when the method is resolved. This
+mainly comes into play with namespaces, which are themselves dictionaries.
+
+ * Scalar    - A string or number, should automatically convert between
+               string and number. Scalars are immutable, operations should
+               produce new scalars.
+ * Type      - A definition of a type
+ * Role      - A definition of a role
+ * Graph     - A Key -> Value pair
+ * Dict      - The dictionary type is a collection of key-value pairs that lets
+               you look up a value based on a key. Numeric, Text, and Other-Object
+               keys are each treated differently. "1" and 1 are different keys,
+               use :[KEY] and :{KEY} to lookup number or text specifically,
+               :KEY will lookup based on type of KEY.
+ * Thread    - Represents a thread, provides communication between threads
+ * Stack     - The stack can be traversed and manipulated from within the language
+               in limited ways, this is primarily useful for looking up caller and
+               such.
+ * Sub       - A subroutine...
+ * Keyword   - A subroutine that gets called when encountered by the parser
+ * Operator  - A subroutine that takes left and right arguments
+ * Parser    - A handle to the parser object, useful for keywords and operators
+               that effect parsing
+ * Handle    - An IO handle such as stderr, stdin, etc.
+ * Mutex     - Mutex, for thread syncing
+
+Any "primitive" types an implementation wishes to create/use internally should
+be put into the IMPLEMENTATION namespace. Examples:
+ * CFunc  - May be used in an implementation that is written in C
+ * String - May be used within the scalar type.
+
+== Runtime/Interpreter/Compiler/VM
+
+Should be able to consume GSD source files and run them... sounds simple enough.
+
+== File Types and structure
+
+GSD Libraries: *.gsd
+    GSD Packages, these should be named for the namespace they define, Example:
+    Some/Namespace.gsd.
+
+GSD Includes: *.gsi
+    Include files are specific to their .gsd file, and can only ever be loaded
+    once. If you have a library, Some/Namespace.gsd, and want to make include
+    files for it you must put them in Some/Namespace.inc/*.gsi. The include
+    files may not be in any additional directory under the .inc directory.
+
+    Each include file must define a symbol in the namespace to which they
+    belong. For example foobar.gsi would define the Some::Package::foobar
+    symbol. When a .gsd file is loaded the include dir will be scanned, and
+    each .gsi file will be noted and defined as a symbol, however the .gsi file
+    will not actually be loaded until the symbol is used/needed.
+
+GSD programs:
+    should not have an extension, the #! line should be sufficient.
+
+== Global Variables
+
+The symbol table is global. The primative types exist at the root of the symbol
+table. Other globals include:
+ * SEARCH_PATH - A dictionary used when looking for libraries to open. First
+   the library name you are looking for is used as a key to the dictionary, if
+   paths exist for that key those will be used exclusively. If there is no key
+   for the library name then each numerically indexed path will be checked in
+   order. Paths may be directory names (strings) or subroutines that return
+   file names.
+ * LOADED_LIBS - A dictionary of loaded modules (and includes)
+   [ name => [ path => path, namespace => ns, includes => [...] ]];
+ * STDERR
+ * STDIN
+ * STDOUT
+
+== Predefined lexical variables
+
+In any scope these variables are already declared, when not applicable they are
+declared, but undefined.
+
+ self  - When in a subroutine that was called as a method this is set to the
+         instance upon which the method was called.
+ this  - When in a subroutine that is constructing something (a type, role,
+         package, etc) 'this' is set to the item being constructed
+ item  - When in a loop, this is the iteration item (even if you gave it an
+         alternate name)
+ args  - Dictionary of all arguments to the current subroutine
+ frame - Currently running stack frame
+ scope - The inner-most running sub (including those hidden, like in 'if'
+         statements)
+
+== Standard Library
+
+ * Math:
+    +
+    -
+    /
+    *
+    %
+ * String:
+    ~ - concatenate
+ * Conversion:
+    $ - to string
+    # - to number
+    @ - to list
+    % - Dump
+    & - Reference (used in argument lists)
+ * Assignment:
+    =   - assign
+    +=  - add-assign
+    *=  - mul-assign
+    /=  - div-assign
+    %=  - mod-assign
+    -=  - sub-assign
+    ~=  - cat-assign
+    &=  - Reference, left variable becomes a ref to the right variable
+    :=  - Assign breaking reference
+    &&= - If var is true assign
+    ||= - If var is false assign
+    |=  - If var is undef assign
+    [=] - atomic compare+swap (right hand must be a graph: foo [=] bar ~> baz )
+ * Comparison:
+    <
+    >
+    <=
+    >=
+    !=
+    ==
+    <=>
+    gt
+    lt
+    eq
+    ne
+    ge
+    le
+    cmp
+ * Argument List:
+    , - combine items on either side into the argument list, if item on left is
+        not a list, new list is created
+    ; - argument list terminator
+
+ * Structures:
+    =>  - Create a graph no quoting
+    ->  - Create a graph quoting left
+    +>  - Create a graph quoting right
+    ~>  - Create a graph quoting both
+    [[ ]] - Create a sorted dictionary (iteration is always in order)
+    [ ] - Create a dictionary
+    { } - Create a subroutine
+    ( ) - Subroutine run in place
+    " " - Quote, process conversion operators
+    ' ' - Quote, no processing
+ * Lookup/Index/Etc
+    ::    Namespace lookup
+    ::[ ] Namespace lookup
+    ::{ } Namespace lookup
+    ::< > Namespace lookup
+    :     Lookup in object
+    :[ ]  Lookup in object, force numeric keys
+    :{ }  Lookup in object, force string keys
+    :< >  Lookup in object, offset values, positive from start, negative from end
+    .     Lookup in type
+    .[ ]  Lookup in type, force numeric keys
+    .{ }  Lookup in type, force string keys
+    .< >  Lookup in type, offset values, positive from start, negative from end
+ * comment/docs
+    //    - Comment from here to end of line
+    /* */ - Block Comment
+    /# #/ - Documentation for next symbol
+ * Boolean
+    !
+    !!
+    ||
+    &&
+ * Threads
+    >>
+    <<
+ * Control
+    if
+    else
+    elsif
+    unless
+    while
+    for
+    until
+    do
+    next
+    last
+    return
+    try
+    catch
+    finally
+ * Functions:
+    throw
+    die
+    exit
+    warn
+    system
+    capture
+    eval
+    load    - Load a package
+    import  - Bring in symbols from a package, load if necessary
+    use     - Have a package act upon the current package, load if necessary
+ * Keywords:
+    sub   - Declare named package subroutine
+    meth  - Declare named type subroutine (only works in type or role declaration)
+    func  - Declare named lexical function
+    args  - Define argument signature for current function
+    sym   - Declare package symbol(s): sym type name, name, type name
+    lex   - Declare lexical symbol(s): lex type name, name, type name
+    state - Declare a lexical state variable (initialized only once)
+    local - Replace a symbol with a new reference in the current scope
+ * Regex   - Perl5 style regexes
+ * Grammar - Perl6 style grammars
+
