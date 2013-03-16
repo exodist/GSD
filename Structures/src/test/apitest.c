@@ -123,22 +123,37 @@ dict_settings DSET = { 1024, 16, NULL };
 
 int main() {
     test_build();
+    printf( "ok - Build\n" );
     test_create();
+    printf( "ok - Create\n" );
 
     // The rest are in alphabetical order, order really doesn't matter.
     test_balance();
+    printf( "ok - Balance\n" );
     test_clone();
+    printf( "ok - Clone\n" );
     test_health();
+    printf( "ok - Health\n" );
     test_immute();
+    printf( "ok - Immute\n" );
     test_iterate();
+    printf( "ok - Iterate\n" );
     test_merge();
+    printf( "ok - Merge\n" );
     test_meta();
+    printf( "ok - Meta\n" );
     test_operations();
+    printf( "ok - Operations\n" );
     test_reconf();
+    printf( "ok - Reconf\n" );
     test_references();
+    printf( "ok - References\n" );
     test_sort();
+    printf( "ok - Sort\n" );
     test_transactions();
+    printf( "ok - Transactional\n" );
     test_triggers();
+    printf( "ok - Triggers\n" );
 
     return 0;
 }
@@ -483,8 +498,11 @@ void test_merge_set() {
 
 void test_merge() {
     test_merge_insert();
+    printf( "ok - Merge insert\n" );
     test_merge_update();
+    printf( "ok - Merge update\n" );
     test_merge_set();
+    printf( "ok - Merge set\n" );
 }
 
 void test_clone() {
@@ -722,49 +740,204 @@ void test_balance() {
 void test_operations() {
     dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // Insert success
-    // Insert fail
-    // update success
-    // update fail
-    // set
-    // delete success
-    // delete fail
-    // get success
-    // get fail
+    kv *k1 = new_kv( 1 );
+    kv *k2 = new_kv( 2 );
+    kv *k3 = new_kv( 3 );
+    kv *k4 = new_kv( 4 );
 
+    // Insert success
+    dict_stat s = dict_insert( d, k1, k1 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // Insert fail
+    s = dict_insert( d, k1, k1 );
+    assert( !s.bit.error );
+    assert( s.bit.fail );
+
+    // update success
+    s = dict_update( d, k1, k2 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // update fail
+    s = dict_update( d, k2, k1 );
+    assert( !s.bit.error );
+    assert( s.bit.fail );
+
+    // set existing
+    s = dict_set( d, k1, k3 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // set non-existing
+    s = dict_set( d, k3, k3 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // delete success
+    s = dict_delete( d, k1 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // delete fail
+    s = dict_delete( d, k1 );
+    assert( !s.bit.error );
+    assert( s.bit.fail );
+
+    // get success
+    s = dict_set( d, k1, k1 );
+    kv *got = NULL;
+    s = dict_get( d, k1, (void **)&got );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+    assert( got->value == 1 );
+    kv_ref( d, got, -1 );
+
+    got = NULL;
+    s = dict_get( d, k4, (void **)&got );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+    assert( !got );
+
+    kv_ref( d, k1, -1 );
+    kv_ref( d, k2, -1 );
+    kv_ref( d, k3, -1 );
+    kv_ref( d, k4, -1 );
     dict_free( &d );
 }
 
 void test_transactions() {
     dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // cmp_update
-    // cmp_delete
+    kv *k1 = new_kv( 1 );
+    kv *k2 = new_kv( 2 );
 
+    dict_stat s = dict_insert( d, k1, k1 );
+
+    // Good update
+    s = dict_cmp_update( d, k1, k1, k2 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // Fail update
+    s = dict_cmp_update( d, k1, k1, k2 );
+    assert( !s.bit.error );
+    assert( s.bit.fail );
+
+    // Fail delete
+    s = dict_cmp_delete( d, k1, k1 );
+    assert( !s.bit.error );
+    assert( s.bit.fail );
+
+    // Good delete
+    s = dict_cmp_delete( d, k1, k2 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    kv_ref( d, k1, -1 );
+    kv_ref( d, k2, -1 );
     dict_free( &d );
 }
 
 void test_references() {
     dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // Make reference
-    // Change+test reference
-    // dereference
+    kv *k1 = new_kv( 1 );
+    kv *k2 = new_kv( 2 );
+    kv *k3 = new_kv( 3 );
+    kv *k4 = new_kv( 4 );
 
+    dict_stat s = dict_insert( d, k1, k3 );
+
+    // Make reference
+    s = dict_reference( d, k1, d, k2 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+    kv *get = NULL;
+
+    // Check reference
+    dict_get( d, k1, (void **)&get );
+    assert( get == k3 );
+    kv_ref( d, get, -1 );
+    dict_get( d, k2, (void **)&get );
+    assert( get == k3 );
+    kv_ref( d, get, -1 );
+
+    dict_set( d, k1, k4 );
+
+    dict_get( d, k1, (void **)&get );
+    assert( get == k4 );
+    kv_ref( d, get, -1 );
+    dict_get( d, k2, (void **)&get );
+    assert( get == k4 );
+    kv_ref( d, get, -1 );
+
+    // dereference
+    s = dict_dereference( d, k2 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+    dict_get( d, k1, (void **)&get );
+    assert( get == k4 );
+    kv_ref( d, get, -1 );
+    dict_get( d, k2, (void **)&get );
+    assert( get == NULL );
+
+    // Self Reference
+    dict_set( d, k1, k1 );
+    s = dict_reference( d, k1, d, k1 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+    get = NULL;
+    dict_get( d, k1, (void **)&get );
+    assert( get->value == k1->value );
+    kv_ref( d, get, -1 );
+
+    kv_ref( d, k1, -1 );
+    kv_ref( d, k2, -1 );
+    kv_ref( d, k3, -1 );
+    kv_ref( d, k4, -1 );
     dict_free( &d );
+}
+
+const char *TRIG_MSG = "value is not less than arg";
+const char *test_triggers_trigger( void *arg, void *val ) {
+    kv *a = arg;
+    kv *v = val;
+
+    if ( v->value < a->value ) return NULL;
+
+    return TRIG_MSG;
 }
 
 void test_triggers() {
     dict *d = dict_build( 1024, DMET, NULL );
 
-    // TODO:
-    // insert trigger
-    // give good value
-    // give bad value
+    kv *arg = new_kv( 100 );
+    kv *key = new_kv( 1 );
+    kv *val1 = new_kv( 99 );
+    kv *val2 = new_kv( 101 );
 
+    dict_stat s = dict_insert_trigger( d, key, test_triggers_trigger, arg, key );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // Value allowed by trigger
+    s = dict_update( d, key, val1 );
+    assert( !s.bit.error );
+    assert( !s.bit.fail );
+
+    // Value not allowed by trigger
+    s = dict_update( d, key, val2 );
+    assert( s.bit.fail );
+    assert( s.bit.error == DICT_TRIGGER );
+    const char *msg = dict_stat_message( s );
+    assert( msg == TRIG_MSG );
+
+    kv_ref( d, arg, -1 );
+    kv_ref( d, key, -1 );
+    kv_ref( d, val1, -1 );
+    kv_ref( d, val2, -1 );
     dict_free( &d );
 }
 

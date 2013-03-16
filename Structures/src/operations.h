@@ -20,9 +20,11 @@ typedef enum create_type create_type;
 struct set_spec {
     uint8_t  insert;
     uint8_t  update;
-    xtrn    *swap_from;
+    void    *swap_from;
     usref   *usref;
+
     dict_trigger *trigger;
+    void         *trigger_arg;
 };
 
 enum create_type {
@@ -42,7 +44,7 @@ rstat op_reference( dict *orig, void *okey, set_spec *osp, dict *dest, void *dke
 rstat op_set( dict *d, void *key, void *val );
 rstat op_update( dict *d, void *key, void *val );
 
-rstat op_trigger( dict *d, void *key, dict_trigger *t, void *val );
+rstat op_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val );
 
 rstat do_deref( dict *d, void *key, location *loc, sref *swap );
 

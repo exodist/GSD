@@ -54,8 +54,8 @@ dict_stat dict_rebalance( dict *d, size_t threads ) {
     return rebalance_all( d, threads );
 }
 
-dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *val ) {
-    return op_trigger( d, key, t, val );
+dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val ) {
+    return op_trigger( d, key, t, targ, val );
 }
 
 rstat dict_get( dict *d, void *key, void **val ) {

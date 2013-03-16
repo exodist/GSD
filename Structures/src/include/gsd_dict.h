@@ -9,7 +9,6 @@
 typedef struct dict_merge_settings dict_merge_settings;
 typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
-typedef struct dict_trigger dict_trigger;
 typedef struct dict dict;
 
 typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
@@ -20,7 +19,7 @@ typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
 typedef char * (dict_dot)( void *key, void *val );
 typedef void   (dict_immute)( void *meta );
 typedef void   (dict_ref_immute)( void *meta, void *ref );
-typedef const char *(dict_ref_trigger)( void *arg, void *value );
+typedef const char *(dict_trigger)( void *arg, void *value );
 
 struct dict;
 
@@ -100,11 +99,6 @@ struct dict_merge_settings {
     uint8_t reference;
 };
 
-struct dict_trigger {
-    dict_ref_trigger *function;
-    void *arg;
-};
-
 // -- Creation and meta data --
 
 dict *dict_build( size_t slots, dict_methods m, void *meta );
@@ -151,7 +145,7 @@ dict_stat dict_recover( dict *d, size_t max_threads );
 // a lot up lookups/updates.
 dict_stat dict_rebalance( dict *d, size_t threads );
 
-dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *val );
+dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val );
 
 // Get never blocks
 // Set will insert or update as necessary

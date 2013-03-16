@@ -99,6 +99,13 @@ void free_sref( dict *d, sref *r ) {
     if ( r->xtrn && !blocked_null( r->xtrn ))
         free_xtrn( d, r->xtrn );
 
+    if ( r->trigger ) {
+        if ( r->trigger->arg )
+            free_xtrn( d, r->trigger->arg );
+
+        free( r->trigger );
+    }
+
     free( r );
 }
 
@@ -201,7 +208,7 @@ usref *create_usref( sref *ref ) {
     return new_usref;
 }
 
-sref *create_sref( xtrn *x, dict_trigger *t ) {
+sref *create_sref( xtrn *x, trigger_ref *t ) {
     sref *new_sref = malloc( sizeof( sref ));
     if ( !new_sref ) return NULL;
     memset( new_sref, 0, sizeof( sref ));

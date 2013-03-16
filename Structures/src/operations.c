@@ -9,9 +9,9 @@
 #include "alloc.h"
 #include "util.h"
 
-rstat op_trigger( dict *d, void *key, dict_trigger *t, void *val ) {
+rstat op_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val ) {
     location *locator = NULL;
-    set_spec sp = { 1, 0, NULL, NULL, t };
+    set_spec sp = { 1, 0, NULL, NULL, t, targ };
     rstat err = do_set( d, &locator, key, val, &sp );
     if ( locator != NULL ) {
         free_location( d, locator );
@@ -275,7 +275,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
     if ( loc->sref->trigger ) {
         const char *error = loc->sref->trigger->function(
-            loc->sref->trigger->arg,
+            loc->sref->trigger->arg->value,
             val
         );
 
@@ -299,7 +299,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
     // If this an atomic swap set
     if ( spec->swap_from ) {
         xtrn *current = loc->sref->xtrn;
-        if ( current->value == spec->swap_from->value ) {
+        if ( !d->methods.cmp( loc->set->settings.meta, current->value, spec->swap_from )) {
             if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
                 *old_val = current->value;
                 dispose( d, (trash *)current );
@@ -470,8 +470,28 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, 
 
         if ( type == CREATE_XTRN ) return new_xtrn;
 
-        sref *new_sref = create_sref( new_xtrn, spec->trigger );
+        trigger_ref *trig = NULL;
+        if ( spec->trigger ) {
+            trig = malloc( sizeof( trigger_ref ));
+            if ( trig == NULL ) {
+                if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+                return NULL;
+            }
+
+            xtrn *arg = create_xtrn( d, spec->trigger_arg );
+            if ( !arg ) {
+                free( trig );
+                if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+                return NULL;
+            }
+
+            trig->function = spec->trigger;
+            trig->arg      = arg;
+        }
+
+        sref *new_sref = create_sref( new_xtrn, trig );
         if( !new_sref ) {
+            if ( trig ) free( trig );
             if( new_xtrn ) dispose( d, (trash *)new_xtrn );
             return NULL;
         }

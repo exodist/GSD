@@ -23,6 +23,7 @@ typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
 typedef struct sref  sref;
+typedef struct trigger_ref trigger_ref;
 
 struct trash {
     trash * volatile next;
@@ -102,7 +103,12 @@ struct sref {
     trash   trash;
     volatile size_t refcount;
     xtrn * volatile xtrn;
-    dict_trigger *trigger;
+    trigger_ref *trigger;
+};
+
+struct trigger_ref {
+    dict_trigger *function;
+    xtrn         *arg;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );
