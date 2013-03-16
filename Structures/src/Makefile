@@ -2,9 +2,10 @@ GCC=/usr/bin/gcc
 CFLAGS=-std=gnu99 -Wall -fPIC -pthread
 
 libGSDDict.so: *.o
-	$(GCC) -shared -Wl,-soname,libGSDDict.so.1 -o libGSDDict.so.1.0 *.o
-	ln -sf libGSDDict.so.1.0 libGSDDict.so.1
-	ln -sd libGSDDict.so.1.0 libGSDDict.so
+	$(GCC) -shared -Wl,-soname,libGSDDict.so.1.0.0 -o libGSDDict.so.1.0.0 *.o
+	ln -sf libGSDDict.so.1.0.0 libGSDDict.so.1.0
+	ln -sf libGSDDict.so.1.0.0 libGSDDict.so.1
+	ln -sd libGSDDict.so.1.0.0 libGSDDict.so
 
 *.o:
 	$(GCC) $(CFLAGS) -O2 -c *.c
@@ -17,16 +18,18 @@ clean:
 libDBGGSDDict.so:
 	rm -rf *.o
 	$(GCC) $(CFLAGS) -g -O0 -DDEV_ASSERTS -c *.c
-	$(GCC) -g -shared -Wl,-soname,libDBGGSDDict.so.1 -o libDBGGSDDict.so.1.0 *.o
-	ln -sf libDBGGSDDict.so.1.0 libDBGGSDDict.so.1
-	ln -sd libDBGGSDDict.so.1.0 libDBGGSDDict.so
+	$(GCC) -g -shared -Wl,-soname,libDBGGSDDict.so.1.0.0 -o libDBGGSDDict.so.1.0.0 *.o
+	ln -sf libDBGGSDDict.so.1.0.0 libDBGGSDDict.so.1.0
+	ln -sf libDBGGSDDict.so.1.0.0 libDBGGSDDict.so.1
+	ln -sd libDBGGSDDict.so.1.0.0 libDBGGSDDict.so
 
 libGrindGSDDict.so:
 	rm -rf *.o
 	$(GCC) $(CFLAGS) -I/usr/include/valgrind -g -O0 -DDEV_ASSERTS -c *.c
-	$(GCC) -g -shared -Wl,-soname,libGrindGSDDict.so.1 -o libGrindGSDDict.so.1.0 *.o
-	ln -sf libGrindGSDDict.so.1.0 libGrindGSDDict.so.1
-	ln -sd libGrindGSDDict.so.1.0 libGrindGSDDict.so
+	$(GCC) -g -shared -Wl,-soname,libGrindGSDDict.so.1.0.0 -o libGrindGSDDict.so.1.0.0 *.o
+	ln -sf libGrindGSDDict.so.1.0.0 libGrindGSDDict.so.1.0
+	ln -sf libGrindGSDDict.so.1.0.0 libGrindGSDDict.so.1
+	ln -sd libGrindGSDDict.so.1.0.0 libGrindGSDDict.so
 
 grinddottest: libGrindGSDDict.so
 	$(GCC) $(CFLAGS) -g -O0 -I. -L. test/dottest.c -lGrindGSDDict -DDEV_ASSERTS -otestdot.run

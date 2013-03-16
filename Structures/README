@@ -5,7 +5,7 @@ for use by the GSD programming language.
 
 == Version ==
 
-Current version is 0.0.0.
+Current version is 1.0.0.
 
 The left-most number is the major version, this only bumps up for
 reverse-incompatible changes.
@@ -63,7 +63,7 @@ that do not change or add features.
  * Internal structures are garbage collected using a thread-safe combination of
    reference counting and a custom designed 'epoch' system.
  * The internal structure of the hash can be dumped to the graphviz DOT format
-   for visualization.
+   for visualization (up to a certain size of dictionary).
 
 == Overview ==
 
@@ -135,10 +135,6 @@ other threads can join, it is now safe to free any garbage within the epoch.
 No operations on the dictionary can run forever. If an operation was defined
 that did run forever, it would have to be written to release and re-aquire
 epochs.
-
-=== How many epochs are there? ===
-
-This is configurable
 
 === What triggers a disposal? ===
 
