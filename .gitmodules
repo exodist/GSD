@@ -1,0 +1,3 @@
+[submodule "src/GSD_Dict"]
+	path = src/GSD_Dict
+	url = git@github.com:exodist/GSD_Dictionary.git

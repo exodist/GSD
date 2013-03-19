@@ -127,9 +127,9 @@ table. Other globals include:
    file names.
  * LOADED_LIBS - A dictionary of loaded modules (and includes)
    [ name => [ path => path, namespace => ns, includes => [...] ]];
- * STDERR
- * STDIN
- * STDOUT
+ * stderr
+ * stdin
+ * stdout
 
 == Predefined lexical variables
 
