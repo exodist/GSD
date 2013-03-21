@@ -59,12 +59,10 @@ Rules:
 Implementations are allowed to take shortcuts with primitive types internally.
 For example if someone overrides the lookup method on the dictionary type, the
 implementation may ignore this fact internally. However subclasses of the
-dictionary type should use the override when the method is resolved. This
-mainly comes into play with namespaces, which are themselves dictionaries.
+dictionary type should use the override when the method is resolved.
 
  * Scalar    - A string or number, should automatically convert between
-               string and number. Scalars are immutable, operations should
-               produce new scalars.
+               string and number.
  * Type      - A definition of a type
  * Role      - A definition of a role
  * Graph     - A Key -> Value pair
@@ -87,8 +85,7 @@ mainly comes into play with namespaces, which are themselves dictionaries.
 
 Any "primitive" types an implementation wishes to create/use internally should
 be put into the IMPLEMENTATION namespace. Examples:
- * CFunc  - May be used in an implementation that is written in C
- * String - May be used within the scalar type.
+ * CFunction  - May be used in an implementation that is written in C
 
 == Runtime/Interpreter/Compiler/VM
 
@@ -113,7 +110,8 @@ GSD Includes: *.gsi
     will not actually be loaded until the symbol is used/needed.
 
 GSD programs:
-    should not have an extension, the #! line should be sufficient.
+    should not have an extension, the #! line should be sufficient. However if
+    this is distasteful to any they can use .gsp.
 
 == Global Variables
 
@@ -233,7 +231,7 @@ declared, but undefined.
  * Threads
     >>
     <<
- * Control
+ * Control Functions
     if
     else
     elsif
@@ -254,6 +252,8 @@ declared, but undefined.
     exit
     warn
     system
+    exec
+    fork
     capture
     eval
     load    - Load a package
@@ -267,7 +267,7 @@ declared, but undefined.
     sym   - Declare package symbol(s): sym type name, name, type name
     lex   - Declare lexical symbol(s): lex type name, name, type name
     state - Declare a lexical state variable (initialized only once)
-    local - Replace a symbol with a new reference in the current scope
+    attr  - Declare type attribute (only works in type or role declaration)
  * Regex   - Perl5 style regexes
  * Grammar - Perl6 style grammars
 
