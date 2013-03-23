@@ -158,7 +158,7 @@ declared, but undefined.
  * Conversion:
     $ - to string
     # - to number
-    @ - to list
+    @ - arg map
     % - Dump
     & - Reference (used in argument lists)
  * Assignment:
@@ -203,7 +203,8 @@ declared, but undefined.
     [[ ]] - Create a sorted dictionary (iteration is always in order)
     [ ] - Create a dictionary
     { } - Create a subroutine
-    ( ) - Subroutine run in place
+    ( ) - Subroutine run in place, result is arg-mapped automatically if it is
+          used in an arg list.
     " " - Quote, process conversion operators
     ' ' - Quote, no processing
  * Lookup/Index/Etc
