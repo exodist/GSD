@@ -1,6 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <unistr.h>
+#include <uninorm.h>
+#include <uniconv.h>
 
 #include "types.h"
 #include "memory.h"
@@ -98,31 +101,34 @@ object *io_call( object *th, stack_frame *sf, object **exception ) {
     io *handle = sf->args->inst->data;
 
     arg_list *args = sf->args;
-    //for ( size_t i = 0; i < args->length; i++ ) {
-    //    object *arg = args->list[i];
-    //    uint8_t *str = obj_str_val( th, arg );
-    //    size_t   len = obj_str_len( th, arg );
+    for ( size_t i = 0; i < args->push_idx; i++ ) {
+        object *arg = NULL;
+        object *key = create_scalar( th, SET_FROM_INT, i );
+        dict_get( args->args, key, &arg );
+        scalar_string *str = obj_str_val( th, arg );
 
-    //    const char *charset = locale_charset();
+        const char *charset = locale_charset();
 
-    //    size_t outlen;
-    //    char *output = u8_conv_to_encoding(
-    //        charset,
-    //        iconveh_escape_sequence,
-    //        str,
-    //        len,
-    //        NULL,
-    //        NULL,
-    //        &outlen
-    //    );
+        size_t outlen;
+        char *output = u8_conv_to_encoding(
+            charset,
+            iconveh_escape_sequence,
+            str->string,
+            str->size,
+            NULL,
+            NULL,
+            &outlen
+        );
 
-    //    fwrite(
-    //        output,
-    //        1,
-    //        outlen,
-    //        handle->fp
-    //    );
-    //}
+        assert( handle->fp == stdout );
+
+        fwrite(
+            output,
+            1,
+            outlen,
+            handle->fp
+        );
+    }
 
     sf->complete = 1;
 

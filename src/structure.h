@@ -57,12 +57,14 @@ struct instance {
 };
 
 extern dict_methods DMETH;
+extern dict_methods OMETH;
 extern uint64_t HASH_SEED;
 
+int    obj_ocompare( void *meta, void *obj1, void *obj2 );
 int    obj_compare( void *meta, void *obj1, void *obj2 );
 size_t obj_locate( size_t slot_count, void *meta, void *obj );
 void   obj_ref( dict *d, void *obj, int delta );
-char *dot_decode( void *key, void *val );
+char  *dot_decode( void *key, void *val );
 
 uint64_t hash_bytes( uint8_t *data, size_t length, uint64_t seed );
 

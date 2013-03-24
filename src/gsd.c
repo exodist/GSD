@@ -10,6 +10,8 @@
 #include "structure.h"
 #include "instance.h"
 #include "vm.h"
+#include "bytecode.h"
+#include "memory.h"
 
 object *io_test( instance *i );
 
@@ -34,34 +36,43 @@ int main() {
 }
 
 object *io_test( instance *i ) {
-//    object *stdo = NULL;
-//    dict_get(
-//        i->symbol_table,
-//        create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ),
-//        (void *)&stdo
-//    );
-//
-//    subop op0 = { NULL, OP_APUSH };
-//    subop op1 = { create_scalar( i->main_thread, SET_FROM_CSTR, "Hello World\n" ), OP_OPUSH };
-//    subop op2 = { stdo, OP_OCALL };
-//    subop op3 = { create_scalar( i->main_thread, SET_FROM_INT, 1 ), OP_OPUSH };
-//    subop op4 = { NULL, OP_END   };
-//
-//    subop *ops = malloc( sizeof( subop ) * 5 );
-//    ops[0] = op0;
-//    ops[1] = op1;
-//    ops[2] = op2;
-//    ops[3] = op3;
-//    ops[4] = op4;
-//
-//    subroutine *s = malloc( sizeof( subroutine ));
-//    s->symbols = NULL;
-//    s->closures = NULL;
-//    s->entry = ops;
-//
-//    object *so = alloc_object( i->main_thread, i->subroutine_t, s );
-//
-//    return so;
-    return NULL;
+    object *stdo = NULL;
+    dict_get(
+        i->symbol_table,
+        create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ),
+        (void *)&stdo
+    );
+
+    bytecode *bc = new_bytecode();
+
+    bc_push_op( bc, OP_APUSH );
+
+    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "Hello" ));
+    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, " " ));
+    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "World" ));
+    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "\n" ));
+    bc_push_op( bc, OP_PUSH );
+    bc_push_arg( bc, 0, SRC_DATA );
+    bc_push_op( bc, OP_PUSH );
+    bc_push_arg( bc, 0, SRC_DATA );
+    bc_push_op( bc, OP_PUSH );
+    bc_push_arg( bc, 0, SRC_DATA );
+    bc_push_op( bc, OP_PUSH );
+    bc_push_arg( bc, 0, SRC_DATA );
+
+    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ));
+    bc_push_op( bc, OP_CALL );
+    bc_push_arg( bc, 1, SRC_DATA );
+
+    presub *ps = bc_to_presub( bc );
+
+    subroutine *s = malloc( sizeof( subroutine ));
+    s->symbols = NULL;
+    s->closures = NULL;
+    s->presub = ps;
+
+    object *so = alloc_object( i->main_thread, i->subroutine_t, s );
+
+    return so;
 }
 

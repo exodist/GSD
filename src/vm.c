@@ -6,7 +6,7 @@
 #include "vm.h"
 
 static object *call_non_sub( object *to, stack_frame *sf );
-static inline object **fetch_arg( thread *t, stack_frame *sf );
+static inline object *fetch_arg( thread *t, stack_frame *sf );
 
 object *spawn( object *parent, object *run ) {
     thread *t = malloc( sizeof( thread ));
@@ -37,27 +37,52 @@ object *spawn( object *parent, object *run ) {
     return to;
 }
 
-object **fetch_arg( thread *t, stack_frame *sf ) {
+object *fetch_arg( thread *t, stack_frame *sf ) {
     oparg *a = (oparg *)(++(sf->subop));
     int lookup = a->lookup;
-    assert( !lookup );
     int source = a->source;
 
+    object *src = NULL;
     switch( source ) {
         case SRC_RET:
-            return &(t->retval);
+            printf( "retval\n" );
+            src = t->retval;
+        break;
         case SRC_EXCEPTION:
-            return &(t->exception);
+            printf( "exception\n" );
+            src = t->exception;
+        break;
         case SRC_DATA:
+            printf( "data\n" );
+            src = sf->data[0];
             (sf->data)++;
-            return &(sf->data);
+        break;
         case SRC_INST:
-            return &(t->arg_stack->inst);
+            printf( "inst\n" );
+            src = t->arg_stack->inst;
+        break;
+        case SRC_COND:
+            printf( "cond\n" );
+            src = sf->condition;
+        break;
+        default:
+            fprintf( stderr, "OOPS: %s:%zi\n", __FILE__, __LINE__);
+            abort();
+        break;
     }
 
-    fprintf( stderr, "OOPS: %s:%zi\n", __FILE__, __LINE__);
-    abort();
-    return NULL;
+    assert( src );
+    if ( !lookup ) return src;
+
+    instance *i = t->instance;
+    object *out = NULL;
+    dict_get( i->symbol_table, src, (void **)&out );
+    assert( out );
+    assert( out->type = i->io_t );
+    printf( "XXX1: %p\n", out );
+    printf( "XXX2: %p\n", out->data );
+    printf( "XXX3: %p\n", ((io *)out->data)->fp );
+    return out;
 }
 
 void *spawn_worker( void *arg ) {
@@ -66,6 +91,9 @@ void *spawn_worker( void *arg ) {
     instance *i = t->instance;
 
     arg_list *l = NULL;
+    int64_t idx = 0;
+    object *key = NULL;
+    object *val = NULL;
 
     while ( t->sub_stack ) {
         stack_frame *sf = t->sub_stack;
@@ -96,9 +124,7 @@ void *spawn_worker( void *arg ) {
             continue;
 
             case OP_CALL:
-                // Pop the arg_list
                 l = t->arg_stack;
-                t->arg_stack = l->parent;
 
                 stack_frame *f = malloc( sizeof( stack_frame ));
                 if ( !f ) {
@@ -108,12 +134,14 @@ void *spawn_worker( void *arg ) {
 
                 f->args = l;
                 f->parent = t->sub_stack;
-                f->call = *fetch_arg( t, sf );
+                f->call = fetch_arg( t, sf );
+
+                t->arg_stack = l->parent;
                 t->sub_stack = f;
             break;
 
             case OP_SET:
-                *(fetch_arg( t, sf )) = *(fetch_arg( t, sf ));
+                //*(fetch_arg( t, sf )) = *(fetch_arg( t, sf ));
             break;
 
             case OP_APUSH:
@@ -126,11 +154,29 @@ void *spawn_worker( void *arg ) {
                 memset( l, 0, sizeof( arg_list ));
                 l->parent = t->arg_stack;
                 t->arg_stack = l;
+
+                dict_meta *m = malloc( sizeof( dict_meta ));
+                if ( !m ) {
+                    free( i->main_thread );
+                    free( i );
+                }
+                m->seed     = HASH_SEED;
+                m->instance = i;
+                m->use_fnv  = 1;
+            
+                l->args = dict_build( 64, DMETH, m );
+                assert( l->args );
             break;
 
             case OP_PUSH:
-                fprintf( stderr, "Oops\n" );
-                abort();
+                val = fetch_arg( t, sf );
+                while ( 1 ) {
+                    idx = (t->arg_stack->push_idx)++;
+                    key = create_scalar( to, SET_FROM_INT, idx );
+                    assert( key );
+                    dict_stat s = dict_insert( t->arg_stack->args, key, val );
+                    if ( !s.bit.fail ) break;
+                }
             break;
 
             case OP_PUSHREF:
@@ -172,7 +218,7 @@ object *call_non_sub( object *to, stack_frame *sf ) {
         object *out = NULL;
         cfunction *cf = callo->data;
         object *ret = cf( to, sf, &out );
-        // Push ret to parent arg_list
+        // handle return value
         return out;
     }
 

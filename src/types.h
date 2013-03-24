@@ -69,11 +69,12 @@ struct stack_frame {
     dict   *symbols;
 
     arg_list *args;
+    object *condition;
 
     object *line_num;
 
     subop *subop;
-    object *data;
+    object **data;
 
     int complete;
 };

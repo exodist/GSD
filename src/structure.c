@@ -16,6 +16,12 @@ dict_methods DMETH = {
     .ref = obj_ref
 };
 
+dict_methods OMETH = {
+    .cmp = obj_ocompare,
+    .loc = obj_locate,
+    .ref = obj_ref
+};
+
 int obj_compare( void *meta, void *obj1, void *obj2 ) {
     if ( obj1 == obj2 ) return 0;
     object *a = obj1;
@@ -41,7 +47,7 @@ int obj_compare( void *meta, void *obj1, void *obj2 ) {
                     if ( idiff > 0 ) return  1;
                                      return -1;
                 case SET_AS_DEC:
-                    ddiff = as->integer - bs->integer;
+                    ddiff = as->decimal - bs->decimal;
                     if ( !ddiff )    return  0;
                     if ( ddiff > 0 ) return  1;
                                      return -1;
@@ -60,6 +66,57 @@ int obj_compare( void *meta, void *obj1, void *obj2 ) {
     }
 
     // If hash conflict compare memory addresses
+    if ( obj1 > obj2 ) return  1;
+    if ( obj1 < obj2 ) return -1;
+    return 0;
+}
+
+int obj_ocompare( void *meta, void *obj1, void *obj2 ) {
+    if ( obj1 == obj2 ) return 0;
+    object *a = obj1;
+    object *b = obj2;
+
+    dict_meta *m = meta;
+    if ( a->type == b->type && a->type == m->instance->scalar_t ) {
+        scalar *as = a->data;
+        scalar *bs = b->data;
+        if ( as->init_as == bs->init_as ) {
+            int64_t idiff;
+            double ddiff;
+            int sdiff;
+            switch( as->init_as ) {
+                case SET_AS_INT:
+                    idiff = as->integer - bs->integer;
+                    if ( !idiff )    return  0;
+                    if ( idiff > 0 ) return  1;
+                                     return -1;
+                case SET_AS_DEC:
+                    ddiff = as->decimal - bs->decimal;
+                    if ( !ddiff )    return  0;
+                    if ( ddiff > 0 ) return  1;
+                                     return -1;
+                case SET_AS_STR:
+                    // Scalar-Strings will all be stored in UNINORM_NFC, so
+                    // this type of compare should be fine.
+                    sdiff = u8_cmp2(
+                        as->string->string, as->string->size,
+                        bs->string->string, bs->string->size
+                    );
+                    if ( !sdiff )    return  0;
+                    if ( sdiff > 0 ) return  1;
+                                     return -1;
+            }
+        }
+        else {
+            if ( as->init_as == SET_AS_INT ) {
+                abort();
+            }
+            else {
+                abort();
+            }
+        }
+    }
+
     if ( obj1 > obj2 ) return  1;
     if ( obj1 < obj2 ) return -1;
     return 0;
@@ -137,9 +194,16 @@ scalar_string *build_string( uint8_t *raw, size_t bytes ) {
     return out;
 }
 
-scalar_string *obj_str_val( object *to, object *o );
-//scalar_string *obj_str_val( object *to, object *o ) {
-//    thread *t = to->data;
+scalar_string *obj_str_val( object *to, object *o ) {
+    thread *t = to->data;
+    if ( o->type == t->instance->scalar_t ) {
+        scalar *s = o->data;
+        if ( s->init_as == SET_AS_STR ) {
+            return s->string;
+        }
+    }
+    abort();
+    return NULL;
 //
 //    if ( o->type != t->instance->scalar_t ) {
 //        scalar *s = o->data;
@@ -152,7 +216,7 @@ scalar_string *obj_str_val( object *to, object *o );
 //    }
 //
 //    scalar_string *st = malloc( sizeof( scalar_string ));
-//}
+}
 
 int64_t obj_int_val( object *t, object *o );
 double obj_dec_val( object *t, object *o );

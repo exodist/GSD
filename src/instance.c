@@ -1,4 +1,5 @@
 #include <string.h>
+#include <assert.h>
 
 #include "instance.h"
 #include "types.h"
@@ -104,7 +105,10 @@ instance *init_instance() {
     if ( sto_data ) {
         sto_data->fp = stdout;
         object *sto = alloc_object( i->main_thread, i->io_t, sto_data );
-        errors += insert_symbol( i, "stdout", sto );
+        //errors += insert_symbol( i, "stdout", sto );
+        object *name = create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" );
+        dict_insert( i->symbol_table, name, sto );
+        assert(((io *)sto->data)->fp == stdout );
     }
 
     if ( errors ) {
