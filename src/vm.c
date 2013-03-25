@@ -45,43 +45,34 @@ object *fetch_arg( thread *t, stack_frame *sf ) {
     object *src = NULL;
     switch( source ) {
         case SRC_RET:
-            printf( "retval\n" );
             src = t->retval;
         break;
         case SRC_EXCEPTION:
-            printf( "exception\n" );
             src = t->exception;
         break;
         case SRC_DATA:
-            printf( "data\n" );
             src = sf->data[0];
             (sf->data)++;
         break;
         case SRC_INST:
-            printf( "inst\n" );
             src = t->arg_stack->inst;
         break;
         case SRC_COND:
-            printf( "cond\n" );
             src = sf->condition;
         break;
         default:
-            fprintf( stderr, "OOPS: %s:%zi\n", __FILE__, __LINE__);
+            fprintf( stderr, "OOPS: %s:%u\n", __FILE__, __LINE__);
             abort();
         break;
     }
 
-    assert( src );
     if ( !lookup ) return src;
 
+    assert( src );
     instance *i = t->instance;
     object *out = NULL;
     dict_get( i->symbol_table, src, (void **)&out );
     assert( out );
-    assert( out->type = i->io_t );
-    printf( "XXX1: %p\n", out );
-    printf( "XXX2: %p\n", out->data );
-    printf( "XXX3: %p\n", ((io *)out->data)->fp );
     return out;
 }
 

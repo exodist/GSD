@@ -104,7 +104,7 @@ object *io_call( object *th, stack_frame *sf, object **exception ) {
     for ( size_t i = 0; i < args->push_idx; i++ ) {
         object *arg = NULL;
         object *key = create_scalar( th, SET_FROM_INT, i );
-        dict_get( args->args, key, &arg );
+        dict_get( args->args, key, (void **)&arg );
         scalar_string *str = obj_str_val( th, arg );
 
         const char *charset = locale_charset();

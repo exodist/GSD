@@ -18,7 +18,7 @@ dict_methods DMETH = {
 
 dict_methods OMETH = {
     .cmp = obj_ocompare,
-    .loc = obj_locate,
+    .loc = obj_olocate,
     .ref = obj_ref
 };
 
@@ -72,58 +72,26 @@ int obj_compare( void *meta, void *obj1, void *obj2 ) {
 }
 
 int obj_ocompare( void *meta, void *obj1, void *obj2 ) {
-    if ( obj1 == obj2 ) return 0;
-    object *a = obj1;
-    object *b = obj2;
-
-    dict_meta *m = meta;
-    if ( a->type == b->type && a->type == m->instance->scalar_t ) {
-        scalar *as = a->data;
-        scalar *bs = b->data;
-        if ( as->init_as == bs->init_as ) {
-            int64_t idiff;
-            double ddiff;
-            int sdiff;
-            switch( as->init_as ) {
-                case SET_AS_INT:
-                    idiff = as->integer - bs->integer;
-                    if ( !idiff )    return  0;
-                    if ( idiff > 0 ) return  1;
-                                     return -1;
-                case SET_AS_DEC:
-                    ddiff = as->decimal - bs->decimal;
-                    if ( !ddiff )    return  0;
-                    if ( ddiff > 0 ) return  1;
-                                     return -1;
-                case SET_AS_STR:
-                    // Scalar-Strings will all be stored in UNINORM_NFC, so
-                    // this type of compare should be fine.
-                    sdiff = u8_cmp2(
-                        as->string->string, as->string->size,
-                        bs->string->string, bs->string->size
-                    );
-                    if ( !sdiff )    return  0;
-                    if ( sdiff > 0 ) return  1;
-                                     return -1;
-            }
-        }
-        else {
-            if ( as->init_as == SET_AS_INT ) {
-                abort();
-            }
-            else {
-                abort();
-            }
-        }
-    }
-
-    if ( obj1 > obj2 ) return  1;
-    if ( obj1 < obj2 ) return -1;
+    abort();
     return 0;
 }
 
 size_t obj_locate( size_t slot_count, void *meta, void *obj ) {
     return ((object *)obj)->hash % slot_count;
+}
+
+size_t obj_olocate( size_t slot_count, void *meta, void *obj ) {
+    dict_meta *m = meta;
+    object *key = obj;
+    if ( key->type == m->instance->scalar_t ) {
+        scalar *s = key->data;
+        if ( s->init_as == SET_AS_INT ) return 0;
+        if ( s->init_as == SET_AS_DEC ) return 1;
+        if ( s->init_as == SET_AS_STR ) return 2;
+    }
+
+    // Non-Scalars go to slot 3
+    return 3;
 }
 
 void obj_ref( dict *d, void *obj, int delta ) {

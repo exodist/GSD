@@ -8,6 +8,16 @@ presub *bc_to_presub( bytecode *bc ) {
     if (!bc_push_op( bc, OP_END ))
         return NULL;
 
+    // Shrink to just what we need.
+    if ( bc->entry_idx != bc->entry_size ) {
+        void *new = realloc( bc->entry, bc->entry_idx * sizeof(subop) );
+        if ( new ) bc->entry = new;
+    }
+    if ( bc->data_idx != bc->data_size ) {
+        void *new = realloc( bc->data, bc->data_idx * sizeof(object *) );
+        if ( new ) bc->data = new;
+    }
+
     presub *p = malloc( sizeof( presub ));
     if ( !p ) return NULL;
     memset( p, 0, sizeof( presub ));
