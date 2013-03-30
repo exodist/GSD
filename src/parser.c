@@ -3,75 +3,145 @@
 
 #include "parser.h"
 
-char_type get_char_type( char_type prefix, uint8_t *c ) {
-    return WHITESPACE;
+parser_char parser_getc( parser *p ) {
+    assert( p->buffer || p->fp );
+
+    parser_char c = { NULL, 0, WHITESPACE };
+
+    if ( p->buffer ) {
+        c.start = p->buffer + p->buffer_idx;
+        printf( "C: %c\n", c.start[0] );
+
+        // TODO: Unicode
+        c.length = 1;
+        p->buffer_idx += c.length;
+
+        switch( c.start[0] ) {
+            case '\n':
+                c.type = NEWLINE;
+            break;
+
+            case ' ':
+            case '\t':
+            case '\r':
+                c.type = WHITESPACE;
+            break;
+
+            case '_':
+                c.type = ALPHANUMERIC;
+            break;
+
+            default:
+                if ( c.start[0] < 33 ) {
+                    fprintf( stderr, "Invalid character: [%u]\n", c.start[0] );
+                    abort();
+                }
+                else if ( c.start[0] < 48 ) {
+                    c.type = SYMBOLIC;
+                }
+                else if ( c.start[0] < 58 ) {
+                    c.type = ALPHANUMERIC;
+                }
+                else if ( c.start[0] < 65 ) {
+                    c.type = SYMBOLIC;
+                }
+                else if ( c.start[0] < 90 ) {
+                    c.type = ALPHANUMERIC;
+                }
+                else if ( c.start[0] < 97 ) {
+                    c.type = SYMBOLIC;
+                }
+                else if ( c.start[0] < 122 ) {
+                    c.type = ALPHANUMERIC;
+                }
+                else if ( c.start[0] < 127 ) {
+                    c.type = SYMBOLIC;
+                }
+                else {
+                    // TODO: Unicode
+                    fprintf( stderr, "Invalid character: [%u]\n", c.start[0] );
+                    abort();
+                }
+            break;
+        }
+
+        return c;
+    }
+
+    abort();
 }
 
 presub *parse_text( object *to, dict *scope, uint8_t *code ) {
-    // Copy code pointer for iteration
-    uint8_t *ci = code;
-
     thread *t = to->data;
     instance *i = t->instance;
 
-    size_t token_count = 100;
-    size_t token_index = 0;
-    token *tokens = malloc( sizeof( token ) * token_count );
-    assert( tokens );
-    memset( tokens, 0, sizeof( token )); // set first token to 0
-    while ( *ci != '\0' ) {
-        char_type t = get_char_type( tokens[token_index].type, ci );
+    parser p = { NULL, code, 0, strlen( (char *)code ), NULL, NULL, 100, 0 };
+    p.tokens = malloc( sizeof( token ) * p.token_count );
+    assert( p.tokens );
+    p.token = p.tokens;
+    memset( p.token, 0, sizeof( token )); // set first token to 0
 
-        // skip initial whitespace, create token
-        if ( !tokens[token_index].start && t != WHITESPACE ) {
-            tokens[token_index].type   = t;
-            tokens[token_index].start  = ci;
-            tokens[token_index].length = 0;
-            tokens[token_index].symbol = NULL;
-        }
-        // Time for a new token
-        else if ( t != tokens[token_index].type ) {
-            token *cur = &tokens[token_index];
-            cur->length = ci - cur->start;
-            switch ( cur->type ) {
-                // Numeric is a constant
-                case NUMERIC:
-                    cur->scalar = create_scalar( to, SET_FROM_STRL_NUM, cur->start, cur->length );
-                break;
+    parser_char c = parser_getc( &p );
+    while ( c.start ) {
+        if ( !p.token->start ) {
+            p.token->start  = c.start;
+            p.token->size   = 1;
+            p.token->type   = c.type;
+            p.token->symbol = NULL;
 
-                case NEWLINE:
-                break;
-
-                default:
-                    // Make a scalar for the symbol
-                    cur->scalar = create_scalar( to, SET_FROM_STRL, cur->start, cur->length );
-                    assert( cur->scalar );
-
-                    // Find symbol
-                    dict_stat s = dict_get( scope, cur->scalar, (void **)&(cur->symbol));
-                    assert( !s.bit.error );
-
-                    // if it is non-alphanumeric, and no symbol: exception
-                    if ( t == SYMBOLIC ) assert( cur->symbol );
-                    if ( cur->symbol && cur->symbol->type == i->keyword_t ) {
-                        // TODO: Run keyword
-                        abort();
-                    }
-                break;
-            }
-
-            token_index++;
-            if ( token_index >= token_count ) {
-                token_count += 100;
-                token *new = realloc( tokens, token_count * sizeof( token ));
-                assert( new );
-                tokens = new;
-            }
-
-            memset( &(tokens[token_index]), 0, sizeof( token ));
+            // Next character
+            c = parser_getc( &p );
+            continue;
         }
 
-        ci++;
+        // Same type, token continues
+        if ( p.token->type == c.type ) {
+            c = parser_getc( &p );
+            continue;
+        }
+
+        // Token boundry
+        p.token->size = c.start - p.token->start;
+
+        if ( p.token->type > NEWLINE ) {
+            // TODO: Unicode
+            if ( p.token->start[0] > 47 && p.token->start[0] < 58 ) {
+                p.token->scalar = create_scalar( to, SET_FROM_STRL_NUM, p.token->start, p.token->size );
+            }
+            else {
+                // Make a scalar for the symbol
+                p.token->scalar = create_scalar( to, SET_FROM_STRL, p.token->start, p.token->size );
+                assert( p.token->scalar );
+
+                // Find symbol
+                dict_stat s = dict_get( scope, p.token->scalar, (void **)&(p.token->symbol));
+                assert( !s.bit.error );
+
+                // if it is non-alphanumeric, and no symbol: exception
+                if ( p.token->type == SYMBOLIC ) {
+                    printf( "S-Token start: %c\n", p.token->start[0] );
+                    assert( p.token->symbol );
+                }
+                if ( p.token->symbol && p.token->symbol->type == i->keyword_t ) {
+                    // TODO: Run keyword
+                    abort();
+                }
+            }
+        }
+
+        printf( "Token Complete: %c, %zu\n", p.token->start[0], p.token->size );
+
+        p.token_index++;
+        if ( p.token_index >= p.token_count ) {
+            p.token_count += 100;
+            token *new = realloc( p.tokens, p.token_count * sizeof( token ));
+            assert( new );
+            p.tokens = new;
+            p.token = p.tokens + p.token_index;
+        }
+
+        // Set next token to 0
+        memset( p.token, 0, sizeof( token ));
     }
 
     // Tokenized! time to compile
