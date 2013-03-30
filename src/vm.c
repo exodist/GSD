@@ -68,6 +68,7 @@ object *fetch_arg( thread *t, stack_frame *sf ) {
 
     if ( !lookup ) return src;
 
+    // TODO: This should look in the local scope, not the symbol table.
     assert( src );
     instance *i = t->instance;
     object *out = NULL;

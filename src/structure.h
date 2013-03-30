@@ -37,6 +37,7 @@ typedef enum {
     SET_FROM_INT,
     SET_FROM_DEC,
     SET_FROM_STRL,
+    SET_FROM_STRL_NUM,
     SET_FROM_CSTR,
     SET_FROM_OBJ
 } scalar_init;
@@ -54,6 +55,7 @@ struct instance {
     object *cfunction_t;
     object *subroutine_t;
     object *stack_frame_t;
+    object *keyword_t;
 };
 
 extern dict_methods DMETH;

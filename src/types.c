@@ -50,6 +50,12 @@ object *create_scalar( object *t, scalar_init vt, ... ) {
                 return NULL;
             }
         break;
+        // STRING containing number...
+        case SET_FROM_STRL_NUM:
+            raw = va_arg( args, uint8_t* );
+            size = va_arg( args, uint32_t );
+            abort();
+        break;
         case SET_FROM_CSTR:
             s_data->init_as = SET_AS_STR;
             raw = va_arg( args, uint8_t* );

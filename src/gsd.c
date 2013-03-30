@@ -12,6 +12,7 @@
 #include "vm.h"
 #include "bytecode.h"
 #include "memory.h"
+#include "parser.h"
 
 object *io_test( instance *i );
 
@@ -36,35 +37,36 @@ int main() {
 }
 
 object *io_test( instance *i ) {
-    object *stdo = NULL;
-    dict_get(
-        i->symbol_table,
-        create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ),
-        (void *)&stdo
-    );
+    //object *stdo = NULL;
+    //dict_get(
+    //    i->symbol_table,
+    //    create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ),
+    //    (void *)&stdo
+    //);
 
-    bytecode *bc = new_bytecode();
+    //bytecode *bc = new_bytecode();
 
-    bc_push_op( bc, OP_APUSH );
+    //bc_push_op( bc, OP_APUSH );
 
-    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "Hello" ));
-    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, " " ));
-    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "World" ));
-    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "\n" ));
-    bc_push_op( bc, OP_PUSH );
-    bc_push_arg( bc, 0, SRC_DATA );
-    bc_push_op( bc, OP_PUSH );
-    bc_push_arg( bc, 0, SRC_DATA );
-    bc_push_op( bc, OP_PUSH );
-    bc_push_arg( bc, 0, SRC_DATA );
-    bc_push_op( bc, OP_PUSH );
-    bc_push_arg( bc, 0, SRC_DATA );
+    //bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "Hello" ));
+    //bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, " " ));
+    //bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "World" ));
+    //bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "\n" ));
+    //bc_push_op( bc, OP_PUSH );
+    //bc_push_arg( bc, 0, SRC_DATA );
+    //bc_push_op( bc, OP_PUSH );
+    //bc_push_arg( bc, 0, SRC_DATA );
+    //bc_push_op( bc, OP_PUSH );
+    //bc_push_arg( bc, 0, SRC_DATA );
+    //bc_push_op( bc, OP_PUSH );
+    //bc_push_arg( bc, 0, SRC_DATA );
 
-    bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ));
-    bc_push_op( bc, OP_CALL );
-    bc_push_arg( bc, 1, SRC_DATA );
+    //bc_push_data( bc, create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" ));
+    //bc_push_op( bc, OP_CALL );
+    //bc_push_arg( bc, 1, SRC_DATA );
 
-    presub *ps = bc_to_presub( bc );
+    //presub *ps = bc_to_presub( bc );
+    presub *ps = parse_text( i->main_thread, i->symbol_table, (uint8_t *)"stdout \"Hello World!\"\n" );
 
     subroutine *s = malloc( sizeof( subroutine ));
     s->symbols = NULL;

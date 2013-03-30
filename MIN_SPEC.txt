@@ -82,6 +82,7 @@ dictionary type should use the override when the method is resolved.
                that effect parsing
  * Handle    - An IO handle such as stderr, stdin, etc.
  * Mutex     - Mutex, for thread syncing
+ * Null      - The type for NULL
 
 Any "primitive" types an implementation wishes to create/use internally should
 be put into the IMPLEMENTATION namespace. Examples:
@@ -125,6 +126,7 @@ table. Other globals include:
    file names.
  * LOADED_LIBS - A dictionary of loaded modules (and includes)
    [ name => [ path => path, namespace => ns, includes => [...] ]];
+ * undef
  * stderr
  * stdin
  * stdout
@@ -261,6 +263,7 @@ declared, but undefined.
     import  - Bring in symbols from a package, load if necessary
     use     - Have a package act upon the current package, load if necessary
  * Keywords:
+    maybe - Prefix when declaring symbols, without this symbols cannot be undef
     sub   - Declare named package subroutine
     meth  - Declare named type subroutine (only works in type or role declaration)
     func  - Declare named lexical function

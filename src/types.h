@@ -10,12 +10,13 @@
 #include "structure.h"
 #include "bytecode.h"
 
+typedef struct io io;
 typedef struct type type;
 typedef struct graph graph;
 typedef struct object object;
 typedef struct scalar scalar;
-typedef struct io io;
 typedef struct thread thread;
+typedef struct keyword keyword;
 typedef struct subroutine subroutine;
 typedef struct stack_frame stack_frame;
 
@@ -89,6 +90,10 @@ struct thread {
     object *exception;
 
     object *alloc;
+};
+
+struct keyword {
+    int foo;
 };
 
 object *create_scalar( object *t, scalar_init vt, ... );
