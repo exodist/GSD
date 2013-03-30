@@ -6,6 +6,12 @@
 parser_char parser_getc( parser *p ) {
     assert( p->buffer || p->fp );
 
+    if ( p->put.start ) {
+        parser_char out = p->put;
+        p->put.start = NULL;
+        return out;
+    }
+
     parser_char c = { NULL, 0, WHITESPACE };
 
     if ( p->buffer ) {
@@ -71,38 +77,49 @@ parser_char parser_getc( parser *p ) {
     abort();
 }
 
+void parser_putc( parser *p, parser_char c ) {
+    assert( ! p->put.start );
+    p->put = c;
+}
+
+token parser_get_token( parser *p ) {
+    token t = { 0 };
+    parser_char c = parser_getc( p );
+    if ( !c.start ) return t;
+
+    t.start = c.start;
+    t.type  = c.type;
+
+    c = parser_getc( p );
+    while( c.start ) {
+        // Same type, token continues
+        if ( t.type != c.type )
+            break;
+
+        c = parser_getc( p );
+    }
+
+    parser_putc( p, c );
+
+    // Token boundry
+    t.size = c.start - t.start;
+
+    return t;
+}
+
 presub *parse_text( object *to, dict *scope, uint8_t *code ) {
     thread *t = to->data;
     instance *i = t->instance;
 
-    parser p = { NULL, code, 0, strlen( (char *)code ), NULL, NULL, 100, 0 };
+    parser p = { NULL, code, 0, strlen( (char *)code ), { NULL }, NULL, NULL, 1024, 0 };
     p.tokens = malloc( sizeof( token ) * p.token_count );
     assert( p.tokens );
+    memset( p.tokens, 0, sizeof( token )); // set first token to 0
+
+    p.tokens[0] = parser_get_token( &p );
     p.token = p.tokens;
-    memset( p.token, 0, sizeof( token )); // set first token to 0
 
-    parser_char c = parser_getc( &p );
-    while ( c.start ) {
-        if ( !p.token->start ) {
-            p.token->start  = c.start;
-            p.token->size   = 1;
-            p.token->type   = c.type;
-            p.token->symbol = NULL;
-
-            // Next character
-            c = parser_getc( &p );
-            continue;
-        }
-
-        // Same type, token continues
-        if ( p.token->type == c.type ) {
-            c = parser_getc( &p );
-            continue;
-        }
-
-        // Token boundry
-        p.token->size = c.start - p.token->start;
-
+    while ( p.token->start ) {
         if ( p.token->type > NEWLINE ) {
             // TODO: Unicode
             if ( p.token->start[0] > 47 && p.token->start[0] < 58 ) {
@@ -133,15 +150,13 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
 
         p.token_index++;
         if ( p.token_index >= p.token_count ) {
-            p.token_count += 100;
+            p.token_count += 1024;
             token *new = realloc( p.tokens, p.token_count * sizeof( token ));
             assert( new );
             p.tokens = new;
-            p.token = p.tokens + p.token_index;
         }
-
-        // Set next token to 0
-        memset( p.token, 0, sizeof( token ));
+        p.token = p.tokens + p.token_index;
+        p.token[0] = parser_get_token( &p );
     }
 
     // Tokenized! time to compile
