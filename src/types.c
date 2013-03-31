@@ -158,7 +158,7 @@ object *dquote_keyword( parser *p ) {
     object *str = create_scalar( p->thread, SET_FROM_STRL, start.start, length );
     assert( str );
 
-    token t = { start.start, length, start.type, str, NULL };
+    token t = { start.start, length, start.type, NULL, str };
     assert( parser_push_token( p, t ));
 
     return NULL;

@@ -19,4 +19,6 @@ int parser_push_token( parser *p, token t );
 
 presub *parse_text( object *thread, dict *scope, uint8_t *code );
 
+statement *parser_shift_statement( parser *p );
+
 #endif

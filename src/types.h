@@ -104,12 +104,16 @@ struct parser {
     size_t    buffer_idx;
     size_t    buffer_size;
 
+    uint8_t *stop_at;
+    size_t   stop_at_len;
+
     parser_char put;
 
     token *token;
     token *tokens;
     size_t token_count;
     size_t token_index;
+    size_t token_iter;
 };
 
 struct keyword {

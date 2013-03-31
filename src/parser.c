@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "parser.h"
+#include "compiler.h"
 
 parser_char parser_getc( parser *p ) {
     assert( p->buffer || p->fp );
@@ -14,7 +15,10 @@ parser_char parser_getc( parser *p ) {
 
     parser_char c = { NULL, 0, WHITESPACE };
 
-    if ( p->buffer_idx >= p->buffer_size )
+    if ( p->buffer_size && p->buffer_idx >= p->buffer_size )
+        return c;
+
+    if ( p->stop_at && !memcmp( p->buffer + p->buffer_idx, p->stop_at, p->stop_at_len ))
         return c;
 
     if ( p->buffer ) {
@@ -157,14 +161,18 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
         .fp = NULL,
         .buffer = code,
         .buffer_idx = 0,
-        .buffer_size = strlen( (char *)code ),
+        .buffer_size = 0,
+
+        .stop_at = (uint8_t *)"\0",
+        .stop_at_len = 1,
 
         .put = { NULL },
 
         .token  = NULL,
         .tokens = NULL,
         .token_count = 1024,
-        .token_index = 0
+        .token_index = 0,
+        .token_iter  = 0
     };
 
     assert( parser_push_token( &p, parser_get_token( &p )));
@@ -189,6 +197,7 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
                     assert( p.token->symbol );
                 }
                 if ( p.token->symbol && p.token->symbol->type == i->keyword_t ) {
+                    // TODO: Support keywords that have subs instead of c functions
                     keyword *k = p.token->symbol->data;
                     object *exception = k->ckeyword( &p );
                     assert( !exception );
@@ -214,4 +223,5 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
     }
 
     // Tokenized! time to compile
+    return compile_tokens( &p );
 }
