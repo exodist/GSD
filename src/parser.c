@@ -14,6 +14,9 @@ parser_char parser_getc( parser *p ) {
 
     parser_char c = { NULL, 0, WHITESPACE };
 
+    if ( p->buffer_idx >= p->buffer_size )
+        return c;
+
     if ( p->buffer ) {
         c.start = p->buffer + p->buffer_idx;
         printf( "C: %c\n", c.start[0] );
@@ -92,6 +95,8 @@ token parser_get_token( parser *p ) {
 
     c = parser_getc( p );
     while( c.start ) {
+        t.size++;
+
         // Same type, token continues
         if ( t.type != c.type )
             break;
@@ -99,25 +104,64 @@ token parser_get_token( parser *p ) {
         c = parser_getc( p );
     }
 
-    parser_putc( p, c );
-
-    // Token boundry
-    t.size = c.start - t.start;
+    if( c.start ) parser_putc( p, c );
 
     return t;
+}
+
+int parser_push_token( parser *p, token t ) {
+    p->token_index++;
+    if ( p->token_index >= p->token_count ) {
+        p->token_count += 1024;
+        token *new = realloc( p->tokens, p->token_count * sizeof( token ));
+        if ( !new ) {
+            p->token_index--;
+            return 0;
+        }
+        p->tokens = new;
+    }
+    p->tokens[p->token_index] = t;
+    p->token = p->tokens + p->token_index;
+    return 1;
+}
+
+token parser_peek_token( parser *p ) {
+    return p->token[0];
+}
+
+token parser_pop_token( parser *p ) {
+    assert( p->token_index >= 1 );
+    p->token_index--;
+    p->token = p->tokens + p->token_index;
+    return p->token[0];
 }
 
 presub *parse_text( object *to, dict *scope, uint8_t *code ) {
     thread *t = to->data;
     instance *i = t->instance;
 
-    parser p = { NULL, code, 0, strlen( (char *)code ), { NULL }, NULL, NULL, 1024, 0 };
+    parser p = {
+        .scope    = scope,
+        .thread   = to,
+        .instance = i,
+
+        .fp = NULL,
+        .buffer = code,
+        .buffer_idx = 0,
+        .buffer_size = strlen( (char *)code ),
+
+        .put = { NULL },
+
+        .token  = NULL,
+        .tokens = NULL,
+        .token_count = 1024,
+        .token_index = 0
+    };
+
     p.tokens = malloc( sizeof( token ) * p.token_count );
     assert( p.tokens );
-    memset( p.tokens, 0, sizeof( token )); // set first token to 0
 
-    p.tokens[0] = parser_get_token( &p );
-    p.token = p.tokens;
+    assert( parser_push_token( &p, parser_get_token( &p )));
 
     while ( p.token->start ) {
         if ( p.token->type > NEWLINE ) {
@@ -140,23 +184,15 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
                     assert( p.token->symbol );
                 }
                 if ( p.token->symbol && p.token->symbol->type == i->keyword_t ) {
-                    // TODO: Run keyword
-                    abort();
+                    keyword *k = p.token->symbol->data;
+                    object *exception = k->ckeyword( &p );
+                    assert( !exception );
                 }
             }
         }
 
         printf( "Token Complete: %c, %zu\n", p.token->start[0], p.token->size );
-
-        p.token_index++;
-        if ( p.token_index >= p.token_count ) {
-            p.token_count += 1024;
-            token *new = realloc( p.tokens, p.token_count * sizeof( token ));
-            assert( new );
-            p.tokens = new;
-        }
-        p.token = p.tokens + p.token_index;
-        p.token[0] = parser_get_token( &p );
+        parser_push_token( &p, parser_get_token( &p ));
     }
 
     // Tokenized! time to compile

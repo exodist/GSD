@@ -4,8 +4,9 @@
 #include "instance.h"
 #include "types.h"
 #include "memory.h"
+#include "parser.h"
 
-static int insert_symbol( instance *i, const char *name, object *type_o );
+static int insert_type( instance *i, const char *name, object *type_o );
 static object *init_type( object *t, object *type, object *parent, int refcount );
 
 object *init_type( object *t, object *typ, object *parent, int refcount ) {
@@ -78,6 +79,8 @@ instance *init_instance() {
     i->graph_t  = init_type( i->main_thread, i->type_t, i->object_t, 0 );
     i->scalar_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
     i->thread_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
+    i->parser_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
+    i->keyword_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
     i->cfunction_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
     i->subroutine_t  = init_type( i->main_thread, i->type_t, i->object_t, 0 );
     i->stack_frame_t = init_type( i->main_thread, i->type_t, i->object_t, 0 );
@@ -90,25 +93,38 @@ instance *init_instance() {
     );
 
     int errors = 0;
-    errors += insert_symbol( i, "Type",   i->type_t );
-    errors += insert_symbol( i, "Graph",  i->graph_t );
-    errors += insert_symbol( i, "Object", i->object_t );
-    errors += insert_symbol( i, "Scalar", i->scalar_t );
-    errors += insert_symbol( i, "IO",     i->io_t );
-    errors += insert_symbol( i, "Thread", i->thread_t );
+    errors += insert_type( i, "Type",   i->type_t );
+    errors += insert_type( i, "Graph",  i->graph_t );
+    errors += insert_type( i, "Object", i->object_t );
+    errors += insert_type( i, "Scalar", i->scalar_t );
+    errors += insert_type( i, "IO",     i->io_t );
+    errors += insert_type( i, "Thread", i->thread_t );
+    errors += insert_type( i, "Parser", i->parser_t );
 
-    errors += insert_symbol( i, "CFunction", i->cfunction_t );
-    errors += insert_symbol( i, "Subroutine", i->subroutine_t );
-    errors += insert_symbol( i, "StackFrame", i->stack_frame_t );
+    errors += insert_type( i, "Keyword", i->keyword_t );
+    errors += insert_type( i, "CFunction", i->cfunction_t );
+    errors += insert_type( i, "Subroutine", i->subroutine_t );
+    errors += insert_type( i, "StackFrame", i->stack_frame_t );
 
     io *sto_data = malloc( sizeof ( io ));
+    assert( sto_data );
     if ( sto_data ) {
         sto_data->fp = stdout;
         object *sto = alloc_object( i->main_thread, i->io_t, sto_data );
-        //errors += insert_symbol( i, "stdout", sto );
+        //errors += insert_type( i, "stdout", sto );
         object *name = create_scalar( i->main_thread, SET_FROM_CSTR, "stdout" );
         dict_insert( i->symbol_table, name, sto );
         assert(((io *)sto->data)->fp == stdout );
+    }
+
+    keyword *dquote = malloc( sizeof( keyword ));
+    assert( dquote );
+    if ( dquote ) {
+        dquote->ckeyword = dquote_keyword;
+        object *dqo = alloc_object( i->main_thread, i->keyword_t, dquote );
+        object *name = create_scalar( i->main_thread, SET_FROM_CSTR, "\"" );
+        dict_stat s = dict_insert( i->symbol_table, name, dqo );
+        assert( !s.bit.error );
     }
 
     if ( errors ) {
@@ -130,7 +146,7 @@ void cleanup( instance *i ) {
     return;
 }
 
-int insert_symbol( instance *i, const char *name, object *type_o ) {
+static int insert_type( instance *i, const char *name, object *type_o ) {
     object *name_obj = create_scalar( i->main_thread, SET_FROM_CSTR, name );
     type *t = type_o->data;
     t->name = name_obj;

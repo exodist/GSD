@@ -7,10 +7,34 @@
 #include "GSD_Dict/src/include/gsd_dict.h"
 #include "GSD_Dict/src/include/gsd_dict_return.h"
 
+typedef struct token     token;
+typedef struct parser    parser;
 typedef struct object    object;
 typedef struct instance  instance;
 typedef struct dict_meta dict_meta;
+typedef struct parser_char parser_char;
 typedef struct scalar_string scalar_string;
+
+typedef enum {
+    WHITESPACE = 0,
+    NEWLINE    = 1,
+    ALPHANUMERIC,
+    SYMBOLIC,
+} char_type;
+
+struct parser_char {
+    uint8_t *start;
+    uint8_t  length;
+    char_type type;
+};
+
+struct token {
+    uint8_t *start;
+    size_t    size;
+    char_type type;
+    object *scalar;
+    object *symbol;
+};
 
 struct object {
     object  *type;
@@ -56,6 +80,7 @@ struct instance {
     object *subroutine_t;
     object *stack_frame_t;
     object *keyword_t;
+    object *parser_t;
 };
 
 extern dict_methods DMETH;

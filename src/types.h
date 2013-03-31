@@ -9,11 +9,13 @@
 
 #include "structure.h"
 #include "bytecode.h"
+#include "parser.h"
 
 typedef struct io io;
 typedef struct type type;
 typedef struct graph graph;
 typedef struct object object;
+typedef struct parser parser;
 typedef struct scalar scalar;
 typedef struct thread thread;
 typedef struct keyword keyword;
@@ -92,8 +94,26 @@ struct thread {
     object *alloc;
 };
 
+struct parser {
+    dict     *scope;
+    object   *thread;
+    instance *instance;
+
+    FILE     *fp;
+    uint8_t  *buffer;
+    size_t    buffer_idx;
+    size_t    buffer_size;
+
+    parser_char put;
+
+    token *token;
+    token *tokens;
+    size_t token_count;
+    size_t token_index;
+};
+
 struct keyword {
-    int foo;
+    object *(*ckeyword)( parser *p );
 };
 
 object *create_scalar( object *t, scalar_init vt, ... );
@@ -102,5 +122,6 @@ int init_io( instance *i );
 
 object *io_call( object *thread, stack_frame *sf, object **exception );
 
+object *dquote_keyword( parser *p );
 
 #endif

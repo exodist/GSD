@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "memory.h"
+#include "parser.h"
 
 object *create_scalar( object *t, scalar_init vt, ... ) {
     va_list args;
@@ -139,4 +140,26 @@ object *io_call( object *th, stack_frame *sf, object **exception ) {
     sf->complete = 1;
 
     return create_scalar( th, SET_FROM_INT, 1 );
+}
+
+object *dquote_keyword( parser *p ) {
+    parser_pop_token( p );
+
+    size_t length = 0;
+    parser_char start = parser_getc( p );
+    parser_char c = parser_getc( p );
+    while ( c.start ) {
+        length++;
+        if ( *(c.start) == '"' )
+            break;
+        c = parser_getc( p );
+    }
+
+    object *str = create_scalar( p->thread, SET_FROM_STRL, start.start, length );
+    assert( str );
+
+    token t = { start.start, length, start.type, str, NULL };
+    assert( parser_push_token( p, t ));
+
+    return NULL;
 }
