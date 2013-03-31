@@ -19,7 +19,6 @@ parser_char parser_getc( parser *p ) {
 
     if ( p->buffer ) {
         c.start = p->buffer + p->buffer_idx;
-        printf( "C: %c\n", c.start[0] );
 
         // TODO: Unicode
         c.length = 1;
@@ -110,15 +109,21 @@ token parser_get_token( parser *p ) {
 }
 
 int parser_push_token( parser *p, token t ) {
-    p->token_index++;
-    if ( p->token_index >= p->token_count ) {
-        p->token_count += 1024;
-        token *new = realloc( p->tokens, p->token_count * sizeof( token ));
-        if ( !new ) {
-            p->token_index--;
-            return 0;
+    if ( !p->tokens ) {
+        p->tokens = malloc( sizeof( token ) * p->token_count );
+        assert( p->tokens );
+    }
+    else {
+        p->token_index++;
+        if ( p->token_index >= p->token_count ) {
+            p->token_count += 1024;
+            token *new = realloc( p->tokens, p->token_count * sizeof( token ));
+            if ( !new ) {
+                p->token_index--;
+                return 0;
+            }
+            p->tokens = new;
         }
-        p->tokens = new;
     }
     p->tokens[p->token_index] = t;
     p->token = p->tokens + p->token_index;
@@ -126,10 +131,14 @@ int parser_push_token( parser *p, token t ) {
 }
 
 token parser_peek_token( parser *p ) {
+    assert( p->tokens );
+    assert( p->token );
     return p->token[0];
 }
 
 token parser_pop_token( parser *p ) {
+    assert( p->tokens );
+    assert( p->token );
     assert( p->token_index >= 1 );
     p->token_index--;
     p->token = p->tokens + p->token_index;
@@ -158,9 +167,6 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
         .token_index = 0
     };
 
-    p.tokens = malloc( sizeof( token ) * p.token_count );
-    assert( p.tokens );
-
     assert( parser_push_token( &p, parser_get_token( &p )));
 
     while ( p.token->start ) {
@@ -180,7 +186,6 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
 
                 // if it is non-alphanumeric, and no symbol: exception
                 if ( p.token->type == SYMBOLIC ) {
-                    printf( "S-Token start: %c\n", p.token->start[0] );
                     assert( p.token->symbol );
                 }
                 if ( p.token->symbol && p.token->symbol->type == i->keyword_t ) {
@@ -191,8 +196,21 @@ presub *parse_text( object *to, dict *scope, uint8_t *code ) {
             }
         }
 
-        printf( "Token Complete: %c, %zu\n", p.token->start[0], p.token->size );
         parser_push_token( &p, parser_get_token( &p ));
+    }
+
+    printf( "Tokens:\n" );
+    for( size_t i = 0; i < p.token_index; i++ ) {
+        printf( "%zu: |", i );
+        if ( p.tokens[i].type == NEWLINE ) {
+            printf( "[NEWLINE]" );
+        }
+        else {
+            for ( size_t ci = 0; ci < p.tokens[i].size; ci++ ) {
+                putc( p.tokens[i].start[ci], stdout );
+            }
+        }
+        printf( "|\n" );
     }
 
     // Tokenized! time to compile
