@@ -1,4 +1,4 @@
-==The GSD (Get Stuff Done) programming language==
+== The GSD (Get Stuff Done) programming language ==
 
 GSD was concieved to be a language in the spirit of perl. The idea is to make a
 new language that carries over the good things from perl5, but also improves
@@ -7,17 +7,20 @@ the main difference being that GSD should have a very small and simple core. We
 intend to focus on writing a small core that makes anything possible, without
 actually trying to implement EVERYTHING in core.
 
+=== On Perl5 ===
 There is a lot that Perl5 does right, it is a very successful language. However
 Perl5 is in many ways stuck in the past. There are many things in Perl5 that
 are just tacked on, such as OOP. There are many things taken for granted in
 most modern languages that just aren't there in perl.
 
+=== On Perl6 ===
 Perl6 is to perl5 as C++ is to C. Those that know me will understand that this
 is not a compliment. Perl6 is huge, too big for most people to understand more
 than a fraction of it. This size and complexity has contributed to the fact
 that after any years there is still not a truly useful Perl6 implementation. In
 fact at the time of this writing, the spec is not even complete.
 
+=== On GSD ===
 With GSD the goal is the focus on writing a language that enabled developers. A
 language that can be extended as necessary using 3rd party modules. To this end
 GSD will support custom syntax through definable keywords. The language will
@@ -27,14 +30,16 @@ The GSD specification should be small enough that a single developer, or small
 group could implement it in a reasonable time frame. Extended features and
 capabilities should be created as third party modules.
 
-GSD is not an implementation of perl, existing perl code will not run in gsd.
+GSD is not an implementation of perl, existing perl code will not run in GSD.
 However the structure of GSD should be such that perl concepts can be mapped to
 it, potentially opening the door for a perl5 implementation within GSD.
 
-==GSD Libraries==
+== GSD Libraries ==
 
 Core Library: This is the specification that every GSD implementation must
-provide.
+provide. This should be small; Things should only be added to core when
+necesary to introduce new capabilities. If something can be done as a module,
+it should be done as a module.
 
 Standard Library: This is a collection of modules that the core developers have
 decided to adopt. Any distribution of GSD should include these modules.
@@ -42,3 +47,202 @@ decided to adopt. Any distribution of GSD should include these modules.
 Community Library: This is a collection of modules assembled by the community,
 Core developers do not have exclusive control of what makes it into this
 library.
+
+== GSD Focus ==
+
+GSD *MUST* focus on the following if it is truly to be a modern language, and a
+successor to perl.
+
+ * Concurrency and Parallelism
+ * Support for many paradigms: OOP, Functional, Imperetive, DCI
+ * Parsing hooks (Think perl5's Devel::Declare, but not as a hack)
+ * Full unicode support
+ * Consistent versioning of core and modules
+ * Try to maintain the spirit of perl5, but fix things that need fixing.
+ * Better way to interface with system code, XS doesn't cut it.
+ * Cononical spec that allows for multiple implementations.
+ * Removal of ambiguity. Example: '{}' is this a function, or a hashref?
+
+== GSD File Structure ==
+
+
+
+== GSD Syntax ==
+
+=== Basic syntax from which everything else derives ===
+
+ * whitespace seperates tokens
+ * underscore '_' counts as alphanumeric
+ * Sigils are not required to access/denote variables
+ * Everything is a variable-symbol, even keywords and operators
+ * Keywords are functions that takeover parsing as soon as they are
+   encountered by the parser.
+ * Any non-alphanumeric symbol must be defined before it is encountered by the
+   parser, and must be either an operator (function that has an argument on
+   either side) or a keyword (which hooks into the parser to define syntax).
+ * Alphanumeric symbols may be any type, but do not need to be defined at
+   parse-time. (Note: using a keyword at run-time is an error)
+ * Transition between symbolic and alphanumeric seperates tokens, that is
+   'foo++bar' is 3 tokens 'foo', '++', 'bar'
+ * A token starting with a number is a numeric literal
+ * A token may be alphanumeric, or symbols, not both
+ * Statements are seperated by newlines and/or semicolons.
+ * A statement can be extended to multiple lines by ending it with an operator,
+   or starting the next line with an operator.
+ * A keyword, as it has control of the parser, can also consume any number of
+   lines into a single statement.
+ * When a non-operator, non-keyword symbol is followed by whitespace, and then
+   another symbol that is not an operator or keyword, this is a function call.
+   The first symbol is called with the second as an argument.
+ * A statement consisting of only 1 symbol will call that symbol as a function
+   without arguments.
+
+=== Core keywords ===
+
+==== Misc ====
+
+ args - Define argument signature for current subroutine
+ #!   - the shbang line (ignore line) 
+
+==== Declare data structures ====
+
+ // - Comment until end of line
+
+    some statement // comment!
+
+ /* - Start of multi-line comment
+
+    /*
+        This is a comment
+        still comment
+    */
+
+ /# - Start of documentation
+
+    /#
+        Documentation
+    #/
+
+ {  - Define a subroutine, matching '}' is used to terminate function. If a
+      statement consists only of the {...} keyword then the function it
+      produces should be called immedietly.
+
+    { ... } // Define a subroutine, call it immedietly
+    lex foo = { ... } // define a subrotuine, assign it to foo
+    sub foo { ... }   // Same as above, but done at parse-time
+    do_thing {...}, a, b, c // Pass a new subroutine as the first argument in a
+                            // function call.
+
+ (  - Grouping, ends at matching ')'
+
+    foo 1, (2 + 5) * 6
+    foo bar( 1, 2, 3 ), 4, 5, 6
+
+ "  - Define a string literal, sigils are interpreted (see sigils)
+
+    lex foo = "blah blah: $var1 #var2 %var3" 
+
+ '  - Define a string literal, nothing is interpreted
+
+    lex foo = 'blah blah'
+
+ [  - Define a dictionary (key/value store, like a hash table)
+
+    // Dictionary with 3 values, each has sequencial integer key
+    [ 'a', 'b', 'c' ]
+
+    // Dictionary, 3 numerical values with string keys
+    [ 'a' => 1, 'b' => 2, 'c' => 3 ]
+
+ [[ - Define an ordered dictionary
+
+    Same as dictionary, difference is keys of like types are stored such that
+    iteration will be in order. String keys, Integer keys, Decimal keys, and
+    Other keys are each sorted independantly.
+
+ :: - Package Seperator
+
+    Some::Package
+
+==== Loading Files ====
+
+ import - Bring symbols from a package into current lexical scope,
+          load package if necessary
+
+    import Some::Package symbol1, symbol2, symbol3, ...
+
+ use    - Have a package act upon the current package, load if necessary
+
+    use Some::Package arg1, arg2, ...
+
+ attr   - Declare type attribute (only works in type or role declaration)
+
+    attr my_field ...
+
+==== Declare symbols ====
+
+ type  - Declare a type in the current package
+
+    type NAME { ... }
+
+ sub   - Declare named package subroutine
+
+    sub NAME(...) { ... }
+    Same as: sym NAME = { args ...; ... }
+
+ meth  - Declare named type subroutine (only works in type or role declaration)
+
+    meth NAME(...) { ... }
+
+ func  - Declare named lexical function
+
+    func NAME(...) { ... }
+    Same as: lex NAME = { args ...; ... }
+    
+ sym   - Declare package symbol(s)
+
+    sym NAME                // symbol NAME, initialized to undef
+    sym NAME = ...          // run-time initialized symbol NAME
+    sym NAME( ... )         // parse-time initialized symbol NAME
+    sym NAME, NAME1, NAME2  // Multiple symbols
+    sym NAME, NAME1(...),   // Multiple symbols, one is parse-time initialized
+    // Typed symbols cannot be undef unless 'maybe' keyword is used.
+    sym TYPE NAME = ...     // Typed symbol NAME, run-time initialized
+    sym TYPE NAME( ... )    // Typed symbol NAME, parse-time initialized
+
+ lex   - Declare lexical symbol(s)
+
+    Same usage as 'sym'
+
+ state - Declare a lexical state variable (initialized only once)
+
+    Same usage as 'sym'
+
+ maybe - Prefix when declaring typed symbols, without this symbols cannot be
+         undefined/null
+
+    maybe sym/lex/state TYPE NAME         // declare symbol NAME of type TYPE
+                                          // initialized to undef
+    maybe sym/lex/state TYPE NAME = ...   // declare symbol NAME of type TYPE
+                                          // initialized at run-time
+    maybe sym/lex/state TYPE NAME( ... )  // declare symbol NAME of type TYPE
+                                          // initialized at parse-time
+==== Flow Control ====
+
+These are all keywords. If they start a statement then the keyword simply
+replaces itself with the function-form. If they are encountered partway through
+a statement they are used to make the left side of the statement conditional
+upon the right side. 
+
+ if
+ unless
+ while
+ for
+ until
+
+    do_this if condition
+    do_this unless condition
+    do_this while condition
+    do_this until condition
+    do_this for items
+

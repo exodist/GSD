@@ -76,6 +76,7 @@ dictionary type should use the override when the method is resolved.
                in limited ways, this is primarily useful for looking up caller and
                such.
  * Sub       - A subroutine...
+ * Sigil     - A subroutine that takes exactly one argument, used literally in double-qoutes
  * Keyword   - A subroutine that gets called when encountered by the parser
  * Operator  - A subroutine that takes left and right arguments
  * Parser    - A handle to the parser object, useful for keywords and operators
@@ -260,9 +261,9 @@ declared, but undefined.
     capture
     eval
     load    - Load a package
+ * Keywords:
     import  - Bring in symbols from a package, load if necessary
     use     - Have a package act upon the current package, load if necessary
- * Keywords:
     maybe - Prefix when declaring symbols, without this symbols cannot be undef
     sub   - Declare named package subroutine
     meth  - Declare named type subroutine (only works in type or role declaration)
