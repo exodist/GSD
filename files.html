@@ -1,0 +1,107 @@
+<dl class="listnav">
+    <dt id="modules">Modules</dt>
+    <dd>
+        A GSD module represents a single namespace (also called a package).
+        Installed modules will be stored in tar.gz files that contain all the
+        files related to the module. Only one namespace can be defined in a
+        module.
+        <p>
+
+        Module tarballs must include the version number in their filename. In
+        GSD version numbers are always 3 numbers seperated by period.
+        <p>
+
+        Module tarballs are placed in the library path (example /usr/lib/gsd).
+        When a module namespace has multiple parts, each part except the last
+        is a subdir, the last part is the tarball name.
+
+        <pre class="example">
+    Foo::Bar::Baz - libdir/Foo/Bar/Baz.5.2.36.tgz
+        </pre>
+
+        <p>
+        For development purposes a dev_lib may be specified, module loading
+        always checks the dev_lib first, and the modules are expected to be
+        extracted, not in tgz form.
+    </dd>
+
+    <dt id="package">Packages</dt>
+    <dd>
+        In GSD a package is a namespace. A namespace is essentially a
+        collection of named symbols, under the hood it is a dictionary or hash
+        table. Any type of symbol may be defined within a package.
+        <p>
+        Unlike perl, a package does not double as a class. In GSD you can
+        define custom types, a package may have any number of types defined
+        within it. GSD uses the term 'type' instead of 'class'.
+        <p>
+        A package path and filename must match the package name, and have the
+        .gsd extension.
+        <pre class="example">
+    Foo::Bar::Baz - devlib/Foo/Bar/Baz.gsd
+        </pre>
+        <p>
+        A package can be split into multiple include files. Include files can
+        only belong to one package. Include files go into a subdir with the
+        name of the package, and must end in .gsi. Each include file must
+        define exactly 1 symbol for the package. The filename of the include
+        file must be the symbol name.
+
+        <pre class="example">
+    devlib/Foo/Bar/
+        Baz.gsd
+        Baz/
+            do_this.gsi
+            do_that.gsi
+            my_type.gsi
+        </pre>
+
+        Include files are loaded automatically when the symbol they define is
+        needed. However when the module is loaded a list of available include
+        files is obtained, this way it is possible to check if a package has a
+        symbol, even if it has not yet been loaded.
+
+        <p>
+
+        When a package is turned into a .tgz this directory structure must be
+        preserved.
+    </dd>
+
+    <dt id="programs">Programs</dt>
+    <dd>
+        When possible a gsd program should not have an extension, instead the
+        #! line should be used. If you are on a system where #! is not used, or
+        if you feel compelled to use an extention, .gsp should be used.
+        <p>
+        There are no restrictions on where a GSD program should live.
+        <p>
+        GSD program files consist of a #! line, a header, and then a body. The
+        #! line must be the first line. The header comes after the #! line (no
+        empty lines between the #! and the header). Each line of the header
+        should be a key/vaue pair seperated by a colon. Leading whitespace is
+        stripped from header values. Header keys are not case-sensitive. The
+        header and body are seperated by 1 or more empty lines.
+        <p>
+        These headers are manditory:
+        <dl>
+            <dt>version</dt>
+            <dd>Version of the program</dd>
+            <dt>name</dt>
+            <dd>Name of the program</dd>
+            <dt>gsd version</dt>
+            <dd>Minimum GSD version necessary to run the program</dd>
+        </dl>
+
+        <p>
+
+        Example:
+        <pre style="example">
+    #!/usr/bin/gsd
+    name:    My Program
+    version: 1.2.3
+    gsd version: 0.0.1
+
+    ...GSD CODE GOES HERE...
+        </pre>
+    </dd>
+</dl>

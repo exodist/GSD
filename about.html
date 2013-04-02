@@ -1,0 +1,84 @@
+<dl class="listnav">
+    <dt id="concept">Concept</dt>
+    <dd>
+        GSD was concieved to be a language in the spirit of perl. The idea is
+        to make a new language that carries over the good things from perl5,
+        but also improves things that are not ideal in perl5. This is similar
+        to the idea behind perl6, the main difference being that GSD should
+        have a very small and simple core. We intend to focus on writing a
+        small core that makes anything possible, without actually trying to
+        implement EVERYTHING in core.
+
+        <h3>On Perl5</h3>
+        There is a lot that Perl5 does right, it is a very successful language.
+        However Perl5 is in many ways stuck in the past. There are many things
+        in Perl5 that are just tacked on, such as OOP. There are many things
+        taken for granted in most modern languages that just aren't there in
+        perl.
+
+        <h3>On Perl6</h3>
+        Perl6 is to perl5 as C++ is to C. Those that know me will understand
+        that this is not a compliment. Perl6 is huge, too big for most people
+        to understand more than a fraction of it. This size and complexity has
+        contributed to the fact that after any years there is still not a truly
+        useful Perl6 implementation. In fact at the time of this writing, the
+        spec is not even complete.
+
+        <h3> On GSD </h3>
+        With GSD the goal is the focus on writing a language that enabled
+        developers. A language that can be extended as necessary using 3rd
+        party modules. To this end GSD will support custom syntax through
+        definable keywords. The language will also have a few simple rules for
+        how it is parsed.
+
+        The GSD specification should be small enough that a single developer,
+        or small group could implement it in a reasonable time frame. Extended
+        features and capabilities should be created as third party modules.
+
+        GSD is not an implementation of perl, existing perl code will not run
+        in GSD.  However the structure of GSD should be such that perl concepts
+        can be mapped to it, potentially opening the door for a perl5
+        implementation within GSD.
+    <dd>
+
+    <dt id="focus">Focus</dt>
+    <dd>
+        GSD <b>MUST</b> focus on the following if it is truly to be a modern language, and a
+        successor to perl.
+
+        <ul>
+            <li>Concurrency and Parallelism</li>
+            <li>Support for many paradigms: OOP, Functional, Imperetive, DCI</li>
+            <li>Parsing hooks (Think perl5's Devel::Declare, but not as a hack)</li>
+            <li>Full unicode support</li>
+            <li>Consistent versioning of core and modules</li>
+            <li>Try to maintain the spirit of perl5, but fix things that need fixing.</li>
+            <li>Better way to interface with system code, XS doesn't cut it.</li>
+            <li>Cononical spec that allows for multiple implementations.</li>
+            <li>Removal of ambiguity. Example: '{}' is this a function, or a hashref?</li>
+        </ul>
+    </dd>
+
+    <dt id="libraries">Libraries</dt>
+    <dd>
+        <b>Core Library:</b><br>
+        This is the specification that every GSD
+        implementation must provide. This should be small; Things should only
+        be added to core when necesary to introduce new capabilities. If
+        something can be done as a module, it should be done as a module.
+
+        <p>
+
+        <b>Standard Library:</b><br>
+        This is a collection of modules that the core
+        developers have decided to adopt. Any distribution of GSD should
+        include these modules.
+
+        <p>
+
+        <b>Community Library:</b><br>
+        This is a collection of modules assembled by
+        the community, Core developers do not have exclusive control of what
+        makes it into this library.
+    </dd>
+</dl>

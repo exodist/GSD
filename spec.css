@@ -1,0 +1,171 @@
+body {
+}
+
+h1 {
+    margin-left: 20px;
+    margin-bottom: 0px;
+}
+
+ul#navigation {
+    list-style: none;
+    margin: 0;
+    padding: 0px;
+    display: block;
+    margin-left: 70px;
+    padding-left: 20px;
+    padding-right: 20px;
+    height: 20px;
+    display: block;
+    float: left;
+    clear: both;
+    margin-bottom: 4px;
+    border-bottom: 2px solid green;
+    border-radius: 10px;
+    padding-bottom: 2px;
+}
+
+ul#navigation li {
+    float: left;
+    margin-left: 10px;
+    margin-right: 10px;
+    display: block;
+    vertical-align: middle;
+}
+
+ul#navigation li a,
+ul#navigation li a:link,
+ul#navigation li a:visited,
+ul#navigation li a:active {
+    text-decoration: none;
+    color: blue;
+    vertical-align: middle;
+    padding-left: 3px;
+    padding-right: 3px;
+}
+
+ul#navigation li a:hover {
+    border-top: 1px solid blue;
+    border-bottom: 1px solid blue;
+    border-radius: 5px;
+    background: #EAFBFF;
+}
+
+ul#navigation li.active a,
+ul#navigation li.active a:link,
+ul#navigation li.active a:active,
+ul#navigation li.active a:visited,
+ul#navigation li.active a:hover {
+    font-weight: bold;
+    border: none;
+    color: blue;
+    background: inherit;
+}
+
+div#content {
+    margin-top: 20px;
+    width: 1024px;
+    min-height: 350px;
+    border-top: 3px solid black;
+    border-bottom: 3px solid black;
+    border-radius: 10px;
+    padding: 14px;
+    clear: both;
+    overflow: hidden;
+}
+
+div#copyright {
+    text-align: right;
+    font-size: small;
+    width: 1024px;
+    display: block;
+}
+
+div#small_title {
+    font-size: smaller;
+    margin-left: 75px;
+    margin-bottom: 20px;
+    margin-top: -8px;
+}
+
+ul.listnav {
+    border-top: 3px solid;
+    border-bottom: 3px solid;
+    border-color: #33AAAA;
+    border-radius: 10px;
+
+    display: block;
+    float: left;
+
+    padding: 0px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    margin-right: -120px;
+    width: 114px;
+    
+    list-style: none;
+
+    text-align: center;
+
+    clear: left;
+    overflow: hidden;
+}
+
+ul.listnav li {
+    padding-top: 2px;
+    padding-bottom: 2px;
+    display: block;
+}
+
+ul.listnav li a,
+ul.listnav li a:link,
+ul.listnav li a:visited,
+ul.listnav li a:active {
+    display: block;
+    color: blue;
+    text-decoration: none;
+    vertical-align: middle;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-bottom: 1px;
+    padding-top: 1px;
+    width: auto;
+}
+
+ul.listnav li a:hover {
+    border-top: 1px solid green;
+    border-bottom: 1px solid green;
+    border-radius: 4px;
+    padding-bottom: 0px;
+    padding-top: 0px;
+    background: #EEFFFF;
+}
+
+ul.listnav li.active a,
+ul.listnav li.active a:hover {
+    font-weight: bold;
+    border: none;
+    padding-bottom: 1px;
+    padding-top: 1px;
+    background: inherit;
+}
+
+div.listview {
+    display: block;
+    float: left;
+
+    border-radius: 10px;
+    border: 1px dotted;
+    border-top: 3px solid;
+    border-bottom: 3px solid;
+    border-color: #33AAFF;
+    width: 860px;
+
+    clear: right;
+
+    min-height: 350px;
+    padding: 14px;
+
+    margin-left: 130px;
+}
+
+
