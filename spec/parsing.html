@@ -1,0 +1,142 @@
+<dl class="listnav">
+    <dt id="syntax">Syntax</dt>
+    <dd>
+
+        GSD has a handful of simple syntax rules. All GSD syntax is derived
+        from these rules, and keywords that can take control of the parser.
+        <p>
+        Rules:
+        <ul>
+            <li>whitespace seperates tokens</li>
+            <li>Any non-control ascii and unicode character is valid in a token name</li>
+            <li>underscore '_' counts as alphanumeric</li>
+            <li>Everything is a variable-symbol, even keywords and operators</li>
+            <li>
+                If the parser encounters a token that maps to an already
+                defined symbol of the 'keyword' type, it should immedietly
+                'call' the keyword which will take control of the parser
+                temporarily.
+            </li>
+            <li>
+                Any non-alphanumeric symbol must be defined before it is
+                encountered by the parser, and must be either an operator
+                (function that has an argument on either side), a keyword
+                (which hooks into the parser to define syntax), or a sigil
+                (operator that takes one argument).
+            </li>
+            <li>
+                Alphanumeric symbols may be any type, and do not need to be
+                defined at parse-time. (Note: using a keyword at run-time is an
+                error)
+            </li>
+            <li>
+                Transition between symbolic and alphanumeric seperates tokens,
+                that is 'foo++bar' is 3 tokens 'foo', '++', 'bar'
+            </li>
+            <li>A token starting with a number is a numeric literal</li>
+            <li>A token may be alphanumeric, or symbols, not both</li>
+            <li>Statements are seperated by newlines and/or semicolons</li>
+            <li>
+                A statement can be extended to multiple lines by ending it with
+                an operator, or starting the next line with an operator.
+            </li>
+            <li>
+                A keyword, as it has control of the parser, can also consume
+                any number of lines into a single statement.
+            </li>
+            <li>
+                A statement consisting of only 1 symbol will call that symbol
+                as a function without arguments.
+            </li>
+            <li>
+                Unlike perl, sigils do not denote variables or types.
+                <p>
+                Sigils are in fact generic operators that only take
+                one argument, to the right. For example '$foo' calls
+                the 'to_string' method on 'foo'.
+                <p>
+                Sigils have two main uses, to cast/convert a symbol, and
+                double-quotes recognize them.
+            </li>
+            <li>
+                When a non-operator, non-keyword symbol is followed by
+                whitespace, and then another symbol that is not an operator or
+                keyword, this is a function call. The first symbol is called
+                with the second as an argument.
+                <p>
+                <pre class="example">
+            foo bar
+                </pre>
+                This calls 'foo' as a function, with 'bar' as the only
+                argument.
+            </li>
+        </ul>
+    </dd>
+
+    <dt id="keywords">Keywords</dt>
+    <dd>
+        A keyword must be defined before the parser encounters it if it is to
+        be useful. Since keywords are run at parse-time they can be used to
+        define or import more keywords before the parser moves on. See the core
+        library for a list of pre-defined keywords.
+        <p>
+
+        A keyword is code that is run by the parser, with a 'parser' object as
+        an argument. They keyword has the ability to read source from where it
+        is encountered onward character by character.
+        <p>
+
+        The keyword can manipulate the token array within the parser. It can
+        remove itself, look at, grab, or remove tokens that came before it, and
+        add new tokens to the end of the array.
+        <p>
+
+        Keywords are essentially GSD's answer to perls 'BEGIN' and perls
+        keywords like 'use' which run when they are encountered. GSD can
+        implement perls 'BEGIN' as a keyword.
+    </dd>
+
+    <dt id="operators">Operators</dt>
+    <dd>
+        Operators are bound early, as such they must be defined before the
+        parser encounters them. alphanumeric symbols may be operators, but do
+        not need to be. Non-alphanumeric symbols must be an operator, or a
+        keyword.
+        <p>
+        Operators are functions that take 2 arguments, one from the left, the
+        other from the right. Operators have a precedence that defines the
+        order in which they are executed. 
+        <p>
+        Precedence is handled by category. There are several operator
+        categories, and an operator must select one. Each category has a
+        specific location in an order-list, this defines their order. A
+        category may be right to left, or left to right, this determies the
+        order when multiple operators of the same category are contained within
+        a statement.
+    </dd>
+
+    <dt id="sigils">Sigils</dt>
+    <dd>
+        Sigils are similar to operators, except that they must be
+        non-alphanumeric. A sigil takes only one argument. Sigils are generally
+        used for enforcing a specific conversion, such as to string, or to
+        number.
+        <p>
+        Double quotes "" are sigil-aware, if they encounter an unescaped
+        non-alphanumeric character sequence that is defined as a sigil, it will
+        interpolate it within the string. When a sigil is used in double
+        quotes, the alphanumeric text to its right must define a symbol. A
+        semicolon or space can be used to terminate the symbol name.
+        <p>
+        
+        Example: "foo <b>$bar</b> baz" or "foo <b>$bar;</b>baz bat"
+    </dd>
+
+    <dt id="literals">Literals</dt>
+    <dd>
+        Any token starting with a number-character (ascii or unicode) is
+        treated as a numeric literal. Exactly how numeric literals look is yet
+        to be defined.
+    </dd>
+</dl>
+
