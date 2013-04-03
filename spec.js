@@ -3,7 +3,7 @@ $( function() {
         var item = $(this)
 
         $('#subnav ul').empty();
-        $('ul.second_subnav').hide();
+        $('ul.second_subnav').detach();
         $('#view').empty();
 
         jQuery.ajax(
