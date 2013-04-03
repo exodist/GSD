@@ -87,6 +87,16 @@ div#small_title {
     margin-top: -8px;
 }
 
+div#subnav {
+    padding: 0px;
+    margin: 0;
+    width: 120px;
+    overflow: hidden;
+    float: left;
+    display: block;
+    margin-right: -120px;
+}
+
 ul.listnav {
     border-top: 3px solid;
     border-bottom: 3px solid;
@@ -94,7 +104,6 @@ ul.listnav {
     border-radius: 10px;
 
     display: block;
-    float: left;
 
     padding: 0px;
     padding-top: 12px;
@@ -149,7 +158,7 @@ ul.listnav li.active a:hover {
     background: inherit;
 }
 
-div.listview {
+div#view {
     display: block;
     float: left;
 
@@ -168,4 +177,46 @@ div.listview {
     margin-left: 130px;
 }
 
+table.symbol_list {
+    border-spacing: 0px;
+    width: 100%;
+}
 
+table.symbol_list th {
+    text-align: left;
+    padding-left: 12px;
+}
+
+table.symbol_list tr.symbol td {
+    padding-left: 6px;
+    padding-right: 6px;
+    padding-top: 8px;
+    padding-bottom: 5px;
+}
+
+table.symbol_list tr.symbol td.left {
+    border-top-left-radius:10px;
+    border-bottom-left-radius:10px;
+    border-bottom: 1px solid;
+    border-color: #33AAAA;
+}
+
+table.symbol_list tr.symbol td.right {
+    border-top-right-radius:10px;
+    border-bottom: 1px solid;
+    border-color: #33AAAA;
+    width: 90%;
+}
+
+table.symbol_list tr.symbol.open td {
+    border-top: 2px solid green;
+    border-bottom: 1px dotted #66EEEE;
+    padding-top: 6px;
+    padding-bottom: 3px;
+}
+
+table.symbol_list tr.symbol_details td {
+    border-radius: 10px;
+    border-bottom: 2px solid green;
+    padding: 6px;
+}

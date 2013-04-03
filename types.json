@@ -1,0 +1,38 @@
+{
+    "mytypea": {
+        "name": "MyTypeA",
+        "desc": "MyTypeA desc",
+        "roles": [
+            "Callable",
+            "Keystore"
+        ],
+        "attributes": {
+            "some_attr_a": {
+                "name": "some_attr_a",
+                "desc": "The a attribute",
+                "details": "These are the 'a' attributes details"
+            },
+            "foo": {
+                "name": "Foo",
+                "desc": "Its a 'foo'",
+                "details": "Foo details"
+            }
+        },
+        "methods": {
+            "some_method": {
+                "name": "some_method",
+                "desc": "Its a method",
+                "details": "Details of the method"
+            },
+            "foo": {
+                "name": "Foo",
+                "desc": "Its a 'foo'",
+                "details": "Foo details"
+            }
+        }
+    },
+    "mytypeb": {
+        "name": "MyTypeB",
+        "desc": "Type B Description"
+    }
+}
