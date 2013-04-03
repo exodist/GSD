@@ -65,12 +65,8 @@ function build_content( data ) {
                 subnav.children().removeClass( 'active' );
                 navitem.addClass( 'active' );
                 viewitem.show();
-                $('ul#SN-' + id).each( function() {
-                    $(this).show();
-                    var hnav = window.location.hash.split('-');
-                    console.log( $(this).find( '#' + hnav[2] ) );
-                    $(this).find( '#' + hnav[2] ).trigger( 'click' );
-                });
+                $('ul#SN-' + id).show();
+                $('ul#SN-' + id).children().removeClass('active');
             });
 
             subnav.append( navitem );
@@ -79,6 +75,12 @@ function build_content( data ) {
 
         if ( nav[1] ) {
             $( '#' + nav[1] ).trigger( 'click' );
+            $('ul#SN-' + nav[1]).each( function() {
+                $(this).show();
+                if ( nav[2] ) {
+                    $(this).find( '#' + nav[2] ).trigger( 'click' );
+                }
+            });
         }
         else {
             subnav.children().first().trigger( 'click' );
@@ -111,7 +113,8 @@ function process( id, container ) {
                 async: false,
                 dataType: 'json',
                 success: function( data ) {
-                    list.replaceWith( build_sub_list( id, data ));
+                    list.detach();
+                    build_sub_list( id, data );
                 },
                 error: function(blah, message1, message2) {
                     $('#view').append( '<div class="error">Error loading ' + list.attr( 'src' ) + '</div>' )
