@@ -1,0 +1,12 @@
+{
+    "p5regex": {
+        "name": "P5Regex",
+        "desc": "Perl5 Compatable Regexes",
+        "details": "Operators, keywords, and types for perl5 compatible regular expressions."
+    },
+    "p6grammars": {
+        "name": "P6Grammars",
+        "desc": "Perl6 Style Grammars",
+        "details": "Operators, keywords, and types for perl6 style grammars."
+    }
+}

@@ -199,6 +199,9 @@ table.symbol_list tr.symbol td.left {
     border-bottom-left-radius:10px;
     border-bottom: 1px solid;
     border-color: #33AAAA;
+
+    font-weight: bold;
+    border-right: 1px dotted #E0E0E0;
 }
 
 table.symbol_list tr.symbol td.right {
