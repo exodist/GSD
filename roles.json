@@ -20,7 +20,48 @@
     },
     "Index": {
         "desc": "Role for types that are indexable and can use array-index operators",
-        "details": "N/A"
+        "details": "N/A",
+        "requires": {
+            "get_index": {
+                "desc": "Get the value for a key",
+                "details": "Gets the value for a key if it exists. Returns undef if the key is not present.",
+                "usage": [ "lex val = obj.get_index 'my_key'" ]
+            },
+            "set_index": {
+                "desc": "Set the value for a key",
+                "details": "Required by the 'Index' role. Sets the value for a key, inserting the key if necessary."
+            },
+            "exists": {
+                "desc": "Check if a key exists",
+                "details": "Returns true if all the keys exist, can take any number of keys."
+            },
+            "delete": {
+                "desc": "Remove the value from the key",
+                "details": "Remove the value associated with the specified key. The key remains in the dictionary. If the reference is shared with other dictionaries they will also still have the key with no value."
+            }
+        }
+    },
+    "Iterable": {
+        "requires": {
+            "iterator": {
+                "desc": "Must return an object that implements the 'Iterator' role"
+            }
+        },
+        "methods": {
+            "each": {
+                "desc": "Runs a subroutine for each item",
+                "details": "The subroutine provided as an argument is run once for each item in the structure. 'item' must ALWAYS be a graph, when the structure has both keys and values the graph will have a key and a value, if it only has values then the graph key will be undef.<p>Note: the iterator returned by the iterator method is used, you can override 'each' if you like.",
+                "usage": [ "obj.each { ...item... }" ]
+            }
+        }
+    },
+    "Iterator": {
+        "requires": {
+            "first": {},
+            "last": {},
+            "next": {},
+            "prev": {}
+        }
     },
     "Queue": {
         "requires": {
@@ -31,11 +72,40 @@
             "shift": {
             },
             "unshift": {
-            },
-            "each": {
             }
         }
     },
     "Refcounted": { },
-    "ScalarCast": { }
+    "ScalarCast": {
+        "requires": {
+            "to_integer": {
+                "desc": "Returns the Integer value"
+            },
+            "to_decimal": {
+                "desc": "Returns the Decimal value"
+            },
+            "to_string": {
+                "desc": "Returns the String value"
+            }
+        }
+    },
+    "Sequence": {
+        "roles": [ "Index" ],
+        "requires": {
+            "get_upper_value": {
+                "desc": "Get the value from the highest integer index, if an argument is provided use it as an offset."
+            },
+            "get_lower_value": {
+                "desc": "Get the value from the lowest integer index, if an argument is provided use it as an offset."
+            },
+            "upper_int_index": {
+                "desc": "Get the largest integer index within the dictionary",
+                "details": ""
+            },
+            "lower_int_index": {
+                "desc": "Get the smallest integer index within the dictionary",
+                "details": ""
+            }
+        }
+    }
 }

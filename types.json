@@ -1,25 +1,30 @@
 {
+    "Array": {
+        "desc": "An array, a sequence of values with integer indexes",
+        "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
+        "details": ""
+    },
     "Decimal": {
         "desc": "Represents a floating point number. Generally a double under the hood",
         "roles": [ "ScalarCast" ],
         "methods": {
-            "cast_integer": {
+            "to_integer": {
                 "desc": "Returns the Integer value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_decimal": {
+            "to_decimal": {
                 "desc": "Returns the Decimal value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_string": {
+            "to_string": {
                 "desc": "Returns the String value",
                 "details": "required by the 'ScalarCast' role"
             }
         }
     },
     "Dict": {
-        "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without casting it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
-        "roles": [ "Index", "Queue", "Chainable" ],
+        "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without toing it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
+        "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
         "methods": {
             "get_index": {
                 "desc": "Get the value for a key",
@@ -35,7 +40,7 @@
                 "details": "Returns true if all the keys exist, can take any number of keys."
             },
             "delete": {
-                "desc": "Remove the value from the key (keeps key)",
+                "desc": "Remove the value from the key (keeps reference)",
                 "details": "Remove the value associated with the specified key. The key remains in the dictionary. If the reference is shared with other dictionaries they will also still have the key with no value."
             },
             "dereference": {
@@ -72,7 +77,7 @@
             },
             "each": {
                 "desc": "Iterate over each key/value pair",
-                "details": "<span style='example'>dictA.each {... this.key ... this.value ...}</span><br /> the 'this' symbol is a graph with the key and value of the current pair. The method takes a subroutine as an argument."
+                "details": "<span style='example'>dictA.each {... item.key ... item.value ...}</span><br /> the 'item' symbol is a graph with the key and value of the current pair. The method takes a subroutine as an argument."
             },
             "keys": {
                 "desc": "Returns a new integer indexed dictionary where values are the keys of the first dictionary",
@@ -81,6 +86,12 @@
             "values": {
                 "desc": "Returns a new integer indexed dictionary where values are the values of the first dictionary",
                 "details": "Values of the first dictionary are used as values of the new dictionary, but all keys are sequencial integers in the new dictionary."
+            },
+            "get_upper_value": {
+                "desc": "Get the value from the highest integer index, if an argument is provided use it as an offset."
+            },
+            "get_lower_value": {
+                "desc": "Get the value from the lowest integer index, if an argument is provided use it as an offset."
             },
             "upper_int_index": {
                 "desc": "Get the largest integer index within the dictionary",
@@ -114,15 +125,15 @@
         "desc": "Represents a signed 64-bit integer number",
         "roles": [ "ScalarCast" ],
         "methods": {
-            "cast_integer": {
+            "to_integer": {
                 "desc": "Returns the Integer value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_decimal": {
+            "to_decimal": {
                 "desc": "Returns the Decimal value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_string": {
+            "to_string": {
                 "desc": "Returns the String value",
                 "details": "required by the 'ScalarCast' role"
             }
@@ -168,6 +179,9 @@
     "Undef": {
     },
     "Object": {
+        "methods":{
+            "type": {},
+        }
     },
     "Operator": {
     },
@@ -181,15 +195,15 @@
         "desc": "Represents a value that is automatically converted between String, Decimal, and Integer as required. Numeric literals and quotes are created as scalars by default.",
         "roles": [ "ScalarCast" ],
         "methods": {
-            "cast_integer": {
+            "to_integer": {
                 "desc": "Returns the Integer value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_decimal": {
+            "to_decimal": {
                 "desc": "Returns the Decimal value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_string": {
+            "to_string": {
                 "desc": "Returns the String value",
                 "details": "required by the 'ScalarCast' role"
             }
@@ -203,15 +217,15 @@
         "desc": "Represents a string of unicode characters",
         "roles": [ "ScalarCast" ],
         "methods": {
-            "cast_integer": {
+            "to_integer": {
                 "desc": "Returns the Integer value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_decimal": {
+            "to_decimal": {
                 "desc": "Returns the Decimal value",
                 "details": "required by the 'ScalarCast' role"
             },
-            "cast_string": {
+            "to_string": {
                 "desc": "Returns the String value",
                 "details": "required by the 'ScalarCast' role"
             }
@@ -223,7 +237,13 @@
     "Thread": {
     },
     "Type": { 
-        "roles": [ "Callable" ]
+        "roles": [ "Callable" ],
+        "methods": {
+            "has": {},
+            "can": {},
+            "isa": {},
+            "does": {}
+        }
     }
 }
 
