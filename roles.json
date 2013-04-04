@@ -1,12 +1,41 @@
 {
-    "foo": {
-        "name": "Foo",
-        "desc": "This is foo",
-        "details": "foo bar baz bat baz"
+    "Callable": {
+        "desc": "Role for things that can be treated like subroutines (subroutines also fullfill this role, but the call method is ignored for them).",
+        "methods": {
+            "call": {
+                "desc": "How to treat the instance as a subroutine",
+                "details": "This is what actually gets run when an instance of a callable object is called as a subroutine."
+            }
+        }
     },
-    "bar": {
-        "name": "Foo",
-        "desc": "This is foo",
-        "details": "foo bar baz bat baz"
-    }
+    "Chainable": {
+        "desc": "Role for types that can be members of an assembly line. An assembly line is a construct where you have multiple functions, input goes into the first for some work, is passed throught he chain, and eventually the result is returned by the last item in the chain, much like unix-shell pipes.",
+        "requires": {
+            "send": {
+                "desc": "Used to add items to be processed",
+                "details": "",
+                "usage": [ "obj.push item => remaining_chain_graph" ]
+            }
+        }
+    },
+    "Index": {
+        "desc": "Role for types that are indexable and can use array-index operators",
+        "details": "N/A"
+    },
+    "Queue": {
+        "requires": {
+            "push": {
+            },
+            "pop": {
+            },
+            "shift": {
+            },
+            "unshift": {
+            },
+            "each": {
+            }
+        }
+    },
+    "Refcounted": { },
+    "ScalarCast": { }
 }

@@ -1,38 +1,230 @@
 {
-    "mytypea": {
-        "name": "MyTypeA",
-        "desc": "MyTypeA desc",
-        "roles": [
-            "Callable",
-            "Keystore"
-        ],
-        "attributes": {
-            "some_attr_a": {
-                "name": "some_attr_a",
-                "desc": "The a attribute",
-                "details": "These are the 'a' attributes details"
-            },
-            "foo": {
-                "name": "Foo",
-                "desc": "Its a 'foo'",
-                "details": "Foo details"
-            }
-        },
+    "Decimal": {
+        "desc": "Represents a floating point number. Generally a double under the hood",
+        "roles": [ "ScalarCast" ],
         "methods": {
-            "some_method": {
-                "name": "some_method",
-                "desc": "Its a method",
-                "details": "Details of the method"
+            "cast_integer": {
+                "desc": "Returns the Integer value",
+                "details": "required by the 'ScalarCast' role"
             },
-            "foo": {
-                "name": "Foo",
-                "desc": "Its a 'foo'",
-                "details": "Foo details"
+            "cast_decimal": {
+                "desc": "Returns the Decimal value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_string": {
+                "desc": "Returns the String value",
+                "details": "required by the 'ScalarCast' role"
             }
         }
     },
-    "mytypeb": {
-        "name": "MyTypeB",
-        "desc": "Type B Description"
+    "Dict": {
+        "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without casting it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
+        "roles": [ "Index", "Queue", "Chainable" ],
+        "methods": {
+            "get_index": {
+                "desc": "Get the value for a key",
+                "details": "Required by the 'Index' role. Gets the value for a key if it exists. Returns undef if the key is not present.",
+                "usage": [ "lex val = ADict.get_index 'my_key'" ]
+            },
+            "set_index": {
+                "desc": "Set the value for a key",
+                "details": "Required by the 'Index' role. Sets the value for a key, inserting the key if necessary."
+            },
+            "exists": {
+                "desc": "Check if a key exists",
+                "details": "Returns true if all the keys exist, can take any number of keys."
+            },
+            "delete": {
+                "desc": "Remove the value from the key (keeps key)",
+                "details": "Remove the value associated with the specified key. The key remains in the dictionary. If the reference is shared with other dictionaries they will also still have the key with no value."
+            },
+            "dereference": {
+                "desc": "Remove the key from the dictionary",
+                "details": "This removes the key reference in the dictionary. Neither the key nor the value remain."
+            },
+            "reference": {
+                "desc": "Make a reference between 2 dictionaries",
+                "details": "<span style='example'>dictA.reference 'mykey', dictB, 'bkey';</span><br/>This links the 'mykey' in dictA to the 'bkey' key in dictB. Updating the value of mykey in dictA updates 'bkey' in dictB, and vice-versa. Deleting the value for one also deletes the other."
+            },
+            "insert": {
+                "desc": "Insert a new key, fails if key exists",
+                "details": "Set the value for a key in the dictionary, but only if the key does not exist. If two threads insert the same key at the same time one will succeed and the other will fail. Returns true on seccess, false on failure."
+            },
+            "update": {
+                "desc": "Set the value of an existing key, fails if key does not exist",
+                "details": "The opposite of insert, updates the value, but only for existing keys."
+            },
+            "push": {
+                "desc": "Insert a value with an automatically assigned integer key larger than the current largest",
+                "details": "The key will be an integer. The key is guarenteed to be larger than the current largest key. If two threads call this they will each use a different key, though order between the two is not predictable. Keys may be non-sequencial: 1, 5, 12, etc.."
+            },
+            "pop": {
+                "desc": "Dereference the largest integer key returning its value.",
+                "details": "Get the value of the largest integer key, remove the key from the dictionary."
+            },
+            "shift": {
+                "desc": "Insert a value with an automatically assigned integer key smaller than the current smallest",
+                "details": "The key will be an integer. The key is guarenteed to be smaller than the current smallest integer key, and may be 0 or negative."
+            },
+            "unshift": {
+                "desc": "Dereference the smallest integer key returning its value.",
+                "details": "Get the value of the smallest integer key, remove the key from the dictionary."
+            },
+            "each": {
+                "desc": "Iterate over each key/value pair",
+                "details": "<span style='example'>dictA.each {... this.key ... this.value ...}</span><br /> the 'this' symbol is a graph with the key and value of the current pair. The method takes a subroutine as an argument."
+            },
+            "keys": {
+                "desc": "Returns a new integer indexed dictionary where values are the keys of the first dictionary",
+                "details": "Keys from the first dictionary are used as values in a new dictionary that is returned. The keys of the new dictionary will be sequencial integers. No sorting is done."
+            },
+            "values": {
+                "desc": "Returns a new integer indexed dictionary where values are the values of the first dictionary",
+                "details": "Values of the first dictionary are used as values of the new dictionary, but all keys are sequencial integers in the new dictionary."
+            },
+            "upper_int_index": {
+                "desc": "Get the largest integer index within the dictionary",
+                "details": ""
+            },
+            "lower_int_index": {
+                "desc": "Get the smallest integer index within the dictionary",
+                "details": ""
+            },
+            "send": {
+                "desc": "Required by the 'Chainable' role, allows Dict to be at the end of a chain.",
+                "details": "This is used when chaning operations, it allows the dictionary to store the results from the chain. Operations will throw an exception if the items recieved have remaining chain graphs.",
+                "usage": [ "dictA.send( item => undef, ... )" ]
+            }
+        }
+    },
+    "Graph": {
+        "desc": "The Graph type represents a key/value pair. It is used frequently with dictionary types, both in iteration and construction.",
+        "methods": {
+            "key": {
+                "desc": "Get the object acting as the key",
+                "details": ""
+            },
+            "value": {
+                "desc": "Get the object acting as the value",
+                "details": ""
+            }
+        }
+    },
+    "Integer": {
+        "desc": "Represents a signed 64-bit integer number",
+        "roles": [ "ScalarCast" ],
+        "methods": {
+            "cast_integer": {
+                "desc": "Returns the Integer value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_decimal": {
+                "desc": "Returns the Decimal value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_string": {
+                "desc": "Returns the String value",
+                "details": "required by the 'ScalarCast' role"
+            }
+        }
+    },
+    "Internal": {
+        "desc": "Represents an internal function, for example a c function or system function. This is GSD's answer to XS. The unfortunate bit is that modules that make use of these will need a seperate implemenation for each GSD implementation they intend to support.",
+        "roles": [ "Callable" ]
+    },
+    "IO": {
+        "roles": [ "Callable", "Refcounted" ]
+    },
+    "Keyword": {
+    },
+    "Lock": {
+        "desc": "Returned by mutex.lock, represents a lock on a mutex. If the Lock object falls out of scope it is destroyed and the mutex is unlocked.",
+        "roles": [ "Refcounted" ],
+        "attributes": {
+            "mutex": {
+                "desc": "The mutex to which the lock applies"
+            }
+        },
+        "methods": {
+            "DESTROY": {
+                "desc": "Releases the lock on the mutex when the Lock object is collected",
+                "details": ""
+            }
+        }
+    },
+    "Mutex": {
+        "desc": "Thread synchronization",
+        "methods": {
+            "lock": {
+                "desc": "Aquire a lock on the mutex",
+                "details": "If the block argument is true, it will block until the lock can be aquired. Returns a 'Lock' object when successful, if the Lock object falls out of scope the lock is released."
+            },
+            "unlock": {
+                "desc": "Unlock the mutex",
+                "details": "A 'Lock' object must be provided as an argument"
+            }
+        }
+    },
+    "Undef": {
+    },
+    "Object": {
+    },
+    "Operator": {
+    },
+    "Parser": {
+    },
+    "Process": {
+    },
+    "Role": {
+    },
+    "Scalar": {
+        "desc": "Represents a value that is automatically converted between String, Decimal, and Integer as required. Numeric literals and quotes are created as scalars by default.",
+        "roles": [ "ScalarCast" ],
+        "methods": {
+            "cast_integer": {
+                "desc": "Returns the Integer value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_decimal": {
+                "desc": "Returns the Decimal value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_string": {
+                "desc": "Returns the String value",
+                "details": "required by the 'ScalarCast' role"
+            }
+        }
+    },
+    "Sigil": {
+    },
+    "Stackframe": {
+    },
+    "String": {
+        "desc": "Represents a string of unicode characters",
+        "roles": [ "ScalarCast" ],
+        "methods": {
+            "cast_integer": {
+                "desc": "Returns the Integer value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_decimal": {
+                "desc": "Returns the Decimal value",
+                "details": "required by the 'ScalarCast' role"
+            },
+            "cast_string": {
+                "desc": "Returns the String value",
+                "details": "required by the 'ScalarCast' role"
+            }
+        }
+    },
+    "Subroutine": {
+        "roles": [ "Callable" ]
+    },
+    "Thread": {
+    },
+    "Type": { 
+        "roles": [ "Callable" ]
     }
 }
+
+
