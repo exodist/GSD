@@ -61,9 +61,21 @@ ul#navigation li.active a:hover {
     background: inherit;
 }
 
+ul.lineage {
+    list-style: none;
+    overflow: hidden;
+    margin: 0;
+    padding: 0px;
+}
+
+ul.lineage li {
+    float: left;
+    padding-left: 3px;
+    padding-right: 3px;
+}
+
 div#content {
     margin-top: 20px;
-    width: 1024px;
     min-height: 350px;
     border-top: 3px solid black;
     border-bottom: 3px solid black;
@@ -76,7 +88,6 @@ div#content {
 div#copyright {
     text-align: right;
     font-size: small;
-    width: 1024px;
     display: block;
 }
 
@@ -140,6 +151,15 @@ ul.listnav li a:active {
     width: auto;
 }
 
+ul.listnav li.active a {
+    font-weight: bold;
+    padding-bottom: 1px;
+    padding-top: 1px;
+    border-radius: 4px;
+    border-left: 1px solid green;
+    border-right: 1px solid green;
+}
+
 ul.listnav li a:hover {
     border-top: 1px solid green;
     border-bottom: 1px solid green;
@@ -147,15 +167,6 @@ ul.listnav li a:hover {
     padding-bottom: 0px;
     padding-top: 0px;
     background: #EEFFFF;
-}
-
-ul.listnav li.active a,
-ul.listnav li.active a:hover {
-    font-weight: bold;
-    border: none;
-    padding-bottom: 1px;
-    padding-top: 1px;
-    background: inherit;
 }
 
 div#view {
@@ -167,10 +178,11 @@ div#view {
     border-top: 3px solid;
     border-bottom: 3px solid;
     border-color: #33AAFF;
-    width: 860px;
 
     clear: right;
 
+    min-width: 600px;
+    max-width: 1024px;
     min-height: 350px;
     padding: 14px;
 
@@ -223,3 +235,65 @@ table.symbol_list tr.symbol_details td {
     border-bottom: 2px solid green;
     padding: 6px;
 }
+
+h2 {
+    margin: 0;
+    margin-bottom: 8px;
+}
+
+h3 {
+    margin: 0;
+    margin-top: 20px;
+    margin-bottom: 6px;
+    border-top: 1px dotted #DDDDDD;
+}
+
+ul.role_list {
+    list-style: none;
+    display: block;
+    width: 100%;
+    padding: 0px;
+    margin: 0;
+    margin-bottom: 10px;
+    margin-left: 10px;
+    overflow: hidden;
+}
+
+ul.role_list li {
+    float: left;
+    display: block;
+    margin-left: 6px;
+    margin-right: 6px;
+}
+
+ul.role_list li a,
+ul.role_list li a:hover,
+ul.role_list li a:visited,
+ul.role_list li a:link,
+ul.role_list li a:active {
+    color: blue;
+    text-decoration: none;
+}
+
+ul.role_list li a:hover {
+    text-decoration: underline;
+}
+
+tr.symbol:hover {
+    background: #EEEEEE;
+}
+
+tr.symbol.open {
+    background: #FAFAFF;
+}
+
+.example,
+ul.usage {
+    list-style: none;
+    margin: 4px;
+    padding: 4px;
+    border: 1px dotted #D0D0D0;
+    background: #FAFAFA;
+    overflow: hidden;
+}
+

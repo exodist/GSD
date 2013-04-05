@@ -2,7 +2,9 @@
     "Array": {
         "desc": "An array, a sequence of values with integer indexes",
         "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
-        "details": ""
+        "details": "",
+        "methods": {
+        }
     },
     "Decimal": {
         "desc": "Represents a floating point number. Generally a double under the hood",
@@ -24,6 +26,7 @@
     },
     "Dict": {
         "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without toing it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
+        "parent": "Object",
         "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
         "methods": {
             "get_index": {
@@ -179,8 +182,9 @@
     "Undef": {
     },
     "Object": {
+        "parent": "undef",
         "methods":{
-            "type": {},
+            "type": {}
         }
     },
     "Operator": {

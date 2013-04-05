@@ -1,15 +1,20 @@
 {
     "Callable": {
-        "desc": "Role for things that can be treated like subroutines (subroutines also fullfill this role, but the call method is ignored for them).",
+        "desc": "Role for things that can be treated like subroutines.",
         "methods": {
             "call": {
-                "desc": "How to treat the instance as a subroutine",
+                "desc": "How to call the object as a subroutine",
                 "details": "This is what actually gets run when an instance of a callable object is called as a subroutine."
             }
         }
     },
     "Chainable": {
         "desc": "Role for types that can be members of an assembly line. An assembly line is a construct where you have multiple functions, input goes into the first for some work, is passed throught he chain, and eventually the result is returned by the last item in the chain, much like unix-shell pipes.",
+        "attributes": {
+            "none": {
+                "desc": "Not Real"
+            }
+        },
         "requires": {
             "send": {
                 "desc": "Used to add items to be processed",

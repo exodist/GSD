@@ -41,7 +41,6 @@ function fixView() {
     var height = $('#subnav').outerHeight();
     if ( height < 350 ) height = 350;
     $('#view').css( 'min-height', height );
-    console.log( $(this).outerHeight(), height );
 }
 
 function build_content( data ) {
@@ -174,7 +173,8 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
     var attributes = data[navkey]["attributes"];
     var methods    = data[navkey]["methods"];
     var requires   = data[navkey]["requires"];
-    var usage       = data[navkey]["usage"];
+    var usage      = data[navkey]["usage"];
+    var father     = data[navkey]["parent"];
 
     var navitem = $(
         '<li id="' + navkey + '"><a href="' + nav[0] + '-' + pid + '-' + navkey + '">' + navname + '</a></li>'
@@ -183,6 +183,23 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
         '<div style="display: none"><h2>' + navname + '</h2>' + desc + '</div>'
     );
 
+    if ( !father ) father = 'Object';
+    viewitem.append( '<h3>Lineage</h3>' );
+    var list = $( '<ul class="lineage"></ul>' );
+    var f = father;
+    while ( f ) {
+        list.append( '<li>' + f + '</li>' );
+        if ( data[f] ) {
+            f = data[f]["parent"];
+            if (!f) f = "Object";
+        }
+        else {
+            f = null;
+        }
+        if ( f ) list.append( '<li><b>&gt;</b></li>' );
+    }
+    viewitem.append( list );
+
     if ( usage ) {
         viewitem.append( '<h3>Usage</h3>' );
         viewitem.append( usage );
@@ -190,7 +207,7 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
 
     if ( roles ) {
         viewitem.append( '<h3>Roles:</h3>' );
-        var list = $('<ul class="roll_list"></ul>');
+        var list = $('<ul class="role_list"></ul>');
         for (role in roles) {
             list.append( '<li><a href="' + nav[0] + '-roles-' + roles[role] + '" onclick="openRole(\'' + roles[role] + '\')">' + roles[role] + '<a></li>' );
         }
@@ -202,14 +219,61 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
         viewitem.append( build_symbol_list( requires ));
     }
 
-    if ( attributes ) {
+    if ( attributes || roles ) {
         viewitem.append( '<h3>Attributes:</h3>' );
-        viewitem.append( build_symbol_list( attributes ));
+        var role_attributes = {};
+        if ( roles ) {
+            jQuery.ajax(
+                'roles.json',
+                {
+                    async: false,
+                    dataType: 'json',
+                    success: function( data ) {
+                        for ( var r in roles ) {
+                            if (!data[roles[r]]) continue;
+
+                            if ( data[roles[r]]['attributes'] ) {
+                                role_attributes = $.extend( role_attributes, data[roles[r]]['attributes'] );
+                            };
+                        }
+                    },
+                    error: function() {
+                        $('#view').append( '<div class="error">Could not load roles</div>' )
+                    }
+                }
+            )
+        }
+        viewitem.append( build_symbol_list( $.extend( true, {}, role_attributes, attributes )));
     }
 
-    if ( methods ) {
+    if ( methods || roles ) {
         viewitem.append( '<h3>Methods:</h3>' );
-        viewitem.append( build_symbol_list( methods ));
+        var role_methods = {};
+        if ( roles ) {
+            jQuery.ajax(
+                'roles.json',
+                {
+                    async: false,
+                    dataType: 'json',
+                    success: function( data ) {
+                        for ( var r in roles ) {
+                            if (!data[roles[r]]) continue;
+
+                            if ( data[roles[r]]['requires'] ) {
+                                role_methods = $.extend( role_methods, data[roles[r]]['requires'] );
+                            }
+                            if ( data[roles[r]]['methods'] ) {
+                                role_methods = $.extend( role_methods, data[roles[r]]['methods'] );
+                            };
+                        }
+                    },
+                    error: function() {
+                        $('#view').append( '<div class="error">Could not load roles</div>' )
+                    }
+                }
+            )
+        }
+        viewitem.append( build_symbol_list( $.extend( true, {}, role_methods, methods )));
     }
 
     navitem.click( function() {
@@ -225,7 +289,7 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
 }
 
 function build_symbol_list( data ) {
-    var table = $( '<table class="symbol_list"><tbody><tr><th>Name</th><th>Description</th></tr></tbody></table>' );
+    var table = $( '<table class="symbol_list"><tbody><tr><th>Name</th><th>Description &nbsp;&nbsp; <small>(Click a row for usage details)</small</th></tr></tbody></table>' );
     for (key in data) {
         var name = data[key]['name'];
         if ( !name ) name = key;
@@ -235,9 +299,9 @@ function build_symbol_list( data ) {
 
         var details = $( '<td colspan="2"></td>' );
         if ( data[key]['usage'] ) {
-            var list = $( '<ul style="usage"></ul>' );
+            var list = $( '<ul class="usage"></ul>' );
             for ( i in data[key]['usage'] ) {
-                var item = $( '<li><span style="example">' + data[key]['usage'][i] + '</span></li>' );
+                var item = $( '<li>' + data[key]['usage'][i] + '</li>' );
                 list.append( item );
             }
             details.append( list );
