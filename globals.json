@@ -1,1 +1,44 @@
-{}
+{
+    "SEARCH_PATH": {
+        "type": "Dict",
+        "desc": "Where GSD looks when loading libraries",
+        "details": "This is like perl5's @INC. Can be string paths, or subroutines"
+    },
+    "LOADED_LIBS": {
+        "type": "Dict",
+        "desc": "Record of loaded libraries",
+        "details": "Like perl5's %INC, however this is more used for thread synchronization when loading libraries."
+    },
+    "undef": {
+        "type": "Undef",
+        "desc": "The undef object.",
+        "details": "There is only one instance of the 'Undef' type, this is it. Usng 'Undef' as a constructor simply returns this object"
+    },
+    "stderr": {
+        "type": "IO",
+        "desc": "IO Object repesenting the stderr handle",
+        "usage": [
+            "stderr.write \"Some Message\\n\"",
+            "stderr.print 'Some Message' // Newline is automatically added with print",
+            "stderr 'Some Message' // Calling stderr as a subroutine calls stderr.print"
+        ]
+    },
+    "stdin": {
+        "type": "IO",
+        "desc": "IO Object repesenting the stdin handle",
+        "usage": [
+            "lex line = stdin()",
+            "lex line = stdin.read()",
+            "lex lines = stdin.slurp()"
+        ]
+    },
+    "stdout": {
+        "type": "IO",
+        "desc": "IO Object repesenting the stdin handle",
+        "usage": [
+            "stdout.write \"Some Message\\n\"",
+            "stdout.print 'Some Message' // Newline is automatically added with print",
+            "stdout 'Some Message' // Calling stdout as a subroutine calls stdout.print"
+        ]
+    }
+}

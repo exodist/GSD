@@ -5,6 +5,9 @@ $( function() {
         $('#subnav ul').empty();
         $('ul.second_subnav').detach();
         $('#view').empty();
+        $('#error_window').click( function() {
+            $(this).hide();
+        });
 
         jQuery.ajax(
             item.attr( 'id' ) + '.html',
@@ -18,7 +21,8 @@ $( function() {
                     fixView();
                 },
                 error: function() {
-                    $('#view').html( '<div class="error">Error loading page</div>' )
+                    $( '#error_window' ).show();
+                    $( '#error_window ul.errors' ).append( "<li>Error loading page</li>" )
                     $( '.nav' ).removeClass( 'active' )
                     item.addClass( 'active' )
                     fixView();
@@ -123,7 +127,8 @@ function process( id, container ) {
                     fixView();
                 },
                 error: function(blah, message1, message2) {
-                    $('#view').append( '<div class="error">Error loading ' + list.attr( 'src' ) + '</div>' )
+                    $( '#error_window' ).show();
+                    $( '#error_window ul.errors' ).append( "<li>Error loading " + list.attr( 'src' ) + "</li>" )
                     fixView();
                 }
             }
@@ -143,7 +148,8 @@ function process( id, container ) {
                     fixView();
                 },
                 error: function(blah, message1, message2) {
-                    $('#view').append( '<div class="error">Error loading ' + list.attr( 'src' ) + '</div>' )
+                    $( '#error_window' ).show();
+                    $( '#error_window ul.errors' ).append( "<li>Error loading " + list.attr( 'src' ) + "</li>" )
                     fixView();
                 }
             }
@@ -173,6 +179,11 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
     var attributes = data[navkey]["attributes"];
     var methods    = data[navkey]["methods"];
     var requires   = data[navkey]["requires"];
+    var keywords   = data[navkey]["keywords"];
+    var functions  = data[navkey]["functions"];
+    var operators  = data[navkey]["operators"];
+    var sigils     = data[navkey]["sigils"];
+    var types      = data[navkey]["types"];
     var usage      = data[navkey]["usage"];
     var father     = data[navkey]["parent"];
 
@@ -183,22 +194,24 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
         '<div style="display: none"><h2>' + navname + '</h2>' + desc + '</div>'
     );
 
-    if ( !father ) father = 'Object';
-    viewitem.append( '<h3>Lineage</h3>' );
-    var list = $( '<ul class="lineage"></ul>' );
-    var f = father;
-    while ( f ) {
-        list.append( '<li>' + f + '</li>' );
-        if ( data[f] ) {
-            f = data[f]["parent"];
-            if (!f) f = "Object";
+    if ( father ) {
+        viewitem.append( '<h3>Lineage</h3>' );
+        var list = $( '<ul class="lineage"></ul>' );
+        var f = father;
+        while ( f ) {
+            list.append( '<li>' + f + '</li>' );
+            if ( data[f] ) {
+                f = data[f]["parent"];
+                if (!f) f = "Object";
+            }
+            else {
+                f = null;
+            }
+            if ( f == 'undef' ) break;
+            if ( f ) list.append( '<li><b>&gt;</b></li>' );
         }
-        else {
-            f = null;
-        }
-        if ( f ) list.append( '<li><b>&gt;</b></li>' );
+        viewitem.append( list );
     }
-    viewitem.append( list );
 
     if ( usage ) {
         viewitem.append( '<h3>Usage</h3>' );
@@ -217,6 +230,31 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
     if ( requires ) {
         viewitem.append( '<h3>Required Methods:</h3>' );
         viewitem.append( build_symbol_list( requires ));
+    }
+
+    if ( keywords ) {
+        viewitem.append( '<h3>Keywords:</h3>' );
+        viewitem.append( build_symbol_list( keywords ));
+    }
+
+    if ( functions ) {
+        viewitem.append( '<h3>Functions:</h3>' );
+        viewitem.append( build_symbol_list( functions ));
+    }
+
+    if ( types ) {
+        viewitem.append( '<h3>Types:</h3>' );
+        viewitem.append( build_symbol_list( types ));
+    }
+
+    if ( operators ) {
+        viewitem.append( '<h3>Operators:</h3>' );
+        viewitem.append( build_symbol_list( operators ));
+    }
+
+    if ( sigils ) {
+        viewitem.append( '<h3>Sigils:</h3>' );
+        viewitem.append( build_symbol_list( sigils ));
     }
 
     if ( attributes || roles ) {
@@ -238,7 +276,8 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
                         }
                     },
                     error: function() {
-                        $('#view').append( '<div class="error">Could not load roles</div>' )
+                        $( '#error_window' ).show();
+                        $( '#error_window ul.errors' ).append( "<li>Error loading roles</li>" )
                     }
                 }
             )
@@ -268,7 +307,8 @@ function build_sub_list_item( pid, navkey, data, nav, subnav ) {
                         }
                     },
                     error: function() {
-                        $('#view').append( '<div class="error">Could not load roles</div>' )
+                        $( '#error_window' ).show();
+                        $( '#error_window ul.errors' ).append( "<li>Error loading roles</li>" )
                     }
                 }
             )

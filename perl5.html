@@ -1,0 +1,40 @@
+<dl class="listnav">
+    <dt id="mapping">Mapping</dt>
+    <dd>
+        Perl5 and GSD both rely heavily on dictionaries internally, in perl5's
+        case the dictionary is a hash. One of the significant differences is
+        that GSD differentiates between packages and types, while in perl5
+        packages are types. Since GSD uses dictionaries under the hood for both
+        packages and types, it should be possible to put the dictionary into an
+        instance of each type.
+        <p>
+        Another issue is that in Perl5 you have typeglobs, any name in a
+        package (or lexical scope) can have more than one type of value (hash,
+        array, scalar, IO, etc). GSD does something similar with its scalar
+        type, GSD's scalar type is actually a container that has 3 objects
+        inside it (Int, Dec, String), we can do the same thing to implement a
+        typeglob for use in perl code. 
+        <p>
+        Perl5 syntax and keywords are different, but the way the GSD parser
+        works should allow for workarounds. We can have a perl5 keyword, that
+        is supposed to be followed by a block {}. The keyword will cause the
+        block to be compiled and executed as perl5, with perl5 keywords, and
+        perl5 syntax.
+    </dd>
+
+    <dt id="perl5imp">Implementation</dt>
+    <dd>
+        The GSD perl5 implementation will be a keyword (perl5 { ... }) that
+        will compile perl5 code into GSD bytecode. Any perl5 packages that are
+        loaded or defined will be placed in the Perl5:: namespace for GSD to
+        access. Within perl5 code only packages under Perl5:: will be seen, and
+        the Perl5:: prefix will not be necessary.
+    </dd>
+
+    <dt id="xs">XS</dt>
+    <dd>
+        GSD will not likely support XS. However it might be possible to include
+        GSD 'Internal' objects in addition to XS to make a module that uses XS
+        work in both perl and GSD.
+    </dd>
+</dl>

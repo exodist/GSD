@@ -1,0 +1,252 @@
+{
+    "Math": {
+        "operators": {
+            "+": {},
+            "-": {},
+            "/": {},
+            "*": {},
+            "%": {}
+        }
+    },
+    "String": {
+        "operators": {
+            "~": { "desc": "concatenate" }
+        }
+    },
+    "Assignment": {
+        "operators": {
+            "=": { "desc": "assign" },
+            "+=": { "desc": "add-assign" },
+            "*=": { "desc": "mul-assign" },
+            "/=": { "desc": "div-assign" },
+            "%=": { "desc": "mod-assign" },
+            "-=": { "desc": "sub-assign" },
+            "~=": { "desc": "cat-assign" },
+            "&=": { "desc": "Reference, left variable becomes a ref to the right variable" },
+            ":=": { "desc": "Assign breaking reference" },
+            "&&=": { "desc": "If var is true assign" },
+            "||=": { "desc": "If var is false assign" },
+            "//=": { "desc": "If var is undef assign" }
+        },
+        "keywords": {
+            "]=[ ... ]": {
+                "desc": "atomic compare and swap",
+                "usage": [ "foo ]=[ 'current'; 'new' ]" ]
+            }
+        }
+    },
+    "Comparison": {
+        "operators": {
+            "<": {},
+            ">": {},
+            "<=": {},
+            ">=": {},
+            "!=": {},
+            "==": {},
+            "<=>": {},
+            "gt": {},
+            "lt": {},
+            "eq": {},
+            "ne": {},
+            "ge": {},
+            "le": {},
+            "cmp": {}
+        }
+    },
+    "Arg_List": {
+        "name": "Arg List",
+        "operators": {
+            ",": { "desc": "combine items on either side into the argument list, if item on left is not a list, new list is created" }
+        }
+    },
+    "Structures": {
+        "operators": {
+            "=>": { "desc": "Create a graph no quoting" },
+            "->": { "desc": "Create a graph quoting left" },
+            "+>": { "desc": "Create a graph quoting right" },
+            "~>": { "desc": "Create a graph quoting both" }
+        },
+        "keywords": {
+            "[[ ... ]]": { "desc": "Create a sorted dictionary (iteration is always in order)" },
+            "[ ... ]": { "desc": "Create a dictionary" },
+            "{ ... }": { "desc": "Create a subroutine" },
+            "( ... )": { "desc": "Grouping" },
+            "\" ... \"": { "desc": "Quote, process conversion operators" },
+            "' ... '": { "desc": "Quote, no processing" }
+        }
+    },
+    "Lookups": {
+        "operators": {
+            "::": { "desc": "Namespace lookup" },
+            ":": { "desc": "Object lookup" },
+            ".": { "desc": "Type lookup" }
+        },
+        "keywords": {
+            "::[ ]": { "desc": "Namespace lookup" },
+            "::{ }": { "desc": "Namespace lookup" },
+            "::< >": { "desc": "Namespace lookup" },
+            ":[ ]": { "desc": "Lookup in object, force numeric keys" },
+            ":{ }": { "desc": "Lookup in object, force string keys" },
+            ":< >": { "desc": "Lookup in object, offset values, positive from start, negative from end" },
+            ".[ ]": { "desc": "Lookup in type, force numeric keys" },
+            ".{ }": { "desc": "Lookup in type, force string keys" },
+            ".< >": { "desc": "Lookup in type, offset values, positive from start, negative from end" }
+        }
+    },
+    "comments": {
+        "keywords": {
+            "//": { "desc": "Comment from here to end of line" },
+            "/*": { "desc": "*/ - Block Comment" },
+            "/#": { "desc": "#/ - Documentation for next symbol" }
+        }
+    },
+    "Boolean": {
+        "operators": {
+            "!!": {},
+            "||": {},
+            "&&": {}
+        },
+        "keywords": {
+            "!": {}
+        }
+    },
+    "Turnary": {
+        "keywords": {
+            "? ... ; ...": {}
+        }
+    },
+    "Threads": {
+        "operators": {
+            "|": {}
+        }
+    },
+    "Flow_Control": {
+        "name": "Flow Control",
+        "keywords": {
+            "if": {},
+            "else": {},
+            "elsif": {},
+            "unless": {},
+            "while": {},
+            "for": {},
+            "until": {}
+        },
+        "functions": {
+            "do": {},
+            "next": {},
+            "last": {},
+            "return": {},
+            "try": {},
+            "catch": {},
+            "finally": {},
+            "throw": {},
+            "die": {},
+            "exit": {}
+        }
+    },
+    "System": {
+        "functions": {
+            "system": {},
+            "exec": {},
+            "fork": {},
+            "capture": {}
+        }
+    },
+    "Other": {
+        "functions": {
+            "eval": {},
+            "warn": {}
+        }
+    },
+    "Module_Loading": {
+        "name": "Module Loading",
+        "functions": {
+            "load": { "desc": "Load a package" }
+        },
+        "keywords": {
+            "import": { "desc": "Bring in symbols from a package, load if necessary" },
+            "use": { "desc": "Have a package act upon the scope that is being parsed" }
+        }
+    },
+    "Declaration": {
+        "keywords": {
+            "sub": {
+                "desc": "Declare named lexical subroutine",
+                "usage": [
+                    "sub foo {...}",
+                    "sub foo(...) {...} // See 'args' below for signature details"
+                ]
+            },
+            "meth": { "desc": "Declare named type subroutine (only works in type or role declaration)" },
+            "func": { "desc": "Declare named package subroutine" },
+            "sym": {
+                "desc": "Declare 1 or more package symbol(s)",
+                "usage": [
+                    "sym name",
+                    "sym name1, name2, ...",
+                    "sym TYPE name",
+                    "sym maybe TYPE name",
+                    "sym TYPE name1, TYPE name2, maybe TYPE name3, ...",
+                    "sym TYPE name( ... ) // Initialize with a new instance of TYPE",
+                    "sym maybe TYPE name( ... )"
+                ]
+            },
+            "lex": {
+                "desc": "Declare 1 or more lexical symbol(s)",
+                "usage": [
+                    "lex name",
+                    "lex name1, name2, ...",
+                    "lex TYPE name",
+                    "lex maybe TYPE name",
+                    "lex TYPE name1, TYPE name2, maybe TYPE name3, ...",
+                    "lex TYPE name( ... ) // Initialize with a new instance of TYPE",
+                    "lex maybe TYPE name( ... )"
+                ]
+            },
+            "state": {
+                "desc": "Declare a lexical state variable (initialized only once)",
+                "usage": [
+                    "state name = init",
+                    "state TYPE name = init",
+                    "state maybe TYPE name = init",
+                    "state TYPE name( ... ) // Initialize with a new instance of TYPE",
+                    "state maybe TYPE name( ... )"
+                ]
+            },
+            "args": {
+                "desc": "Define argument signature for current function",
+                "detail": "Comma seperated list of parameters. Parameter syntax is same as with 'lex' keyword.",
+                "usage": [
+                    "args( param )",
+                    "args( param = DEFAULT )",
+                    "args( param1, param2 )",
+                    "args( param1 = DEFAULT, param2 )",
+                    "args( TYPE param )",
+                    "args( maybe TYPE param )",
+                    "args( TYPE param( DEFUALT ))",
+                    "args( TYPE param = DEFUALT )",
+                    "args( param1, TYPE param2, maybe TYPE param3, param4 = DEFAULT, TYPE param5(DEFAULT))"
+                ]
+            }
+        },
+        "functions": {
+            "attr": { "desc": "Declare type attribute (only works in type or role declaration)" }
+        }
+    },
+    "Conversion": {
+        "sigils": {
+            "$": {
+                "desc": "to string"
+            },
+            "#": {
+                "desc": "to number"
+            },
+            "@": {
+                "desc": "arg map"
+            },
+            "&": {
+                "desc": "Reference (only used in argument lists)"
+            }
+        }
+    }
+}

@@ -1,1 +1,14 @@
-{}
+{
+    "gsd": {
+        "desc": "The main gsd executable"
+    },
+    "gsdb": {
+        "desc": "GSD Debugger"
+    },
+    "gsd_prove": {
+        "desc": "Tool to run GSD tests"
+    },
+    "gsd_mod": {
+        "desc": "This is the command line tool for installing and uninstalling gsd modules."
+    }
+}

@@ -9,47 +9,47 @@
         }
     },
     "Chainable": {
-        "desc": "Role for types that can be members of an assembly line. An assembly line is a construct where you have multiple functions, input goes into the first for some work, is passed throught he chain, and eventually the result is returned by the last item in the chain, much like unix-shell pipes.",
-        "attributes": {
-            "none": {
-                "desc": "Not Real"
-            }
-        },
+        "desc": "Role for chainable objects, this is similar to unix pipes, several steps work in sequence to transform input objects to output objects.",
         "requires": {
             "send": {
                 "desc": "Used to add items to be processed",
-                "details": "",
-                "usage": [ "obj.push item => remaining_chain_graph" ]
+                "details": "When a Chainable object is sent input, it processes/tranforms it, then passes it along to the next step in the chain. ",
+                "usage": [ "obj.send input => remaining_chain_graph" ]
             }
         }
     },
     "Index": {
-        "desc": "Role for types that are indexable and can use array-index operators",
-        "details": "N/A",
+        "desc": "Role for types that are indexable and can use index operators",
+        "details": "An index is any object that has named and/or numbered members that can be accessed. An example would be a hash table.",
         "requires": {
             "get_index": {
-                "desc": "Get the value for a key",
-                "details": "Gets the value for a key if it exists. Returns undef if the key is not present.",
+                "desc": "Get the value for an index",
+                "details": "Gets the value for an index if it exists. Returns undef if the index is not set, throws an exception if the index is not valid.",
                 "usage": [ "lex val = obj.get_index 'my_key'" ]
             },
             "set_index": {
-                "desc": "Set the value for a key",
-                "details": "Required by the 'Index' role. Sets the value for a key, inserting the key if necessary."
+                "desc": "Set the value for an index",
+                "details": "Sets the value for an index, throws an exception if the index is not valid. Can take either a list (index, value) or a graph (index => value)",
+                "usage": [ "obj.set_index 'my_key', 'val'", "obj.set_index 'my_key' => 'val'" ]
             },
             "exists": {
-                "desc": "Check if a key exists",
-                "details": "Returns true if all the keys exist, can take any number of keys."
+                "desc": "Check if an index exists",
+                "details": "Returns true if all the indexes exist, can take any number of indexes.",
+                "usage": [ "lex bool = obj.exists 'a', 'b', 'c', ..." ]
             },
             "delete": {
-                "desc": "Remove the value from the key",
-                "details": "Remove the value associated with the specified key. The key remains in the dictionary. If the reference is shared with other dictionaries they will also still have the key with no value."
+                "desc": "Remove the value from the index",
+                "details": "Remove the value associated with the specified index. This will not remove a reference, but will instead unset the value of the reference.",
+                "usage": [ "lex val = obj.delete 'idx'" ]
             }
         }
     },
     "Iterable": {
+        "desc": "Used for types with multiple values that can be iterated, such as an array",
         "requires": {
             "iterator": {
-                "desc": "Must return an object that implements the 'Iterator' role"
+                "desc": "Must return an object that implements the 'Iterator' role",
+                "usage": [ "lex iter = obj.iterator" ]
             }
         },
         "methods": {
@@ -61,32 +61,66 @@
         }
     },
     "Iterator": {
+        "desc": "Role for objects used to iterate over data",
         "requires": {
-            "first": {},
-            "last": {},
-            "next": {},
-            "prev": {}
-        }
-    },
-    "Queue": {
-        "requires": {
-            "push": {
+            "first": {
+                "desc": "Reset the iterator to the first item which it returns",
+                "usage": [ "lex f = iter.first" ]
             },
-            "pop": {
+            "last": {
+                "desc": "Reset the iterator to the last item which it returns",
+                "usage": [ "lex f = iter.last" ]
             },
-            "shift": {
+            "next": {
+                "desc": "Get the next item from the iterator, advances the iterator by 1",
+                "usage": [ "lex i = iter.next" ]
             },
-            "unshift": {
+            "prev": {
+                "desc": "Get the previous item from the iterator, moves the iterator back by 1",
+                "usage": [ "lex i = iter.prev" ]
             }
         }
     },
-    "Refcounted": { },
-    "ScalarCast": {
+    "Pattern": {
+        "desc": "Role for things such as regular expression patterns",
         "requires": {
-            "to_integer": {
+            "check": {
+                "desc": "Check if the input matches the pattern",
+                "detail": "Returns undef when there is no match. When there is a match this can return anything true. In many cases it might be best to return an object with details about the match, and possibly any captured sections."
+            }
+        }
+    },
+    "Queue": {
+        "desc": "Role for objects that have ordered data",
+        "requires": {
+            "push": {
+                "desc": "Push a new object to the end of the queue.",
+                "usage": [ "obj.push some_obj" ]
+            },
+            "pop": {
+                "desc": "Pop an object off the end of the queue.",
+                "usage": [ "some_obj = obj.pop" ]
+            },
+            "shift": {
+                "desc": "Push a new object to the start of the queue.",
+                "usage": [ "obj.push some_obj" ]
+            },
+            "unshift": {
+                "desc": "Pop an object off the front of the queue",
+                "usage": [ "obj.push some_obj" ]
+            }
+        }
+    },
+    "Refcounted": {
+        "desc": "When an object uses this role, reference counting will be used to free the object as soon as possible. Without this role GSD is free to use any method of garbage collection and there is no guarentee about when the object will be collected."
+    },
+    "ScalarCast": {
+        "desc": "Role for objects that can be converted to scalar types",
+        "requires": {
+            "to_int": {
                 "desc": "Returns the Integer value"
             },
-            "to_decimal": {
+            "to_dec": {
                 "desc": "Returns the Decimal value"
             },
             "to_string": {
@@ -95,6 +129,7 @@
         }
     },
     "Sequence": {
+        "desc": "Role for objects that hold numbered data",
         "roles": [ "Index" ],
         "requires": {
             "get_upper_value": {

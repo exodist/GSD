@@ -1,51 +1,14 @@
 {
-    "Array": {
-        "desc": "An array, a sequence of values with integer indexes",
-        "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
-        "details": "",
-        "methods": {
-        }
-    },
-    "Decimal": {
+    "Dec": {
         "desc": "Represents a floating point number. Generally a double under the hood",
-        "roles": [ "ScalarCast" ],
-        "methods": {
-            "to_integer": {
-                "desc": "Returns the Integer value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_decimal": {
-                "desc": "Returns the Decimal value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_string": {
-                "desc": "Returns the String value",
-                "details": "required by the 'ScalarCast' role"
-            }
-        }
+        "parent": "Object",
+        "roles": [ "ScalarCast" ]
     },
     "Dict": {
         "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without toing it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
         "parent": "Object",
         "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
         "methods": {
-            "get_index": {
-                "desc": "Get the value for a key",
-                "details": "Required by the 'Index' role. Gets the value for a key if it exists. Returns undef if the key is not present.",
-                "usage": [ "lex val = ADict.get_index 'my_key'" ]
-            },
-            "set_index": {
-                "desc": "Set the value for a key",
-                "details": "Required by the 'Index' role. Sets the value for a key, inserting the key if necessary."
-            },
-            "exists": {
-                "desc": "Check if a key exists",
-                "details": "Returns true if all the keys exist, can take any number of keys."
-            },
-            "delete": {
-                "desc": "Remove the value from the key (keeps reference)",
-                "details": "Remove the value associated with the specified key. The key remains in the dictionary. If the reference is shared with other dictionaries they will also still have the key with no value."
-            },
             "dereference": {
                 "desc": "Remove the key from the dictionary",
                 "details": "This removes the key reference in the dictionary. Neither the key nor the value remain."
@@ -62,26 +25,6 @@
                 "desc": "Set the value of an existing key, fails if key does not exist",
                 "details": "The opposite of insert, updates the value, but only for existing keys."
             },
-            "push": {
-                "desc": "Insert a value with an automatically assigned integer key larger than the current largest",
-                "details": "The key will be an integer. The key is guarenteed to be larger than the current largest key. If two threads call this they will each use a different key, though order between the two is not predictable. Keys may be non-sequencial: 1, 5, 12, etc.."
-            },
-            "pop": {
-                "desc": "Dereference the largest integer key returning its value.",
-                "details": "Get the value of the largest integer key, remove the key from the dictionary."
-            },
-            "shift": {
-                "desc": "Insert a value with an automatically assigned integer key smaller than the current smallest",
-                "details": "The key will be an integer. The key is guarenteed to be smaller than the current smallest integer key, and may be 0 or negative."
-            },
-            "unshift": {
-                "desc": "Dereference the smallest integer key returning its value.",
-                "details": "Get the value of the smallest integer key, remove the key from the dictionary."
-            },
-            "each": {
-                "desc": "Iterate over each key/value pair",
-                "details": "<span style='example'>dictA.each {... item.key ... item.value ...}</span><br /> the 'item' symbol is a graph with the key and value of the current pair. The method takes a subroutine as an argument."
-            },
             "keys": {
                 "desc": "Returns a new integer indexed dictionary where values are the keys of the first dictionary",
                 "details": "Keys from the first dictionary are used as values in a new dictionary that is returned. The keys of the new dictionary will be sequencial integers. No sorting is done."
@@ -90,29 +33,15 @@
                 "desc": "Returns a new integer indexed dictionary where values are the values of the first dictionary",
                 "details": "Values of the first dictionary are used as values of the new dictionary, but all keys are sequencial integers in the new dictionary."
             },
-            "get_upper_value": {
-                "desc": "Get the value from the highest integer index, if an argument is provided use it as an offset."
-            },
-            "get_lower_value": {
-                "desc": "Get the value from the lowest integer index, if an argument is provided use it as an offset."
-            },
-            "upper_int_index": {
-                "desc": "Get the largest integer index within the dictionary",
-                "details": ""
-            },
-            "lower_int_index": {
-                "desc": "Get the smallest integer index within the dictionary",
-                "details": ""
-            },
-            "send": {
-                "desc": "Required by the 'Chainable' role, allows Dict to be at the end of a chain.",
-                "details": "This is used when chaning operations, it allows the dictionary to store the results from the chain. Operations will throw an exception if the items recieved have remaining chain graphs.",
-                "usage": [ "dictA.send( item => undef, ... )" ]
+            "cmp_update": {
+                "desc": "Atomic compare and swap",
+                "detail": "Set a new value for an existing key, swapping it out atomically only if the value is currently set to the value we want to swap from"
             }
         }
     },
     "Graph": {
         "desc": "The Graph type represents a key/value pair. It is used frequently with dictionary types, both in iteration and construction.",
+        "parent": "Object",
         "methods": {
             "key": {
                 "desc": "Get the object acting as the key",
@@ -124,35 +53,27 @@
             }
         }
     },
-    "Integer": {
+    "Int": {
         "desc": "Represents a signed 64-bit integer number",
-        "roles": [ "ScalarCast" ],
-        "methods": {
-            "to_integer": {
-                "desc": "Returns the Integer value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_decimal": {
-                "desc": "Returns the Decimal value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_string": {
-                "desc": "Returns the String value",
-                "details": "required by the 'ScalarCast' role"
-            }
-        }
+        "parent": "Object",
+        "roles": [ "ScalarCast" ]
     },
     "Internal": {
         "desc": "Represents an internal function, for example a c function or system function. This is GSD's answer to XS. The unfortunate bit is that modules that make use of these will need a seperate implemenation for each GSD implementation they intend to support.",
-        "roles": [ "Callable" ]
+        "parent": "Object",
+        "roles": [ "Callable" ],
+        "details": "Works just like a subroutine, can be called as a method, fuction, or sub."
     },
     "IO": {
+        "parent": "Object",
         "roles": [ "Callable", "Refcounted" ]
     },
     "Keyword": {
+        "parent": "Object"
     },
     "Lock": {
         "desc": "Returned by mutex.lock, represents a lock on a mutex. If the Lock object falls out of scope it is destroyed and the mutex is unlocked.",
+        "parent": "Object",
         "roles": [ "Refcounted" ],
         "attributes": {
             "mutex": {
@@ -168,6 +89,7 @@
     },
     "Mutex": {
         "desc": "Thread synchronization",
+        "parent": "Object",
         "methods": {
             "lock": {
                 "desc": "Aquire a lock on the mutex",
@@ -180,6 +102,7 @@
         }
     },
     "Undef": {
+        "parent": "Object"
     },
     "Object": {
         "parent": "undef",
@@ -188,60 +111,63 @@
         }
     },
     "Operator": {
+        "parent": "Object"
+    },
+    "Package": {
+        "parent": "Object"
     },
     "Parser": {
+        "parent": "Object"
     },
     "Process": {
+        "parent": "Object"
     },
     "Role": {
+        "parent": "Object"
     },
     "Scalar": {
         "desc": "Represents a value that is automatically converted between String, Decimal, and Integer as required. Numeric literals and quotes are created as scalars by default.",
-        "roles": [ "ScalarCast" ],
-        "methods": {
-            "to_integer": {
-                "desc": "Returns the Integer value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_decimal": {
-                "desc": "Returns the Decimal value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_string": {
-                "desc": "Returns the String value",
-                "details": "required by the 'ScalarCast' role"
-            }
-        }
+        "parent": "Object",
+        "roles": [ "ScalarCast" ]
     },
     "Sigil": {
+        "parent": "Object"
     },
     "Stackframe": {
+        "parent": "Object"
     },
     "String": {
         "desc": "Represents a string of unicode characters",
+        "parent": "Object",
         "roles": [ "ScalarCast" ],
         "methods": {
-            "to_integer": {
-                "desc": "Returns the Integer value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_decimal": {
-                "desc": "Returns the Decimal value",
-                "details": "required by the 'ScalarCast' role"
-            },
-            "to_string": {
-                "desc": "Returns the String value",
-                "details": "required by the 'ScalarCast' role"
-            }
         }
     },
     "Subroutine": {
-        "roles": [ "Callable" ]
+        "parent": "Object",
+        "roles": [ "Callable" ],
+        "attributes": {
+            "defined_as": {
+                "desc": "values are sub, method, or function",
+                "detail": "The value is set by the keyword used with the block (if any)"
+            },
+            "defined_name": {
+                "desc": "If the sub was defined using a keyword, it will have a name",
+                "detail": ""
+            }
+        },
+        "methods": {
+            "filename": {},
+            "start_line": {},
+            "end_line": {}
+        }
     },
     "Thread": {
+        "parent": "Object"
     },
     "Type": { 
         "roles": [ "Callable" ],
+        "parent": "Object",
         "methods": {
             "has": {},
             "can": {},

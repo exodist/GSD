@@ -1,12 +1,170 @@
 {
-    "p5regex": {
-        "name": "P5Regex",
-        "desc": "Perl5 Compatable Regexes",
-        "details": "Operators, keywords, and types for perl5 compatible regular expressions."
+    "Test": {
+        "desc": "Tools for testing",
+        "types": {
+            "Collector": {
+                "desc": "The default collector type",
+                "details": "The collector is responsible for gathering Result objects and passing them to the formatter."
+            },
+            "Formatter": {
+                "desc": "The default TAP formatter",
+                "details": "The formatter is responsible for taking the Result objects and doing something useful with them, such as displaying them."
+            },
+            "Result": {
+                "desc": "A result object",
+                "details": "All assertions generate a result object. The assertions automatically get passed to the collector, they are also returned by the assertion functions."
+            }
+        },
+        "keywords": {
+            "tests": {
+                "desc": "Declare a test block",
+                "usage": [
+                    "tests test_things { ... }",
+                    "tests test_later todo -> 'Test these later', { ... }",
+                    "tests test_broken skip -> 'These tests are broken', { ... }"
+                ]
+            },
+            "describe": {
+                "desc": "Declare a set of test blocks",
+                "usage": [
+                    "describe things { ... }",
+                    "describe things todo -> 'Test these later', { ... }",
+                    "describe things skip -> 'These tests are broken', { ... }"
+                ]
+            },
+            "case": {
+                "desc": "Declare a case",
+                "details": "All test blocks will be run once per case",
+                "usage": [
+                    "case setA { ...Build State A... }",
+                    "case setB { ...Build State B... }"
+                ]
+            },
+            "before_each": {
+                "desc": "Declare a 'before each' block",
+                "details": "A 'before each' block is run once before each test block in order to ensure a specific state",
+                "usage": [ "before_each set_state { ... }" ]
+            },
+            "before_all": {
+                "desc": "Declare a 'before all' block",
+                "details": "A 'before all' block is run once before all test block in order to ensure a specific state",
+                "usage": [ "before_all set_state { ... }" ]
+            },
+            "after_each": {
+                "desc": "Declare a 'after each' block",
+                "details": "A 'after each' block is run once after each test block in order to ensure a specific state",
+                "usage": [ "after_each set_state { ... }" ]
+            },
+            "after_all": {
+                "desc": "Declare a 'after all' block",
+                "details": "A 'after all' block is run once after all test block in order to ensure a specific state",
+                "usage": [ "after_all set_state { ... }" ]
+            }
+        },
+        "functions": {
+            "collector": {
+                "desc": "returns the collector",
+                "details": "The first time this is called it will initialize a collector object and return it, all subsequent calls will return the same object."
+            },
+            "ok": {
+                "desc": "Assert a true value",
+                "usage": [ "ok TEST, 'TEST is true'" ]
+            },
+            "is": {
+                "desc": "Assert that a value is what we expect",
+                "usage": [ "is GOT, WANT, 'GOT matches WANT'" ]
+            },
+            "is_deeply": {
+                "desc": "Deeply check that a value matches what we expect",
+                "usage": [ "is_deeply GOT, WANT, 'GOT deeply matches WANT'" ]
+            },
+            "isa_ok": {
+                "desc": "Check that an object is a specific type (or subclass of that type)",
+                "usage": [ "isa_ok OBJ, TYPE" ]
+            },
+            "does_ok": {
+                "desc": "Check that an object fullfills a specific role",
+                "usage": [ "does_ok OBJ, ROLE" ]
+            },
+            "can_ok": {
+                "desc": "Check that an object has specific methods (by name)",
+                "usage": [ "can_ok OBJ, 'name1', 'name2', ..." ]
+            },
+            "like": {
+                "desc": "Check tha",
+                "usage": [ "" ]
+            },
+            "unlike": {
+            },
+            "lives_ok": {
+            },
+            "throws_ok": {
+            },
+            "load_ok": {
+            },
+            "import_ok": {
+            },
+            "use_ok": {
+            }
+        }
     },
-    "p6grammars": {
-        "name": "P6Grammars",
-        "desc": "Perl6 Style Grammars",
-        "details": "Operators, keywords, and types for perl6 style grammars."
+    "Perl5": {
+        "desc": "A Perl5 -> GSD parser+compiler. See the 'Mapping Perl5' section.",
+        "types": {
+            "Perl5Package": {
+                "desc": "A perl5 Package",
+                "details": "Inherits from 'Type'"
+            },
+            "Perl5Glob": {
+                "desc": "A perl5 Type Glob",
+                "details": ""
+            }
+        },
+        "keywords": {
+            "perl5": {
+                "desc": "Keyword to denote perl5 code",
+                "usage": [ "perl5 { ...perl5 code... }" ],
+                "details": ""
+            }
+        },
+        "functions": {
+            "p5_require": {
+                "desc": "Used to load a perl5 package, a Perl5Package object is returned",
+                "usage": [ "lex p5pkg = p5_require 'Some::Perl5::Package'" ]
+            },
+            "p5_package": {
+                "desc": "Get a loaded perl5 package by name",
+                "usage": [ "lex p5pkg = p5_package 'Some::Perl5::Package'" ]
+            },
+            "p5_glob": {
+                "desc": "Get a perl5 typeglob by name",
+                "usage": [ "lex glob = p5_glob 'Foo::Bar::baz'" ]
+            },
+            "p5_var": {
+                "desc": "Get a perl5 package variable",
+                "usage": [
+                    "lex val = p5_var '$Foo::Bar::baz'",
+                    "p5_var '$Foo::Bar::baz', 'new_val'"
+                ]
+            }
+        }
+    },
+    "P5Regex": {
+        "desc": "Perl5 Compatable Regexes. Operators, keywords, and types for perl5 compatible regular expressions.",
+        "keywords": {
+            "qr": { "desc": "Like perls 'qr', first character after the keyword is the seperator." },
+            "s": { "desc": "Like perls 's', first character after the keyword is the seperator." },
+            "m": { "desc": "Like perls 'm', first character after the keyword is the seperator." }
+        },
+        "operators": {
+            "=~": { "desc": "Apply/run regex on right to value on left, returns true on match" },
+            "!~": { "desc": "Apply/run refex on right to value on left, returns true if no match" }
+        },
+        "types": {
+            "pcre": {}
+        }
+    },
+    "P6Grammars": {
+        "desc": "Perl6 Style Grammars Operators, keywords, and types for perl6 style grammars."
     }
 }
