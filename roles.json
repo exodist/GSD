@@ -114,7 +114,7 @@
     "Refcounted": {
         "desc": "When an object uses this role, reference counting will be used to free the object as soon as possible. Without this role GSD is free to use any method of garbage collection and there is no guarentee about when the object will be collected."
     },
-    "ScalarCast": {
+    "Scalar": {
         "desc": "Role for objects that can be converted to scalar types",
         "requires": {
             "to_int": {

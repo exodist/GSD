@@ -91,20 +91,32 @@
                 "usage": [ "can_ok OBJ, 'name1', 'name2', ..." ]
             },
             "like": {
-                "desc": "Check tha",
-                "usage": [ "" ]
+                "desc": "Check that the object matches a regex/pattern",
+                "usage": [ "like VAL, PATTERN, 'description'" ]
             },
             "unlike": {
+                "desc": "Check that a value does not match a regex/pattern",
+                "usage": [ "unlike VAL, PATTERN, 'descriptions'" ]
             },
             "lives_ok": {
+                "desc": "Make sure a statement does not throw an exception",
+                "usage": [ "lives_ok { ... }, 'name'" ]
             },
             "throws_ok": {
+                "desc": "Ensure a statement throws an exception",
+                "usage": [ "throws_ok { ... }, EXCEPTION, 'name'" ]
             },
             "load_ok": {
+                "desc": "Ensure a module loads properly",
+                "usage": [ "load_ok MODULE" ]
             },
             "import_ok": {
+                "desc": "Import symbols from a module",
+                "usage": [ "import_ok MODULE, sym1, sym2, ..." ]
             },
             "use_ok": {
+                "desc": "Load a module, and let it effect the current namespace",
+                "usage": [ "use_ok MODULE, ARGS..." ]
             }
         }
     },
@@ -117,14 +129,14 @@
             },
             "Perl5Glob": {
                 "desc": "A perl5 Type Glob",
-                "details": ""
+                "details": "Represents a perl5 typeglob"
             }
         },
         "keywords": {
             "perl5": {
                 "desc": "Keyword to denote perl5 code",
                 "usage": [ "perl5 { ...perl5 code... }" ],
-                "details": ""
+                "details": "Used to transition from GSD to perl5 code."
             }
         },
         "functions": {
@@ -161,7 +173,7 @@
             "!~": { "desc": "Apply/run refex on right to value on left, returns true if no match" }
         },
         "types": {
-            "pcre": {}
+            "pcre": { "desc": "Implements the 'Pattern' role. Represents a perl5 regex." }
         }
     },
     "P6Grammars": {

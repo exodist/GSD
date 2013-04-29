@@ -1,11 +1,11 @@
 {
     "Math": {
         "operators": {
-            "+": {},
-            "-": {},
-            "/": {},
-            "*": {},
-            "%": {}
+            "+": { "desc": "Numeric Addition" },
+            "-": { "desc": "Numeric Subtraction" },
+            "/": { "desc": "Numeric Division" },
+            "*": { "desc": "Numeric Multiplication" },
+            "%": { "desc": "Numeric Modulous" }
         }
     },
     "String": {
@@ -37,20 +37,20 @@
     },
     "Comparison": {
         "operators": {
-            "<": {},
-            ">": {},
-            "<=": {},
-            ">=": {},
-            "!=": {},
-            "==": {},
-            "<=>": {},
-            "gt": {},
-            "lt": {},
-            "eq": {},
-            "ne": {},
-            "ge": {},
-            "le": {},
-            "cmp": {}
+            "<":   { "desc": "Numeric less than" },
+            ">":   { "desc": "Numeric greater than" },
+            "<=":  { "desc": "Numeric less than or equal to" },
+            ">=":  { "desc": "Numeric greater than or equal to" },
+            "!=":  { "desc": "Numeric not equal" },
+            "==":  { "desc": "Numeric equality" },
+            "<=>": { "desc": "Numeric Comparison" },
+            "gt":  { "desc": "Unicode greater than" },
+            "lt":  { "desc": "Unicode less than" },
+            "eq":  { "desc": "Unicode equality" },
+            "ne":  { "desc": "Unicode inequality" },
+            "ge":  { "desc": "Unicode greater than or equal to" },
+            "le":  { "desc": "Unicode less than or equal to" },
+            "cmp": { "desc": "Unicode comparison" }
         }
     },
     "Arg_List": {
@@ -102,37 +102,40 @@
     },
     "Boolean": {
         "operators": {
-            "!!": {},
-            "||": {},
-            "&&": {}
+            "||": { "desc": "Or" },
+            "&&": { "desc": "And" }
         },
         "keywords": {
-            "!": {}
+            "!!": { "desc": "Force into true/false form" },
+            "!": { "desc": "Negation" }
         }
     },
     "Turnary": {
         "keywords": {
-            "? ... ; ...": {}
+            "? ... ; ...": { "desc": "Typical Turnary" }
         }
     },
     "Threads": {
         "operators": {
-            "|": {}
+            "|": {
+                "desc": "List pipe",
+                "usage": [ "input | tranform1 | tranform2 | ... | output" ]
+            }
         }
     },
     "Flow_Control": {
         "name": "Flow Control",
         "keywords": {
-            "if": {},
-            "else": {},
-            "elsif": {},
-            "unless": {},
-            "while": {},
-            "for": {},
-            "until": {}
+            "if": { "desc": "Can be used C-style, or postfix" },
+            "else": { "desc": "Like perl" },
+            "elsif": { "desc": "Like perl" },
+            "unless": { "desc": "Like perl" },
+            "for": { "desc": "Can be used perl style (foreach), c-style, or postfix" },
+            "while": { "desc": "Can be used C-style, or postfix" },
+            "until": { "desc": "Like 'while' but stop loop once condition is met" }
         },
         "functions": {
-            "do": {},
+            "do": { "desc": "run a block of code" },
             "next": {},
             "last": {},
             "return": {},

@@ -2,10 +2,10 @@
     "Dec": {
         "desc": "Represents a floating point number. Generally a double under the hood",
         "parent": "Object",
-        "roles": [ "ScalarCast" ]
+        "roles": [ "Scalar" ]
     },
     "Dict": {
-        "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value. Using a scalar as a key without toing it should throw an exception, a scalar could reasonably be any of the 4, the developers intention cannot be assumed.<p>",
+        "desc": "The dictionary type, equivilent to perls hash, also works as an array.<p>Integer, Decimal, String and Object keys are considered different, that is 1, 1.0, and \"1\" are different keys and may each have a different value.<p>",
         "parent": "Object",
         "roles": [ "Index", "Queue", "Chainable", "Iterable", "Sequence" ],
         "methods": {
@@ -56,7 +56,7 @@
     "Int": {
         "desc": "Represents a signed 64-bit integer number",
         "parent": "Object",
-        "roles": [ "ScalarCast" ]
+        "roles": [ "Scalar" ]
     },
     "Internal": {
         "desc": "Represents an internal function, for example a c function or system function. This is GSD's answer to XS. The unfortunate bit is that modules that make use of these will need a seperate implemenation for each GSD implementation they intend to support.",
@@ -125,11 +125,6 @@
     "Role": {
         "parent": "Object"
     },
-    "Scalar": {
-        "desc": "Represents a value that is automatically converted between String, Decimal, and Integer as required. Numeric literals and quotes are created as scalars by default.",
-        "parent": "Object",
-        "roles": [ "ScalarCast" ]
-    },
     "Sigil": {
         "parent": "Object"
     },
@@ -139,7 +134,7 @@
     "String": {
         "desc": "Represents a string of unicode characters",
         "parent": "Object",
-        "roles": [ "ScalarCast" ],
+        "roles": [ "Scalar" ],
         "methods": {
         }
     },
