@@ -1,5 +1,5 @@
-#ifndef GC_DICTIONARY_H
-#define GC_DICTIONARY_H
+#ifndef DICTIONARY_H
+#define DICTIONARY_H
 
 #include <stdint.h>
 #include "structures.h"

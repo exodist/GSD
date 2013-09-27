@@ -1,11 +1,14 @@
-#ifndef GC_STRUCTURES_H
-#define GC_STRUCTURES_H
+#ifndef STRUCTURES_H
+#define STRUCTURES_H
 
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
 #include "GSD_Dictionary/src/include/gsd_dict.h"
-#include "include/gsd_gc_api.h"
+#include "include/object_api.h"
+#include "include/collector_api.h"
+#include "include/type_api.h"
+#include "include/exceptions_api.h"
 #include "string.h"
 
 typedef struct object        object;

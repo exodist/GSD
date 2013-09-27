@@ -1,5 +1,5 @@
-#ifndef GC_STRING_H
-#define GC_STRING_H
+#ifndef STRING_H
+#define STRING_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,7 +9,7 @@ typedef struct object object;
 typedef struct string_header   string_header;
 typedef struct string          string;
 typedef struct string_rope     string_rope;
-typedef struct string_rope     string_snip;
+typedef struct string_snip     string_snip;
 typedef struct string_iterator string_iterator;
 
 struct string_header {
@@ -43,13 +43,5 @@ struct string_snip {
     unsigned int chars : 4;
     uint8_t data[7];
 };
-
-string_iterator iterate_string( object *s );
-
-uint8_t *iterator_next_utf8( string_iterator *i );
-uint32_t iterator_next_char( string_iterator *i );
-uint8_t  iterator_next_byte( string_iterator *i );
-
-int string_compare( object *a, object *b );
 
 #endif
