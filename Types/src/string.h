@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include "include/type_api.h"
 
 typedef struct object object;
 
@@ -33,9 +34,10 @@ struct string_rope {
 
 struct string_iterator {
     object *item;
-
-    string_iterator *stack;
     size_t index;
+    string_iterator *stack;
+
+    enum { I_ANY = 0, I_BYTES, I_CHARS } units : 8;
 };
 
 struct string_snip {
