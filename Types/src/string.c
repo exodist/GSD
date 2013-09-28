@@ -94,14 +94,7 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
     while( 1 ) {
         string_iterator *i = *ip;
         if (i->complete) {
-            if (i->stack) {
-                *ip = i->stack;
-                free_string_iterator(i);
-                i = *ip;
-            }
-            else {
-                return 0;
-            }
+            return NULL;
         }
 
         size_t         total_bytes;
@@ -114,13 +107,15 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
         switch (i->item->object.type) {
             case GC_ROPE:
                 sr = i->item->simple_data.ptr;
+
                 *ip = iterate_string(sr->children[i->index]);
                 assert(*ip);
                 (*ip)->stack = i;
 
                 (i->index)++;
-                if (i->index >= sr->child_count)
+                if (i->index >= sr->child_count) {
                     i->complete = 1;
+                }
             continue;
 
             case GC_STRING:
@@ -153,8 +148,14 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
             (i->index)++;
         }
 
-        if (i->index >= total_bytes)
+        if (i->index >= total_bytes) {
             i->complete = 1;
+            if (i->stack) {
+                *ip = i->stack;
+                i->stack = NULL;
+                free_string_iterator(i);
+            }
+        }
 
         return out;
     }
@@ -165,28 +166,9 @@ uint8_t iterator_next_byte( string_iterator **ip ) {
     if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_BYTES;
     assert( i->units == I_BYTES );
-    return *(iterator_next_part(ip, NULL, NULL));
-}
-
-uint32_t iterator_next_utf8( string_iterator **ip ) {
-    string_iterator *i = *ip;
-    if (i->complete) return 0;
-    if (i->units == I_ANY) i->units = I_CHARS;
-    assert( i->units == I_CHARS );
-
-    int s;
-    ucs4_t c;
-    const uint8_t *x = iterator_next_part(ip, &c, &s);
-
-    union {
-        uint8_t  parts[4];
-        uint32_t whole;
-    } out;
-
-    for( int i = 0; i < s && i < 5; i++ ) {
-        out.parts[i] = x[i];
-    }
-    return out.whole;
+    uint8_t *x = (iterator_next_part(ip, NULL, NULL));
+    if (!x) return 0;
+    return *x;
 }
 
 ucs4_t iterator_next_unic( string_iterator **ip ) {

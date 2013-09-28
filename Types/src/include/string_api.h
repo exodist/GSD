@@ -24,13 +24,9 @@ int string_compare( object *a, object *b );
 string_iterator *iterate_string( object *s );
 void free_string_iterator( string_iterator *i );
 
-// The utf8 variant returns a 32 bit int that has all the bytes of the utf8
-// sequence. Trailing bytes are 0 for sequences with less than 4 bytes.
 // The unic variant returns the unicode codepoint
 // byte variant returns a single byte.
-// You can mix the utf8 and unic variants, but you cannot mix them with the
-// byte variant.
-uint32_t iterator_next_utf8( string_iterator **i );
+// You cannot mix functions with a single iterator
 ucs4_t   iterator_next_unic( string_iterator **i );
 uint8_t  iterator_next_byte( string_iterator **i );
 

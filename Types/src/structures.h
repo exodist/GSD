@@ -22,7 +22,7 @@ typedef struct region     region;
 
 typedef struct string_snip string_snip;
 
-#define STRING_TYPE_START 240 
+#define STRING_TYPE_START 240
 
 typedef enum {
     GC_FREE    = 0,
