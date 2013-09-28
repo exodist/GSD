@@ -147,10 +147,14 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
 
         if (c && s) {
             *s = u8_mbtouc(c, out, total_bytes - i->index);
+            (i->index) += *s;
         }
         else {
             (i->index)++;
         }
+
+        if (i->index >= total_bytes)
+            i->complete = 1;
 
         return out;
     }
@@ -158,6 +162,7 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
 
 uint8_t iterator_next_byte( string_iterator **ip ) {
     string_iterator *i = *ip;
+    if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_BYTES;
     assert( i->units == I_BYTES );
     return *(iterator_next_part(ip, NULL, NULL));
@@ -165,6 +170,7 @@ uint8_t iterator_next_byte( string_iterator **ip ) {
 
 uint32_t iterator_next_utf8( string_iterator **ip ) {
     string_iterator *i = *ip;
+    if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_CHARS;
     assert( i->units == I_CHARS );
 
@@ -172,16 +178,20 @@ uint32_t iterator_next_utf8( string_iterator **ip ) {
     ucs4_t c;
     const uint8_t *x = iterator_next_part(ip, &c, &s);
 
-    uint32_t out = 0;
-    uint8_t *outp = (void *)&out;
+    union {
+        uint8_t  parts[4];
+        uint32_t whole;
+    } out;
+
     for( int i = 0; i < s && i < 5; i++ ) {
-        outp[i] = x[i];
+        out.parts[i] = x[i];
     }
-    return out;
+    return out.whole;
 }
 
 ucs4_t iterator_next_unic( string_iterator **ip ) {
     string_iterator *i = *ip;
+    if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_CHARS;
     assert( i->units == I_CHARS );
 
@@ -207,4 +217,8 @@ void free_string( object *s ) {
 
     // This will never happen, but the compiler can't tell.
     assert(0);
+}
+
+uint8_t  iterator_complete( string_iterator *i ) {
+    return i->complete;
 }
