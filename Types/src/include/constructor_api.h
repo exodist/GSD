@@ -21,7 +21,7 @@ object    *new_handle    ( FILE    *data             );
 object    *new_dict      ( dict    *data             );
 object    *new_string    ( uint8_t *data             );
 
-// Null terminated string of objects
-object *new_rope ( collection *c, ... );
+// Null terminated list of string objects
+object *new_rope ( object *s, ... );
 
 #endif

@@ -2,6 +2,7 @@
 #include "include/static_api.h"
 #include "type.h"
 #include "structures.h"
+#include "collector.h"
 #include <assert.h>
 
 exception    type_compile    ( object *t                             );

@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <unitypes.h>
 
 typedef struct object          object;
 typedef struct string_iterator string_iterator;
@@ -21,6 +22,7 @@ int string_compare( object *a, object *b );
 
 // Get an iterator that canbe used in the iteration functions below.
 string_iterator *iterate_string( object *s );
+void free_string_iterator( string_iterator *i );
 
 // The utf8 variant returns a 32 bit int that has all the bytes of the utf8
 // sequence. Trailing bytes are 0 for sequences with less than 4 bytes.
@@ -28,8 +30,11 @@ string_iterator *iterate_string( object *s );
 // byte variant returns a single byte.
 // You can mix the utf8 and unic variants, but you cannot mix them with the
 // byte variant.
-uint32_t iterator_next_utf8( string_iterator *i );
-uint32_t iterator_next_unic( string_iterator *i );
-uint8_t  iterator_next_byte( string_iterator *i );
+uint32_t iterator_next_utf8( string_iterator **i );
+ucs4_t   iterator_next_unic( string_iterator **i );
+uint8_t  iterator_next_byte( string_iterator **i );
+
+// Check if the iterator is finished
+uint8_t  iterator_complete( string_iterator *i );
 
 #endif

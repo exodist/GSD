@@ -10,12 +10,11 @@ object *new_pointer ( void    *data );
 object *new_sint    ( int64_t  data );
 object *new_uint    ( uint64_t data );
 object *new_dec     ( double   data );
-object *new_chars   ( uint8_t *data );
 object *new_handle  ( FILE    *data );
 object *new_dict    ( dict    *data );
-object *new_string  ( uint8_t *data );
 
-// Null terminated string of objects and/or c-strings
-object *new_rope ( collection *c, ... );
+object *new_chars   ( uint8_t *data  );
+object *new_string  ( uint8_t *data  );
+object *new_rope    ( object *s, ... );
 
 

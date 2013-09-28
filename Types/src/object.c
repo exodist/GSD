@@ -6,7 +6,6 @@ dict    *object_get_store   ( object *o );
 void    *object_get_pointer ( object *o );
 int64_t  object_get_sint    ( object *o );
 double   object_get_dec     ( object *o );
-uint8_t *object_get_chars   ( object *o );
 FILE    *object_get_handle  ( object *o );
 dict    *object_get_dict    ( object *o );
 uint8_t *object_get_string  ( object *o );

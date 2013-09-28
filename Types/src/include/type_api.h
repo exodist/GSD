@@ -5,22 +5,6 @@
 
 typedef struct object object;
 
-typedef enum {
-    GC_TYPED   = 0,
-    GC_TYPE    = 1,
-    GC_POINTER = 2,
-    GC_INT     = 3,
-    GC_DEC     = 4,
-    GC_SNIP    = 5,
-    GC_HANDLE  = 6,
-    GC_DICT    = 7,
-    GC_STRING  = 8,
-    GC_ROPE    = 9,
-    GC_BOOL    = 10,
-    GC_UNDEF   = 11,
-    GC_FREE
-} primitive;
-
 typedef enum { TS_DICT, TS_POINTER } type_storage;
 
 exception    type_compile    ( object *t                             );
