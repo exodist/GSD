@@ -15,7 +15,9 @@ typedef struct string_header   string_header;
 typedef struct string          string;
 typedef struct string_rope     string_rope;
 typedef struct string_const    string_const;
+
 typedef struct string_iterator string_iterator;
+typedef struct string_iterator_stack string_iterator_stack;
 
 struct string_header {
     uint64_t bytes : 64;
@@ -40,20 +42,24 @@ struct string_const {
 struct string_rope {
     string_header head;
 
-    size_t   child_count;
-    object **children;
+    uint32_t depth;
+    uint32_t child_count;
+    object_simple **children;
+};
+
+struct string_iterator_stack {
+    object_simple *item;
+    size_t         index;
 };
 
 struct string_iterator {
-    object_simple *item;
-    size_t index;
-    string_iterator *stack;
-
-    enum { I_ANY = 0, I_BYTES, I_CHARS } units : 8;
-    uint8_t complete;
+    enum { I_ANY = 0, I_BYTES, I_CHARS } units : 16;
+    unsigned int complete : 16;
+    uint32_t stack_index  : 32;
+    string_iterator_stack stack;
 };
 
-const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s );
+const uint8_t *iterator_next_part( string_iterator *i, ucs4_t *c );
 
 void free_string( object *o );
 

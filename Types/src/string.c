@@ -53,8 +53,8 @@ int string_compare( object *a, object *b ) {
     string_iterator *ib = iterate_string(b);
 
     while (!(iterator_complete(ia) || iterator_complete(ib))) { 
-        uint8_t ca = iterator_next_byte(&ia);
-        uint8_t cb = iterator_next_byte(&ib);
+        uint8_t ca = iterator_next_byte(ia);
+        uint8_t cb = iterator_next_byte(ib);
 
         if (ca == cb) continue;
         if (ca >  cb) return  1;
@@ -75,27 +75,28 @@ string_iterator *iterate_string( object *s ) {
     assert( s->ref_count );
     assert( s->type >= STRING_TYPE_START );
 
-    string_iterator *i = malloc(sizeof(string_iterator));
+    int32_t depth = 0;
+    if ( s->type == GC_ROPE ) {
+        string_rope *r = ((object_simple *)(s))->simple_data.ptr;
+        depth = r->depth;
+    }
+    string_iterator *i = malloc(sizeof(string_iterator) + depth);
     assert( i );
-    memset( i, 0, sizeof(string_iterator) );
+    memset( i, 0, sizeof(string_iterator) + depth );
     gc_add_ref(s);
-    i->item = (object_simple*)s;
+    i->stack.item = (object_simple*)s;
 
     return i;
 }
 
 void free_string_iterator( string_iterator *i ) {
-    gc_del_ref(&(i->item->object));
-    if (i->stack) free_string_iterator( i->stack);
+    gc_del_ref(&(i->stack.item->object));
     free(i);
 }
 
-const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
+const uint8_t *iterator_next_part( string_iterator *i, ucs4_t *c ) {
     while( 1 ) {
-        string_iterator *i = *ip;
-        if (i->complete) {
-            return NULL;
-        }
+        if (i->complete) return NULL;
 
         size_t         total_bytes;
         const uint8_t *out;
@@ -104,35 +105,44 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
         string_snip   *sn;
         string_const  *sc;
 
-        switch (i->item->object.type) {
+        string_iterator_stack *stack = &(i->stack);
+        string_iterator_stack *curr  = stack + i->stack_index;
+
+        switch (curr->item->object.type) {
             case GC_ROPE:
-                sr = i->item->simple_data.ptr;
+                sr = curr->item->simple_data.ptr;
 
-                *ip = iterate_string(sr->children[i->index]);
-                assert(*ip);
-                (*ip)->stack = i;
-
-                (i->index)++;
-                if (i->index >= sr->child_count) {
-                    i->complete = 1;
+                // Pop if there is nothing left here.
+                if (curr->index >= sr->child_count) {
+                    assert( i->stack_index > 0 );
+                    i->stack_index--;
+                    continue;
                 }
+
+                // Push
+                curr[1].item  = sr->children[curr->index];
+                curr[1].index = 0;
+                (i->stack_index)++;
+                (curr->index)++;
+
+                total_bytes = sr->child_count;
             continue;
 
             case GC_STRING:
-                st = i->item->simple_data.ptr;
-                out = &(st->first_byte) + i->index;
+                st = i->stack.item->simple_data.ptr;
+                out = &(st->first_byte) + i->stack.index;
                 total_bytes = st->head.bytes;
             break;
 
             case GC_SNIP:
-                sn = &(i->item->simple_data.snip);
-                out = sn->data + i->index;
+                sn = &(curr->item->simple_data.snip);
+                out = sn->data + curr->index;
                 total_bytes = sn->bytes;
             break;
 
             case GC_STRINGC:
-                sc = i->item->simple_data.ptr;
-                out = sc->string + i->index;
+                sc = curr->item->simple_data.ptr;
+                out = sc->string + curr->index;
                 total_bytes = sc->head.bytes;
             break;
 
@@ -140,20 +150,26 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
                 assert(0);
         }
 
-        if (c && s) {
-            *s = u8_mbtouc(c, out, total_bytes - i->index);
-            (i->index) += *s;
+        if (c) {
+            (curr->index) += u8_mbtouc(c, out, total_bytes - i->stack.index);
         }
         else {
-            (i->index)++;
+            (curr->index)++;
         }
 
-        if (i->index >= total_bytes) {
-            i->complete = 1;
-            if (i->stack) {
-                *ip = i->stack;
-                i->stack = NULL;
-                free_string_iterator(i);
+        if (curr->index >= total_bytes) {
+            if (i->stack_index) {
+                stack = &(i->stack);
+                i->stack_index--;
+                if (!i->stack_index) {
+                    sr = i->stack.item->simple_data.ptr;
+                    if (i->stack.index >= sr->child_count) {
+                        i->complete = 1;
+                    }
+                }
+            }
+            else {
+                i->complete = 1;
             }
         }
 
@@ -161,25 +177,22 @@ const uint8_t *iterator_next_part( string_iterator **ip, ucs4_t *c, int *s ) {
     }
 }
 
-uint8_t iterator_next_byte( string_iterator **ip ) {
-    string_iterator *i = *ip;
+uint8_t iterator_next_byte( string_iterator *i ) {
     if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_BYTES;
     assert( i->units == I_BYTES );
-    const uint8_t *x = (iterator_next_part(ip, NULL, NULL));
+    const uint8_t *x = (iterator_next_part(i, NULL));
     if (!x) return 0;
     return *x;
 }
 
-ucs4_t iterator_next_unic( string_iterator **ip ) {
-    string_iterator *i = *ip;
+ucs4_t iterator_next_unic( string_iterator *i ) {
     if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_CHARS;
     assert( i->units == I_CHARS );
 
-    int s;
     ucs4_t c;
-    iterator_next_part(ip, &c, &s);
+    iterator_next_part(i, &c );
     return c;
 }
 

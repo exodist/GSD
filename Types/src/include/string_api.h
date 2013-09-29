@@ -27,8 +27,8 @@ void free_string_iterator( string_iterator *i );
 // The unic variant returns the unicode codepoint
 // byte variant returns a single byte.
 // You cannot mix functions with a single iterator
-ucs4_t   iterator_next_unic( string_iterator **i );
-uint8_t  iterator_next_byte( string_iterator **i );
+ucs4_t   iterator_next_unic( string_iterator *i );
+uint8_t  iterator_next_byte( string_iterator *i );
 
 // Check if the iterator is finished
 uint8_t  iterator_complete( string_iterator *i );

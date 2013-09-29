@@ -47,47 +47,47 @@ void test_snip() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'a' );
+    assert( iterator_next_byte(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'b' );
+    assert( iterator_next_byte(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'c' );
+    assert( iterator_next_byte(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'd' );
+    assert( iterator_next_byte(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xC7 );
+    assert( iterator_next_byte(i) == 0xC7 );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xBF );
+    assert( iterator_next_byte(i) == 0xBF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0 );
+    assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
     i = iterate_string(&(snip1->object));
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'c' );
+    assert( iterator_next_unic(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 
@@ -96,24 +96,24 @@ void test_snip() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
     // invalid character, should be replaced
-    assert( iterator_next_unic(&i) == 0xFFFD );
+    assert( iterator_next_unic(i) == 0xFFFD );
     assert( !iterator_complete(i) );
 
     // Still iterated after invalid character
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 }
@@ -139,47 +139,47 @@ void test_stringc() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'a' );
+    assert( iterator_next_byte(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'b' );
+    assert( iterator_next_byte(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'c' );
+    assert( iterator_next_byte(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'd' );
+    assert( iterator_next_byte(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xC7 );
+    assert( iterator_next_byte(i) == 0xC7 );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xBF );
+    assert( iterator_next_byte(i) == 0xBF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0 );
+    assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
     i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'c' );
+    assert( iterator_next_unic(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 
@@ -188,25 +188,25 @@ void test_stringc() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
     // invalid character, should be replaced
-    //printf( "---> %x\n", iterator_next_unic(&i) );
-    assert( iterator_next_unic(&i) == 0xFFFD );
+    //printf( "---> %x\n", iterator_next_unic(i) );
+    assert( iterator_next_unic(i) == 0xFFFD );
     assert( !iterator_complete(i) );
 
     // Still iterated after invalid character
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 }
@@ -238,47 +238,47 @@ void test_string() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'a' );
+    assert( iterator_next_byte(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'b' );
+    assert( iterator_next_byte(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'c' );
+    assert( iterator_next_byte(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'd' );
+    assert( iterator_next_byte(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xC7 );
+    assert( iterator_next_byte(i) == 0xC7 );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xBF );
+    assert( iterator_next_byte(i) == 0xBF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0 );
+    assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
     i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'c' );
+    assert( iterator_next_unic(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 
@@ -287,25 +287,25 @@ void test_string() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
     // invalid character, should be replaced
-    //printf( "---> %x\n", iterator_next_unic(&i) );
-    assert( iterator_next_unic(&i) == 0xFFFD );
+    //printf( "---> %x\n", iterator_next_unic(i) );
+    assert( iterator_next_unic(i) == 0xFFFD );
     assert( !iterator_complete(i) );
 
     // Still iterated after invalid character
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 }
@@ -319,16 +319,17 @@ void test_rope() {
         {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 2, .chars = 1, .data = {0xC7, 0xBF}}},
     };
 
-    object *children[5] = {
-        &(snips[0].object),
-        &(snips[1].object),
-        &(snips[2].object),
-        &(snips[3].object),
-        &(snips[4].object),
+    object_simple *children[5] = {
+        snips,
+        snips + 1,
+        snips + 2,
+        snips + 3,
+        snips + 4,
     };
 
     string_rope sr = {
         .head = { .bytes = 6, .chars = 5 },
+        .depth = 1,
         .child_count = 5,
         .children = children,
     };
@@ -348,47 +349,47 @@ void test_rope() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'a' );
+    assert( iterator_next_byte(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'b' );
+    assert( iterator_next_byte(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'c' );
+    assert( iterator_next_byte(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 'd' );
+    assert( iterator_next_byte(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xC7 );
+    assert( iterator_next_byte(i) == 0xC7 );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0xBF );
+    assert( iterator_next_byte(i) == 0xBF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_byte(&i) == 0 );
+    assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
     i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'c' );
+    assert( iterator_next_unic(i) == 'c' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 
@@ -397,25 +398,25 @@ void test_rope() {
 
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'a' );
+    assert( iterator_next_unic(i) == 'a' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 'b' );
+    assert( iterator_next_unic(i) == 'b' );
     assert( !iterator_complete(i) );
 
     // invalid character, should be replaced
-    //printf( "---> %x\n", iterator_next_unic(&i) );
-    assert( iterator_next_unic(&i) == 0xFFFD );
+    //printf( "---> %x\n", iterator_next_unic(i) );
+    assert( iterator_next_unic(i) == 0xFFFD );
     assert( !iterator_complete(i) );
 
     // Still iterated after invalid character
-    assert( iterator_next_unic(&i) == 'd' );
+    assert( iterator_next_unic(i) == 'd' );
     assert( !iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0x01FF );
+    assert( iterator_next_unic(i) == 0x01FF );
     assert( iterator_complete(i) );
 
-    assert( iterator_next_unic(&i) == 0 );
+    assert( iterator_next_unic(i) == 0 );
 
     free_string_iterator( i );
 }
@@ -454,14 +455,15 @@ void test_compare() {
         {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'c'}}},
         {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'D'}}},
     };
-    object *children[4] = {
-        &(snips[0].object),
-        &(snips[1].object),
-        &(snips[2].object),
-        &(snips[3].object),
+    object_simple *children[4] = {
+        snips,
+        snips + 1,
+        snips + 2,
+        snips + 3,
     };
     string_rope sr = {
         .head = { .bytes = 4, .chars = 4 },
+        .depth = 1,
         .child_count = 4,
         .children = children,
     };
