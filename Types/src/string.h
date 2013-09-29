@@ -18,9 +18,11 @@ typedef struct string_const    string_const;
 typedef struct string_iterator string_iterator;
 
 struct string_header {
-    uint32_t bytes;
-    uint32_t chars;
-    uint64_t hash;
+    uint64_t bytes : 64;
+    uint64_t chars : 63;
+
+    unsigned int hash_set : 1;
+    uint64_t     hash;
 };
 
 struct string {

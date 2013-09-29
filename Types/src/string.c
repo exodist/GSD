@@ -52,11 +52,7 @@ int string_compare( object *a, object *b ) {
     string_iterator *ia = iterate_string(a);
     string_iterator *ib = iterate_string(b);
 
-    size_t bytes_a = string_bytes(a);
-    size_t bytes_b = string_bytes(b);
-    size_t bytes = bytes_a < bytes_b ? bytes_a : bytes_b;
-
-    for(size_t i = 0; i < bytes; i++) {
+    while (!(iterator_complete(ia) || iterator_complete(ib))) { 
         uint8_t ca = iterator_next_byte(&ia);
         uint8_t cb = iterator_next_byte(&ib);
 
@@ -65,10 +61,14 @@ int string_compare( object *a, object *b ) {
         if (ca <  cb) return -1;
     }
 
-    if (bytes_a > bytes_b) return  1;
-    if (bytes_b < bytes_a) return -1;
+    if (iterator_complete(ia) && iterator_complete(ib))
+        return 0;
 
-    return 0;
+    if (iterator_complete(ia)) return -1;
+    if (iterator_complete(ib)) return  1;
+
+    // Cannot happen
+    assert(0);
 }
 
 string_iterator *iterate_string( object *s ) {
@@ -166,7 +166,7 @@ uint8_t iterator_next_byte( string_iterator **ip ) {
     if (i->complete) return 0;
     if (i->units == I_ANY) i->units = I_BYTES;
     assert( i->units == I_BYTES );
-    uint8_t *x = (iterator_next_part(ip, NULL, NULL));
+    const uint8_t *x = (iterator_next_part(ip, NULL, NULL));
     if (!x) return 0;
     return *x;
 }
