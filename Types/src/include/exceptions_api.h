@@ -8,6 +8,9 @@ typedef enum {
     EX_OUT_OF_MEMORY,
     EX_NO_ATTRIBUTES,
     EX_NOT_A_TYPE,
+    EX_DEC_AS_HKEY,
+    EX_INVALID_HKEY,
+    EX_NOT_IMPLEMENTED,
 } exception;
 
 typedef struct {

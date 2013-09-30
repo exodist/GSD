@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "include/type_api.h"
+#include "include/string_api.h"
 #include "structures.h"
 #include <stdlib.h>
 #include <unistr.h>

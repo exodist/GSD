@@ -33,4 +33,6 @@ uint8_t  iterator_next_byte( string_iterator *i );
 // Check if the iterator is finished
 uint8_t  iterator_complete( string_iterator *i );
 
+int is_string( object *o );
+
 #endif

@@ -214,6 +214,10 @@ void free_string( object *s ) {
     assert(0);
 }
 
-uint8_t  iterator_complete( string_iterator *i ) {
+uint8_t iterator_complete( string_iterator *i ) {
     return i->complete;
+}
+
+int is_string( object *o ) {
+    return o->type >= STRING_TYPE_START;
 }

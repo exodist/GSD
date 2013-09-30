@@ -23,24 +23,25 @@ typedef struct region     region;
 typedef struct string_snip string_snip;
 
 #define STRING_TYPE_START 240
+#define SIMPLE_TYPE_START 10
 
 typedef enum {
-    GC_FREE    = 0,
-    GC_TYPED   = 1,
-    GC_TYPE    = 2,
-    GC_POINTER = 3,
-    GC_INT     = 4,
-    GC_DEC     = 6,
-    GC_HANDLE  = 7,
-    GC_DICT    = 8,
-    GC_BOOL    = 9,
-    GC_UNDEF   = 10,
+    GC_FREE  = 0,
+    GC_TYPED = 1,
+    GC_TYPE  = 2,
+
+    GC_POINTER = SIMPLE_TYPE_START,
+    GC_INT     = SIMPLE_TYPE_START + 1,
+    GC_DEC     = SIMPLE_TYPE_START + 2,
+    GC_HANDLE  = SIMPLE_TYPE_START + 3,
+    GC_DICT    = SIMPLE_TYPE_START + 4,
+    GC_BOOL    = SIMPLE_TYPE_START + 5,
+    GC_UNDEF   = SIMPLE_TYPE_START + 6,
 
     GC_SNIP    = STRING_TYPE_START,
     GC_STRING  = STRING_TYPE_START + 1,
     GC_STRINGC = STRING_TYPE_START + 2,
     GC_ROPE    = STRING_TYPE_START + 3,
-
 } primitive;
 
 struct string_snip {

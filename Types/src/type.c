@@ -5,6 +5,10 @@
 #include "collector.h"
 #include <assert.h>
 
+int is_simple( object *o ) {
+    return o->type >= SIMPLE_TYPE_START;
+}
+
 exception    type_compile    ( object *t                             );
 type_storage type_get_store  ( object *t                             );
 exception    type_set_store  ( object *t, type_storage ts            );

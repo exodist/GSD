@@ -5,6 +5,9 @@
 #include "../include/string_api.h"
 #include "../structures.h"
 #include "../string.h"
+#include "../dictionary.h"
+
+exception E;
 
 void test_snip();
 void test_stringc();
@@ -43,6 +46,7 @@ void test_snip() {
     assert( string_bytes( &(snip1->object) ) == 6 );
     assert( string_chars( &(snip1->object) ) == 5 );
 
+    printf( "%zx\n", hash_object( &(snip1->object), &E ));
     string_iterator *i = iterate_string(&(snip1->object));
 
     assert( !iterator_complete(i) );
@@ -135,6 +139,7 @@ void test_stringc() {
     assert( string_bytes( &(string1->object) ) == 6 );
     assert( string_chars( &(string1->object) ) == 5 );
 
+    printf( "%zx\n", hash_object( &(string1->object), &E ));
     string_iterator *i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
@@ -234,6 +239,7 @@ void test_string() {
     assert( string_bytes( &(string1->object) ) == 6 );
     assert( string_chars( &(string1->object) ) == 5 );
 
+    printf( "%zx\n", hash_object( &(string1->object), &E ));
     string_iterator *i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
@@ -345,6 +351,7 @@ void test_rope() {
     assert( string_bytes( &(string1->object) ) == 6 );
     assert( string_chars( &(string1->object) ) == 5 );
 
+    printf( "%zx\n", hash_object( &(string1->object), &E ));
     string_iterator *i = iterate_string(&(string1->object));
 
     assert( !iterator_complete(i) );
