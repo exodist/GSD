@@ -6,7 +6,32 @@
 dict_methods DOBJ_METH = {
     .cmp = obj_cmp,
     .loc = obj_loc,
+    .change = obj_change,
 };
+
+void obj_change( dict *d, void *meta, void *key, void *old_val, void *new_val ){
+    object *ko = key;
+    if (ko->type != GC_INT) return;
+
+    // Key is not being added or removed
+    if  (old_val && new_val) return;
+    if !(old_val || new_val) return; // dereference of an empty key
+
+    gc_dict_meta = meta;
+    object_simple *kos = key;
+    int64_t val = key->simple_data.integer;
+
+    // Removing a key
+    if (!new_val) {
+        // If the key does not match either bound then we return
+        // If the bounds are identical remove both
+        // +/- bounds as necessary (Atomic)
+    }
+
+    // If no old_val we are adding the key, replace applicable bounds
+    // while key is larger  than upper_bound, replace upper bound (atomic)
+    // while key is smaller than lower_bount, replace lower bound (atomic)
+}
 
 int obj_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     object *ko1 = key1;

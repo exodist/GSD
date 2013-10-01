@@ -18,8 +18,8 @@ struct gc_dict_meta {
     uint64_t       initial_state;
     hash_function *hash_function;
 
-    object *upper_int_bound;
-    object *lower_int_bound;
+    object_simple *upper_int_bound;
+    object_simple *lower_int_bound;
 };
 
 uint64_t hash_object ( gc_dict_meta *m, object *o, exception *e );
@@ -28,5 +28,6 @@ uint64_t fnv_hash_bytes ( uint8_t *data, size_t length, uint64_t key );
 
 int    obj_cmp( void *meta, void *key1, void *key2, uint8_t *e );
 size_t obj_loc( size_t slot_count, void *meta, void *key, uint8_t *e );
+void   obj_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
 
 #endif
