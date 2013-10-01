@@ -3,15 +3,12 @@
 #include "type.h"
 #include <assert.h>
 
-#define SEED 14695981039346656037UL
-#define MUL  1099511628211
-
 dict_methods DOBJ_METH = {
     .cmp = obj_cmp,
     .loc = obj_loc,
 };
 
-int obj_cmp( void *meta, void *key1, void *key2 ) {
+int obj_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     object *ko1 = key1;
     object *ko2 = key2;
 
@@ -46,34 +43,30 @@ int obj_cmp( void *meta, void *key1, void *key2 ) {
     return 0;
 }
 
-size_t obj_loc( size_t slot_count, void *meta, void *key ) {
-    exception e;
-    uint64_t hash = hash_object( key, &e );
-    // todo: Uh-Oh
-    assert( !e );
-    return hash % slot_count; 
+size_t obj_loc( size_t slot_count, void *meta, void *key, uint8_t *e ) {
+    uint64_t hash = hash_object( meta, key, (exception *)e );
+    return hash % slot_count;
 }
 
-uint64_t hash_bytes( uint8_t *data, size_t length ) {
-    return hash_append_bytes( data, length, SEED );
-}
-
-uint64_t hash_append_bytes( uint8_t *data, size_t length, uint64_t key ) {
+uint64_t fnv_hash_bytes( uint8_t *data, size_t length, uint64_t key ) {
     if ( length < 1 ) return key;
 
     for ( size_t i = 0; i < length; i++ ) {
         key ^= data[i];
-        key *= MUL;
+        key *= FNV_PRIME;
     }
 
     return key;
 }
 
-uint64_t hash_object ( object *o, exception *e ) {
+uint64_t hash_object ( gc_dict_meta *meta, object *o, exception *e ) {
     *e = EX_NONE;
     object_simple *os = (object_simple *)o;
     string_iterator *i;
     string_header *sh = NULL;
+
+    hash_function *hf = meta->hash_function;
+    uint64_t state   = meta->initial_state;
 
     switch( o->type ) {
         case GC_UNDEF: return 0;
@@ -87,18 +80,20 @@ uint64_t hash_object ( object *o, exception *e ) {
         return 0;
 
         // Hash the object address
-        case GC_TYPED:  
-        case GC_TYPE:   
-        return hash_bytes((void *)o, sizeof(object *));
+        case GC_CLASS:
+        case GC_ROLE:
+        case GC_INST:
+        return hf((void *)o, sizeof(object *), state);
 
         // All these use the value of the simple_data
         case GC_INT:
         case GC_POINTER:
-        case GC_HANDLE: 
-        case GC_DICT:   
-        return hash_bytes(
+        case GC_HANDLE:
+        case GC_DICT:
+        return hf(
             (void *)&(os->simple_data.integer),
-            sizeof(int64_t)
+            sizeof(int64_t),
+            state
         );
 
         // All strings except snip might already have a
@@ -118,18 +113,17 @@ uint64_t hash_object ( object *o, exception *e ) {
                 return 0;
             }
 
-            uint64_t out = SEED;
             while(!iterator_complete(i)) {
                 uint8_t b = iterator_next_byte(i);
-                out = hash_append_bytes( &b, 1, out );
+                state = hf( &b, 1, state );
             }
 
             // XXX: Does this need to be atomic?
             if(sh) {
-                sh->hash     = out;
+                sh->hash     = state;
                 sh->hash_set = 1;
             }
-        return out;
+        return state;
 
         default:
             *e = EX_INVALID_HKEY;

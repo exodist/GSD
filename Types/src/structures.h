@@ -11,10 +11,12 @@
 #include "include/exceptions_api.h"
 #include "string.h"
 
-typedef struct object        object;
-typedef struct object_type   object_type;
-typedef struct object_typed  object_typed;
-typedef struct object_simple object_simple;
+typedef struct object           object;
+typedef struct object_component object_component;
+typedef struct object_component object_role;
+typedef struct object_class     object_class;
+typedef struct object_instance  object_instance;
+typedef struct object_simple    object_simple;
 
 typedef struct collection collection;
 typedef struct collector  collector;
@@ -27,8 +29,9 @@ typedef struct string_snip string_snip;
 
 typedef enum {
     GC_FREE  = 0,
-    GC_TYPED = 1,
-    GC_TYPE  = 2,
+    GC_CLASS = 1,
+    GC_ROLE  = 2,
+    GC_INST  = 3,
 
     GC_POINTER = SIMPLE_TYPE_START,
     GC_INT     = SIMPLE_TYPE_START + 1,
@@ -59,25 +62,30 @@ struct object {
     uint32_t ref_count : 32;
 };
 
-struct object_type {
+struct object_component {
     object object;
-
-    object_type *parent;
 
     dict *roles;
     dict *symbols;
     dict *attributes;
 
+    dict *composed;
+};
+
+struct object_class {
+    object_component component;
+
+    object_class *parent;
+
     type_storage storage;
 
-    uint8_t immutable;
     uint8_t ref_count_only;
 };
 
-struct object_typed {
+struct object_instance {
     object object;
 
-    object_type *type;
+    object_component *spec;
 
     union {
         void *ptr;
@@ -106,7 +114,7 @@ struct collector {
 
     pthread_t *thread;
 
-    object_type types[12];
+    object_class types[12];
 };
 
 struct region {
