@@ -435,13 +435,13 @@ char *dump_dot_merge( dot *dd ) {
     return out;
 }
 
-int dump_dot_ref_cmp( void *meta, void *key1, void *key2 ) {
+int dump_dot_ref_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     if ( key1 == key2 ) return 0;
     if ( key1 > key2 ) return 1;
     return -1;
 }
 
-size_t dump_dot_ref_loc( size_t slot_count, void *meta, void *key ) {
+size_t dump_dot_ref_loc( size_t slot_count, void *meta, void *key, uint8_t *e ) {
     size_t num = (size_t)key;
     return num % slot_count;
 }

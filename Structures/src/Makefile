@@ -91,6 +91,10 @@ apitest: libGSDDict.so
 	$(GCC) $(CFLAGS) -O2 -I. -L. test/apitest.c -lGSDDict -lpthread -oapitest.run
 	LD_LIBRARY_PATH="." ./apitest.run
 
+memtest: libGSDDict.so
+	$(GCC) $(CFLAGS) -O2 -I. -L. test/memory.c -lGSDDict -lpthread -omemorytest.run
+	LD_LIBRARY_PATH="." ./memorytest.run
+
 grind_apitest: libGrindGSDDict.so
 	$(GCC) $(CFLAGS) -O0 -g -I. -L. test/apitest.c -lGrindGSDDict -lpthread -DDEV_ASSERTS -oapitest.run
 	LD_LIBRARY_PATH="." valgrind --leak-check=full \

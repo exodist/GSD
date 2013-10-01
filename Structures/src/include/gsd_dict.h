@@ -14,8 +14,8 @@ typedef struct dict dict;
 typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
 typedef void   (dict_ref)( dict *d, void *ref, int delta );
 typedef int    (dict_handler)( void *key, void *value, void *args );
-typedef int    (dict_cmp)( void *meta, void *key1, void *key2 );
-typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key );
+typedef int    (dict_cmp)( void *meta, void *key1, void *key2, uint8_t *error );
+typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key, uint8_t *error );
 typedef char * (dict_dot)( void *key, void *val );
 typedef const char *(dict_trigger)( void *arg, void *value );
 
@@ -111,10 +111,6 @@ dict_settings dict_get_settings( dict *d );
 
 // Used to get your dict_methods item.
 dict_methods dict_get_methods( dict *d );
-
-// Returns false if the dictionary is in an invalid state, this generally only
-// occurs if we run out of memory partway through a rebalance or reconfigure.
-int dict_health_check( dict *d );
 
 // Create an immutible clone of a dictionary.
 dict *dict_clone_immutable( dict *d, size_t threads );

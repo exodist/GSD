@@ -20,9 +20,8 @@
  * rebal - Set to true when the error occured during a rebalance AFTER the
  *         operation succeeded.
  * error - The type of error that occured, 0 means no error occured.
+ *         100+ are for external application use
  *
- * message_idx - Do not use directly, used by dict_stat_message() to find the
- *               error message string.
 \*/
 
 typedef union {

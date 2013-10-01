@@ -209,6 +209,11 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
             __sync_fetch_and_sub( &(d->item_count), count_diff );
         }
 
+        // This only happens if the application can have multiple items that
+        // are identical but do not compare as equal, forcing it to always
+        // return a default direction. Ideally the application would avoid
+        // this. In such cases it is unlikely any algorithm, seed, salt, etc
+        // changes will be helpful.
         if ( loc->slot->patho ) return rstat_patho;
     }
 

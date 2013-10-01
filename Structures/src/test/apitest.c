@@ -26,8 +26,8 @@ int USE_FNV = 1;
 
 kv    *new_kv( uint64_t val );
 void   kv_ref( dict *d, void *ref, int delta );
-size_t kv_loc( size_t slot_count, void *meta, void *key );
-int    kv_cmp( void *meta, void *key1, void *key2 );
+size_t kv_loc( size_t slot_count, void *meta, void *key, uint8_t *e );
+int    kv_cmp( void *meta, void *key1, void *key2, uint8_t *e );
 void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
 uint64_t hash_bytes( uint8_t *data, size_t length );
 
@@ -52,7 +52,7 @@ void kv_ref( dict *d, void *ref, int delta ) {
     if ( refs == 0 ) free( ref );
 }
 
-size_t kv_loc( size_t slot_count, void *meta, void *key ) {
+size_t kv_loc( size_t slot_count, void *meta, void *key, uint8_t *e ) {
     kv *k = key;
 
     if ( !USE_FNV ) return k->value % slot_count;
@@ -63,7 +63,7 @@ size_t kv_loc( size_t slot_count, void *meta, void *key ) {
     return k->fnv_hash % slot_count;
 }
 
-int kv_cmp( void *meta, void *key1, void *key2 ) {
+int kv_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     if ( key1 == key2 ) return 0;
 
     kv *k1 = key1;

@@ -72,8 +72,8 @@ rstat dump_dot_epochs( dict *d, dot *dd );
 rstat dump_dot_slots( set *s, dot *dd );
 char *dump_dot_merge( dot *dd );
 
-int dump_dot_ref_cmp( void *meta, void *key1, void *key2 );
-size_t dump_dot_ref_loc( size_t slot_count, void *meta, void *key );
+int dump_dot_ref_cmp( void *meta, void *key1, void *key2, uint8_t *e );
+size_t dump_dot_ref_loc( size_t slot_count, void *meta, void *key, uint8_t *e );
 int dump_dot_ref_free_handler( void *key, void *value, void *args );
 int dump_dot_ref_handler( void *key, void *value, void *args );
 

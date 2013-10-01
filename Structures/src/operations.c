@@ -299,7 +299,14 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
     // If this an atomic swap set
     if ( spec->swap_from ) {
         xtrn *current = loc->sref->xtrn;
-        if ( !d->methods.cmp( loc->set->settings.meta, current->value, spec->swap_from )) {
+        uint8_t error = 0;
+        int diff = d->methods.cmp( loc->set->settings.meta, current->value, spec->swap_from, &error );
+        if (error) {
+            *stat = error( 1, 0, error + 100, "Application error in compare method" );
+            return 0;
+        }
+
+        if ( !diff ) {
             if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
                 *old_val = current->value;
                 dispose( d, (trash *)current );
@@ -370,7 +377,13 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
 
     while ( 1 ) {
         node * volatile *branch = NULL;
-        int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key->value );
+        uint8_t error = 0;
+        int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key->value, &error);
+        if (error) {
+            *stat = error( 1, 0, error + 100, "Application error in compare method" );
+            return 0;
+        }
+
         switch( dir ) {
             case -1:
                 branch = &(loc->parent->left);

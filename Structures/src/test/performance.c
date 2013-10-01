@@ -29,8 +29,8 @@ kv NKV = { 0, 0, 0, __FILE__, __LINE__ };
 int USE_FNV = 1;
 
 void   kv_ref( dict *d, void *ref, int delta );
-size_t kv_loc( size_t slot_count, void *meta, void *key );
-int    kv_cmp( void *meta, void *key1, void *key2 );
+size_t kv_loc( size_t slot_count, void *meta, void *key, uint8_t *e );
+int    kv_cmp( void *meta, void *key1, void *key2, uint8_t *e );
 void   kv_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
 
 uint64_t hash_bytes( uint8_t *data, size_t length );
@@ -62,14 +62,14 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    size_t min_ops = 1048576 / 2;
-    size_t max_ops = 1048576 * 2;
+    size_t min_ops = 1024;
+    size_t max_ops = 1024 * 4 * 4 * 4;
     size_t min_slots = 1024;
-    size_t max_slots = 1024 * 4 * 4 * 4;
+    size_t max_slots = 1024 * 4;
     size_t min_imbalance = 16;
     size_t max_imbalance = 16;
     size_t min_threads = 1;
-    size_t max_threads = 1024;
+    size_t max_threads = 32;
 
     dict_settings set = { 0, 0, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
@@ -89,10 +89,10 @@ int main() {
     );
     fflush( stdout );
 
-    for ( size_t threads = min_threads; threads <= max_threads; threads *= 4 ) {
+    for ( size_t threads = min_threads; threads <= max_threads; threads *= 2 ) {
         for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 2 ) {
             for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 4 ) {
-                for ( size_t operations = min_ops; operations <= max_ops; operations *= 2 ) {
+                for ( size_t operations = min_ops; operations <= max_ops; operations *= 4 ) {
                     fprintf( stdout, "%zi, %zi, %zi, %zi, ",
                         threads,
                         imbalance,
@@ -301,7 +301,7 @@ void kv_ref( dict *d, void *ref, int delta ) {
     if ( refs == 0 ) free( ref );
 }
 
-size_t kv_loc( size_t slot_count, void *meta, void *key ) {
+size_t kv_loc( size_t slot_count, void *meta, void *key, uint8_t *e ) {
     kv *k = key;
 
     if ( !USE_FNV ) return k->value % slot_count;
@@ -312,7 +312,7 @@ size_t kv_loc( size_t slot_count, void *meta, void *key ) {
     return k->fnv_hash % slot_count;
 }
 
-int kv_cmp( void *meta, void *key1, void *key2 ) {
+int kv_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     if ( key1 == key2 ) return 0;
 
     kv *k1 = key1;

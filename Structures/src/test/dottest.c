@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-int compare( void *meta, void *key1, void *key2 ) {
+int compare( void *meta, void *key1, void *key2, uint8_t *e ) {
     int64_t k1 = *(int64_t*)key1;
     int64_t k2 = *(int64_t*)key2;
     if ( k1 > k2 ) return -1;
@@ -24,7 +24,7 @@ char *show( void *key, void *val ) {
     return buffer;
 }
 
-size_t locate( size_t slot_count, void *meta, void *key ) {
+size_t locate( size_t slot_count, void *meta, void *key, uint8_t *e ) {
     int64_t k = *(int64_t*)key;
     int64_t s = k % slot_count;
     return s;

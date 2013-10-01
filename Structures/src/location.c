@@ -49,7 +49,19 @@ rstat locate_key( dict *d, void *key, location **locate ) {
     }
 
     if ( !lc->slotn_set ) {
-        lc->slotn = d->methods.loc( lc->set->settings.slot_count, lc->set->settings.meta, key );
+        uint8_t error = 0;
+        lc->slotn = d->methods.loc( lc->set->settings.slot_count, lc->set->settings.meta, key, &error );
+        if (error) {
+            rstat out = { .bit = {
+                .fail  = 1,
+                .rebal = 0,
+                .error = error + 100,
+                .message     = "Application error in location method",
+                .line_number = 0,
+                .file_name   = "UNKNOWN",
+            }};
+            return out;
+        }
         lc->slotn_set = 1;
     }
 
@@ -109,7 +121,20 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
 
     node *n = in;
     while ( n != NULL && !blocked_null( n )) {
-        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key->value );
+        uint8_t error = 0;
+        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key->value, &error );
+        if (error) {
+            rstat out = { .bit = {
+                .fail  = 1,
+                .rebal = 0,
+                .error = error + 100,
+                .message     = "Application error in compare method",
+                .line_number = 0,
+                .file_name   = "UNKNOWN",
+            }};
+            return out;
+        }
+
         switch( dir ) {
             case 0:
                 lc->node = n;
