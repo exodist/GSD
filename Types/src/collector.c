@@ -24,4 +24,6 @@ uint32_t gc_del_ref( object *o ) {
 // Get the type-object for the specified primitive type
 object *gc_get_type ( primitive p );
 
-
+void gc_dispose( void *ptr ) {
+    fprintf( stderr, "dispose() unimplemented\n" );
+}

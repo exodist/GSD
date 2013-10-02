@@ -10,16 +10,21 @@
 #define FNV_PRIME 1099511628211
 
 typedef uint64_t (hash_function)(uint8_t *data, size_t  length, uint64_t current);
-typedef struct gc_dict_meta gc_dict_meta;
+typedef struct gc_dict_meta   gc_dict_meta;
+typedef struct gc_dict_bounds gc_dict_bounds;
 
 extern dict_methods DOBJ_METH;
+
+struct gc_dict_bounds {
+    object_simple *upper;
+    object_simple *lower;
+};
 
 struct gc_dict_meta {
     uint64_t       initial_state;
     hash_function *hash_function;
 
-    object_simple *upper_int_bound;
-    object_simple *lower_int_bound;
+    gc_dict_bounds *bounds;
 };
 
 uint64_t hash_object ( gc_dict_meta *m, object *o, exception *e );

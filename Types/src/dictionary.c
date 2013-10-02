@@ -1,7 +1,9 @@
 #include "dictionary.h"
 #include "string.h"
 #include "type.h"
+#include "include/collector_api.h"
 #include <assert.h>
+#include <string.h>
 
 dict_methods DOBJ_METH = {
     .cmp = obj_cmp,
@@ -14,23 +16,83 @@ void obj_change( dict *d, void *meta, void *key, void *old_val, void *new_val ){
     if (ko->type != GC_INT) return;
 
     // Key is not being added or removed
-    if  (old_val && new_val) return;
-    if !(old_val || new_val) return; // dereference of an empty key
+    if   (old_val && new_val)  return;
+    if (!(old_val || new_val)) return; // dereference of an empty key
 
-    gc_dict_meta = meta;
+    gc_dict_meta *m = meta;
     object_simple *kos = key;
-    int64_t val = key->simple_data.integer;
+    int64_t kval = kos->simple_data.integer;
 
-    // Removing a key
-    if (!new_val) {
-        // If the key does not match either bound then we return
-        // If the bounds are identical remove both
-        // +/- bounds as necessary (Atomic)
+    // Modify the 'bounds' structure, on successful swap 'dispose' old one
+    gc_dict_bounds *new = NULL;
+    while(1) {
+        gc_dict_bounds *curr = m->bounds;
+        int64_t upper = curr->upper->simple_data.integer;
+        int64_t lower = curr->lower->simple_data.integer;
+
+        // Remove a key
+        if (!new_val) {
+            // key is not a bound, no change needed
+            if (!(lower == kval || upper == kval)) return;
+
+            new = malloc(sizeof( gc_dict_bounds ));
+            // ... ouch XXX out of memory, hard to handle gracefully here.
+            // Loop until we have memory, hopefully something else will
+            // free up some memory.
+            if (!new) continue;
+            memset( new, 0, sizeof( gc_dict_bounds ));
+
+            if (upper == kval) {
+                new->upper = new_int( kval - 1 );
+                // XXX Ouch!
+                if (!new->upper) continue;
+
+                new->lower = curr->lower;
+            }
+            else if (lower == kval) {
+                new->lower = new_int( kval + 1 );
+                // XXX Ouch!
+                if (!new->lower) continue;
+
+                new->upper = curr->upper;
+            }
+            // else: We are both bounds, both become NULL
+        }
+        // Add a key
+        else {
+            // In theory < and > are good enough
+            // If we are within the bounds no need to update them
+            if (kval >= lower || kval <= upper) return;
+
+            new = malloc(sizeof( gc_dict_bounds ));
+            // ... ouch XXX out of memory, hard to handle gracefully here.
+            // Loop until we have memory, hopefully something else will
+            // free up some memory.
+            if (!new) continue;
+            memset( new, 0, sizeof( gc_dict_bounds ));
+
+            if (kval > upper) {
+                new->upper = new_int( kval + 1 );
+                // XXX Ouch!
+                if (!new->upper) continue;
+
+                new->lower = curr->lower;
+            }
+            else {
+                new->lower = new_int( kval - 1 );
+                // XXX Ouch!
+                if (!new->lower) continue;
+
+                new->upper = curr->upper;
+            }
+        }
+
+        // Do atomic swap
+        if ( __sync_bool_compare_and_swap( &(m->bounds), curr, new )) {
+            gc_dispose( curr );
+            break;
+        }
     }
-
-    // If no old_val we are adding the key, replace applicable bounds
-    // while key is larger  than upper_bound, replace upper bound (atomic)
-    // while key is smaller than lower_bount, replace lower bound (atomic)
 }
 
 int obj_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {

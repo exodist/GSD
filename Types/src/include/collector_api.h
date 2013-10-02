@@ -4,18 +4,15 @@
 #include <stdint.h>
 #include "type_api.h"
 
-typedef struct object     object;
-typedef struct collector  collector;
-typedef struct collection collection;
+typedef struct object    object;
 
-collector *collector_spawn (               );
-void       collector_pause ( collector *cr );
-void       collector_free  ( collector *cr );
-
-collection *gc_get_collection ( collector *cr                 );
-void        gc_ret_collection ( collector *cr, collection *cn );
+void collector_start();
+void collector_pause();
+void collector_stop();
 
 uint32_t gc_add_ref( object *o );
 uint32_t gc_del_ref( object *o );
+
+void gc_dispose( void * );
 
 #endif

@@ -6,7 +6,6 @@
 #include <pthread.h>
 #include "GSD_Dictionary/src/include/gsd_dict.h"
 #include "include/object_api.h"
-#include "include/collector_api.h"
 #include "include/type_api.h"
 #include "include/exceptions_api.h"
 #include "string.h"
@@ -18,14 +17,13 @@ typedef struct object_class     object_class;
 typedef struct object_instance  object_instance;
 typedef struct object_simple    object_simple;
 
-typedef struct collection collection;
-typedef struct collector  collector;
-typedef struct region     region;
 
 typedef struct string_snip string_snip;
 
 #define STRING_TYPE_START 240
 #define SIMPLE_TYPE_START 10
+#define EXTERNAL_TYPE_START 100
+#define EXTERNAL_TYPE_STOP  199
 
 typedef enum {
     GC_FREE  = 0,
@@ -40,6 +38,10 @@ typedef enum {
     GC_DICT    = SIMPLE_TYPE_START + 4,
     GC_BOOL    = SIMPLE_TYPE_START + 5,
     GC_UNDEF   = SIMPLE_TYPE_START + 6,
+
+    // Note do not use anything between
+    // EXTERNAL_TYPE_START and EXTERNAL_TYPE_STOP
+    // And there must always be 100 items in that range (0-99)
 
     GC_SNIP    = STRING_TYPE_START,
     GC_STRING  = STRING_TYPE_START + 1,
@@ -104,38 +106,6 @@ struct object_simple {
         FILE       *handle;
         dict       *dict;
     } simple_data;
-};
-
-struct collector {
-    dict *roots;
-
-    collection *associated;
-    collection *available;
-
-    pthread_t *thread;
-
-    object_class types[12];
-};
-
-struct region {
-    size_t units;
-    size_t count;
-    size_t index;
-    void  *start;
-
-    region *next;
-};
-
-struct collection {
-    region *simple;
-    region *typed;
-    region *types;
-
-    object *free_simple;
-    object *free_typed;
-    object *free_types;
-
-    collection *next;
 };
 
 #endif
