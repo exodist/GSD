@@ -13,22 +13,21 @@ dict_methods DOBJ_METH = {
 
 void obj_change( dict *d, void *meta, void *key, void *old_val, void *new_val ){
     object *ko = key;
-    if (ko->type != GC_INT) return;
+    if (ko->primitive != GC_INT) return;
 
     // Key is not being added or removed
     if   (old_val && new_val)  return;
     if (!(old_val || new_val)) return; // dereference of an empty key
 
     gc_dict_meta *m = meta;
-    object_simple *kos = key;
-    int64_t kval = kos->simple_data.integer;
+    int64_t kval = ko->data.integer;
 
     // Modify the 'bounds' structure, on successful swap 'dispose' old one
     gc_dict_bounds *new = NULL;
     while(1) {
         gc_dict_bounds *curr = m->bounds;
-        int64_t upper = curr->upper->simple_data.integer;
-        int64_t lower = curr->lower->simple_data.integer;
+        int64_t upper = curr->upper->data.integer;
+        int64_t lower = curr->lower->data.integer;
 
         // Remove a key
         if (!new_val) {
@@ -105,19 +104,17 @@ int obj_cmp( void *meta, void *key1, void *key2, uint8_t *e ) {
     }
 
     // If simple, do a compare of simple integer
-    if( is_simple( ko1 ) && is_simple( ko2 )) {
-        object_simple *s1 = key1;
-        object_simple *s2 = key2;
-        if ( s1->simple_data.integer > s2->simple_data.integer )
+    if( is_primitive( ko1 ) && is_primitive( ko2 )) {
+        if ( ko1->data.integer > ko2->data.integer )
             return 1;
 
-        if ( s1->simple_data.integer < s2->simple_data.integer )
+        if ( ko1->data.integer < ko2->data.integer )
             return -1;
 
-        if (ko1->type > ko2->type)
+        if (ko1->primitive > ko2->primitive)
             return 1;
 
-        if (ko2->type < ko2->type)
+        if (ko2->primitive < ko2->primitive)
             return -1;
 
         // Same value, same type
@@ -148,18 +145,17 @@ uint64_t fnv_hash_bytes( uint8_t *data, size_t length, uint64_t key ) {
 
 uint64_t hash_object ( gc_dict_meta *meta, object *o, exception *e ) {
     *e = EX_NONE;
-    object_simple *os = (object_simple *)o;
     string_iterator *i;
     string_header *sh = NULL;
 
     hash_function *hf = meta->hash_function;
-    uint64_t state   = meta->initial_state;
+    uint64_t state    = meta->initial_state;
 
-    switch( o->type ) {
+    switch( o->primitive ) {
         case GC_UNDEF: return 0;
 
         case GC_BOOL:
-        return os->simple_data.integer ? 1 : 0;
+        return o->data.integer ? 1 : 0;
 
         // Cannot use a decimal number as a hash key
         case GC_DEC:
@@ -167,18 +163,18 @@ uint64_t hash_object ( gc_dict_meta *meta, object *o, exception *e ) {
         return 0;
 
         // Hash the object address
-        case GC_CLASS:
+        case GC_TYPE:
         case GC_ROLE:
         case GC_INST:
         return hf((void *)o, sizeof(object *), state);
 
-        // All these use the value of the simple_data
+        // All these use the value of the data
         case GC_INT:
         case GC_POINTER:
         case GC_HANDLE:
         case GC_DICT:
         return hf(
-            (void *)&(os->simple_data.integer),
+            (void *)&(o->data.integer),
             sizeof(int64_t),
             state
         );
@@ -189,7 +185,7 @@ uint64_t hash_object ( gc_dict_meta *meta, object *o, exception *e ) {
         case GC_STRING:
         case GC_STRINGC:
         case GC_ROPE:
-            sh = os->simple_data.ptr;
+            sh = o->data.ptr;
             if (sh->hash_set)
                 return sh->hash;
             // Else build it

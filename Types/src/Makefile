@@ -3,7 +3,7 @@ CFLAGS=-g -std=gnu99 -Wall -fPIC
 EXTLIBS=-pthread -lunistring -LGSD_Dictionary/src -lGSDDict
 LOCLIBS=-L. -lGSDGC
 
-libGSDGC.so: $(shell ls *.c | sed 's,\.c,.o,g')
+libGSDGC.so: libGSDDict.so $(shell ls *.c | sed 's,\.c,.o,g')
 	$(GCC) -shared -Wl,-soname,libGSDGC.so.1.0.0 -o libGSDGC.so.1.0.0 *.o $(EXTLIBS)
 	ln -sf libGSDGC.so.1.0.0 libGSDGC.so.1.0
 	ln -sf libGSDGC.so.1.0.0 libGSDGC.so.1

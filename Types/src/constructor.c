@@ -23,3 +23,6 @@ object *new_int( int64_t data ) {
     if (data < 0 && data > -127) return &(O_NINTS[data * -1]);
     assert(0);
 }
+
+object *new_attribute_simple ( uint8_t *name, uint8_t required, access_type type, int limit, ... );
+object *new_attribute_complex( uint8_t *name, uint8_t required, attr_data   data, int limit, ... );

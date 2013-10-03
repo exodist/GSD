@@ -19,11 +19,9 @@ uint8_t *object_get_string  ( object *o );
 
 object *object_get_type ( object *o );
 
-return_set  object_isa_type ( object *o, object *type              );
-return_set  object_does     ( object *o, object *role              );
-object     *object_can      ( object *o, object *name              );
-return_set  object_has_attr ( object *o, object *name              );
-return_set  object_get_attr ( object *o, object *name              );
-exception   object_set_attr ( object *o, object *name, object *val );
+return_set  object_isa_type ( object *o, object *type );
+return_set  object_does     ( object *o, object *role );
+object     *object_can      ( object *o, object *name );
+object     *object_access   ( object *o, object *name, object *arg );
 
 #endif

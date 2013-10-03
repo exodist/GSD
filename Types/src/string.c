@@ -9,17 +9,16 @@
 
 size_t string_bytes( object *s ) {
     assert( s->ref_count );
-    assert( s->type >= STRING_TYPE_START );
+    assert( is_string(s) );
 
-    object_simple *ss = (object_simple*)s;
-    switch (s->type) {
+    switch (s->primitive) {
         case GC_STRING:
         case GC_ROPE:
         case GC_STRINGC:
-        return ((string_header *)ss->simple_data.ptr)->bytes;
+        return s->data.string_header->bytes;
 
         case GC_SNIP:
-        return ss->simple_data.snip.bytes;
+        return s->data.string_snip.bytes;
     }
 
     // This will never happen, but the compiler can't tell.
@@ -28,17 +27,16 @@ size_t string_bytes( object *s ) {
 
 size_t string_chars( object *s ) {
     assert( s->ref_count );
-    assert( s->type >= STRING_TYPE_START );
+    assert( is_string(s) );
 
-    object_simple *ss = (object_simple*)s;
-    switch (s->type) {
+    switch (s->primitive) {
         case GC_STRING:
         case GC_ROPE:
         case GC_STRINGC:
-        return ((string_header *)ss->simple_data.ptr)->chars;
+        return s->data.string_header->chars;
 
         case GC_SNIP:
-        return ss->simple_data.snip.chars;
+        return s->data.string_snip.chars;
     }
 
     assert(0);
@@ -46,8 +44,8 @@ size_t string_chars( object *s ) {
 
 int string_compare( object *a, object *b ) {
     assert( a->ref_count && b->ref_count );
-    assert( a->type >= STRING_TYPE_START );
-    assert( b->type >= STRING_TYPE_START );
+    assert( is_string(a) );
+    assert( is_string(b) );
 
     string_iterator *ia = iterate_string(a);
     string_iterator *ib = iterate_string(b);
@@ -73,24 +71,24 @@ int string_compare( object *a, object *b ) {
 
 string_iterator *iterate_string( object *s ) {
     assert( s->ref_count );
-    assert( s->type >= STRING_TYPE_START );
+    assert( is_string(s) );
 
     int32_t depth = 0;
-    if ( s->type == GC_ROPE ) {
-        string_rope *r = ((object_simple *)(s))->simple_data.ptr;
+    if ( s->primitive == GC_ROPE ) {
+        string_rope *r = s->data.string_rope;
         depth = r->depth;
     }
     string_iterator *i = malloc(sizeof(string_iterator) + depth);
     assert( i );
     memset( i, 0, sizeof(string_iterator) + depth );
     gc_add_ref(s);
-    i->stack.item = (object_simple*)s;
+    i->stack.item = s;
 
     return i;
 }
 
 void free_string_iterator( string_iterator *i ) {
-    gc_del_ref(&(i->stack.item->object));
+    gc_del_ref(i->stack.item);
     free(i);
 }
 
@@ -108,9 +106,9 @@ const uint8_t *iterator_next_part( string_iterator *i, ucs4_t *c ) {
         string_iterator_stack *stack = &(i->stack);
         string_iterator_stack *curr  = stack + i->stack_index;
 
-        switch (curr->item->object.type) {
+        switch (curr->item->primitive) {
             case GC_ROPE:
-                sr = curr->item->simple_data.ptr;
+                sr = curr->item->data.string_rope;
 
                 // Pop if there is nothing left here.
                 if (curr->index >= sr->child_count) {
@@ -129,19 +127,19 @@ const uint8_t *iterator_next_part( string_iterator *i, ucs4_t *c ) {
             continue;
 
             case GC_STRING:
-                st = i->stack.item->simple_data.ptr;
+                st = i->stack.item->data.string;
                 out = &(st->first_byte) + i->stack.index;
                 total_bytes = st->head.bytes;
             break;
 
             case GC_SNIP:
-                sn = &(curr->item->simple_data.snip);
+                sn = &(curr->item->data.string_snip);
                 out = sn->data + curr->index;
                 total_bytes = sn->bytes;
             break;
 
             case GC_STRINGC:
-                sc = curr->item->simple_data.ptr;
+                sc = curr->item->data.string_const;
                 out = sc->string + curr->index;
                 total_bytes = sc->head.bytes;
             break;
@@ -162,7 +160,7 @@ const uint8_t *iterator_next_part( string_iterator *i, ucs4_t *c ) {
                 stack = &(i->stack);
                 i->stack_index--;
                 if (!i->stack_index) {
-                    sr = i->stack.item->simple_data.ptr;
+                    sr = i->stack.item->data.string_rope;
                     if (i->stack.index >= sr->child_count) {
                         i->complete = 1;
                     }
@@ -197,16 +195,15 @@ ucs4_t iterator_next_unic( string_iterator *i ) {
 }
 
 void free_string( object *s ) {
-    assert( s->type >= STRING_TYPE_START );
+    assert( is_string(s) );
 
-    object_simple *ss = (object_simple*)s;
-    switch (s->type) {
+    switch (s->primitive) {
         case GC_SNIP: return; //nothing to do
 
         case GC_STRINGC:  // String part is constant, kill the pointed structure
         case GC_ROPE:     // data is constrained to pointer and other objects
         case GC_STRING:   // String is contained in the pointer
-            free( ss->simple_data.ptr );
+            free( s->data.ptr );
         return;
     }
 
@@ -218,6 +215,3 @@ uint8_t iterator_complete( string_iterator *i ) {
     return i->complete;
 }
 
-int is_string( object *o ) {
-    return o->type >= STRING_TYPE_START;
-}

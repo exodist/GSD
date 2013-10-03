@@ -26,27 +26,27 @@ int main() {
 }
 
 void test_snip() {
-    object_simple *snip1 = malloc(sizeof(object_simple));
+    object *snip1 = malloc(sizeof(object));
 
-    snip1->object.type      = GC_SNIP;
-    snip1->object.state     = GC_UNCHECKED;
-    snip1->object.permanent = 0;
-    snip1->object.epoch     = 0;
-    snip1->object.ref_count = 1;
+    snip1->primitive = GC_SNIP;
+    snip1->state     = GC_UNCHECKED;
+    snip1->permanent = 0;
+    snip1->epoch     = 0;
+    snip1->ref_count = 1;
 
-    snip1->simple_data.snip.bytes = 6;
-    snip1->simple_data.snip.chars = 5;
-    snip1->simple_data.snip.data[0] = 'a';
-    snip1->simple_data.snip.data[1] = 'b';
-    snip1->simple_data.snip.data[2] = 'c';
-    snip1->simple_data.snip.data[3] = 'd';
-    snip1->simple_data.snip.data[4] = 0xC7;
-    snip1->simple_data.snip.data[5] = 0xBF;
+    snip1->data.string_snip.bytes = 6;
+    snip1->data.string_snip.chars = 5;
+    snip1->data.string_snip.data[0] = 'a';
+    snip1->data.string_snip.data[1] = 'b';
+    snip1->data.string_snip.data[2] = 'c';
+    snip1->data.string_snip.data[3] = 'd';
+    snip1->data.string_snip.data[4] = 0xC7;
+    snip1->data.string_snip.data[5] = 0xBF;
 
-    assert( string_bytes( &(snip1->object) ) == 6 );
-    assert( string_chars( &(snip1->object) ) == 5 );
+    assert( string_bytes( snip1 ) == 6 );
+    assert( string_chars( snip1 ) == 5 );
 
-    string_iterator *i = iterate_string(&(snip1->object));
+    string_iterator *i = iterate_string(snip1);
 
     assert( !iterator_complete(i) );
 
@@ -71,7 +71,7 @@ void test_snip() {
     assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
-    i = iterate_string(&(snip1->object));
+    i = iterate_string(snip1);
 
     assert( !iterator_complete(i) );
 
@@ -94,8 +94,8 @@ void test_snip() {
 
     free_string_iterator( i );
 
-    snip1->simple_data.snip.data[2] = 0xF5;
-    i = iterate_string(&(snip1->object));
+    snip1->data.string_snip.data[2] = 0xF5;
+    i = iterate_string(snip1);
 
     assert( !iterator_complete(i) );
 
@@ -126,19 +126,19 @@ void test_stringc() {
         .head = { .bytes = 6, .chars = 5, .hash = 0 },
         .string = (void *)"abcdǿ",
     };
-    object_simple *string1 = malloc(sizeof(object_simple));
+    object *string1 = malloc(sizeof(object));
 
-    string1->object.type      = GC_STRINGC;
-    string1->object.state     = GC_UNCHECKED;
-    string1->object.permanent = 0;
-    string1->object.epoch     = 0;
-    string1->object.ref_count = 1;
-    string1->simple_data.ptr  = &sc;
+    string1->primitive = GC_STRINGC;
+    string1->state     = GC_UNCHECKED;
+    string1->permanent = 0;
+    string1->epoch     = 0;
+    string1->ref_count = 1;
+    string1->data.ptr  = &sc;
 
-    assert( string_bytes( &(string1->object) ) == 6 );
-    assert( string_chars( &(string1->object) ) == 5 );
+    assert( string_bytes( string1 ) == 6 );
+    assert( string_chars( string1 ) == 5 );
 
-    string_iterator *i = iterate_string(&(string1->object));
+    string_iterator *i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -163,7 +163,7 @@ void test_stringc() {
     assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
-    i = iterate_string(&(string1->object));
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -187,7 +187,7 @@ void test_stringc() {
     free_string_iterator( i );
 
     sc.string = (uint8_t *)"ab" "\xF5" "dǿ";
-    i = iterate_string(&(string1->object));
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -226,18 +226,18 @@ void test_string() {
     bytes[4] = 0xC7;
     bytes[5] = 0xBF;
 
-    object_simple *string1 = malloc(sizeof(object_simple));
-    string1->object.type      = GC_STRING;
-    string1->object.state     = GC_UNCHECKED;
-    string1->object.permanent = 0;
-    string1->object.epoch     = 0;
-    string1->object.ref_count = 1;
-    string1->simple_data.ptr  = st;
+    object *string1 = malloc(sizeof(object));
+    string1->primitive      = GC_STRING;
+    string1->state     = GC_UNCHECKED;
+    string1->permanent = 0;
+    string1->epoch     = 0;
+    string1->ref_count = 1;
+    string1->data.ptr  = st;
 
-    assert( string_bytes( &(string1->object) ) == 6 );
-    assert( string_chars( &(string1->object) ) == 5 );
+    assert( string_bytes( string1 ) == 6 );
+    assert( string_chars( string1 ) == 5 );
 
-    string_iterator *i = iterate_string(&(string1->object));
+    string_iterator *i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -262,7 +262,7 @@ void test_string() {
     assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
-    i = iterate_string(&(string1->object));
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -286,7 +286,7 @@ void test_string() {
     free_string_iterator( i );
 
     bytes[2] = 0xF5;
-    i = iterate_string(&(string1->object));
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -314,15 +314,15 @@ void test_string() {
 }
 
 void test_rope() {
-    object_simple snips[5] = {
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'a'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'b'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'c'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'d'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 2, .chars = 1, .data = {0xC7, 0xBF}}},
+    object snips[5] = {
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'a'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'b'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'c'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'d'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 2, .chars = 1, .data = {0xC7, 0xBF}}},
     };
 
-    object_simple *children[5] = {
+    object *children[5] = {
         snips,
         snips + 1,
         snips + 2,
@@ -337,18 +337,18 @@ void test_rope() {
         .children = children,
     };
 
-    object_simple *string1 = malloc(sizeof(object_simple));
-    string1->object.type      = GC_ROPE;
-    string1->object.state     = GC_UNCHECKED;
-    string1->object.permanent = 0;
-    string1->object.epoch     = 0;
-    string1->object.ref_count = 1;
-    string1->simple_data.ptr  = &sr;
+    object *string1 = malloc(sizeof(object));
+    string1->primitive      = GC_ROPE;
+    string1->state     = GC_UNCHECKED;
+    string1->permanent = 0;
+    string1->epoch     = 0;
+    string1->ref_count = 1;
+    string1->data.ptr  = &sr;
 
-    assert( string_bytes( &(string1->object) ) == 6 );
-    assert( string_chars( &(string1->object) ) == 5 );
+    assert( string_bytes( string1 ) == 6 );
+    assert( string_chars( string1 ) == 5 );
 
-    string_iterator *i = iterate_string(&(string1->object));
+    string_iterator *i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -373,7 +373,7 @@ void test_rope() {
     assert( iterator_next_byte(i) == 0 );
 
     free_string_iterator( i );
-    i = iterate_string(&(string1->object));
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -396,8 +396,8 @@ void test_rope() {
 
     free_string_iterator( i );
 
-    snips[2].simple_data.snip.data[0] = 0xF5;
-    i = iterate_string(&(string1->object));
+    snips[2].data.string_snip.data[0] = 0xF5;
+    i = iterate_string(string1);
 
     assert( !iterator_complete(i) );
 
@@ -425,9 +425,10 @@ void test_rope() {
 }
 
 void test_compare() {
-    object_simple snip1 = {
-        .object = { .type = GC_SNIP, .ref_count = 1 },
-        .simple_data.snip = {
+    object snip1 = {
+        .primitive = GC_SNIP,
+        .ref_count = 1,
+        .data.string_snip = {
             .bytes = 4,
             .chars = 4,
             .data = { 'a', 'B', 'c', 'D' },
@@ -438,27 +439,29 @@ void test_compare() {
         .head = { .bytes = 4, .chars = 4 },
         .string = (uint8_t *)"aBcD",
     };
-    object_simple stringc1 = {
-        .object = { .type = GC_STRINGC, .ref_count = 1 },
-        .simple_data.ptr = &sc,
+    object stringc1 = {
+        .primitive = GC_STRINGC,
+        .ref_count = 1,
+        .data.ptr = &sc,
     };
 
     string *st = malloc(sizeof(string) + 3);
     st->head.bytes = 4;
     st->head.chars = 4;
     memcpy( &(st->first_byte), "aBcD", 4 );
-    object_simple string1 = {
-        .object = { .type = GC_STRING, .ref_count = 1 },
-        .simple_data.ptr = st,
+    object string1 = {
+        .primitive = GC_STRING,
+        .ref_count = 1,
+        .data.ptr  = st,
     };
 
-    object_simple snips[4] = {
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'a'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'B'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'c'}}},
-        {.object = {.type = GC_SNIP, .ref_count = 1}, .simple_data.snip = {.bytes = 1, .chars = 1, .data = {'D'}}},
+    object snips[4] = {
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'a'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'B'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'c'}}},
+        {.primitive = GC_SNIP, .ref_count = 1, .data.string_snip = {.bytes = 1, .chars = 1, .data = {'D'}}},
     };
-    object_simple *children[4] = {
+    object *children[4] = {
         snips,
         snips + 1,
         snips + 2,
@@ -470,31 +473,32 @@ void test_compare() {
         .child_count = 4,
         .children = children,
     };
-    object_simple rope1 = {
-        .object = { .type = GC_ROPE, .ref_count = 1 },
-        .simple_data.ptr = &sr,
+    object rope1 = {
+        .primitive = GC_ROPE,
+        .ref_count = 1,
+        .data.ptr = &sr,
     };
 
-    assert( string_compare( &(snip1.object),    &(stringc1.object) ) == 0 );
-    assert( string_compare( &(snip1.object),    &(string1.object)  ) == 0 );
-    assert( string_compare( &(snip1.object),    &(rope1.object)    ) == 0 );
-    assert( string_compare( &(stringc1.object), &(string1.object)  ) == 0 );
-    assert( string_compare( &(stringc1.object), &(rope1.object)    ) == 0 );
-    assert( string_compare( &(string1.object),  &(rope1.object)    ) == 0 );
+    assert( string_compare( &snip1,    &stringc1 ) == 0 );
+    assert( string_compare( &snip1,    &string1  ) == 0 );
+    assert( string_compare( &snip1,    &rope1    ) == 0 );
+    assert( string_compare( &stringc1, &string1  ) == 0 );
+    assert( string_compare( &stringc1, &rope1    ) == 0 );
+    assert( string_compare( &string1,  &rope1    ) == 0 );
 
     // Make the snip bigger in the last character
-    snip1.simple_data.snip.data[3] = 'E';
-    assert( string_compare( &(snip1.object), &(stringc1.object) ) ==  1 );
-    assert( string_compare( &(stringc1.object), &(snip1.object) ) == -1 );
+    snip1.data.string_snip.data[3] = 'E';
+    assert( string_compare( &snip1, &stringc1 ) ==  1 );
+    assert( string_compare( &stringc1, &snip1 ) == -1 );
 
     // Make the snip the same again
-    snip1.simple_data.snip.data[3] = 'D';
-    assert( string_compare( &(snip1.object), &(stringc1.object) ) == 0 );
+    snip1.data.string_snip.data[3] = 'D';
+    assert( string_compare( &snip1, &stringc1 ) == 0 );
 
     // Add a character (null) to the snip, it is now longer, bigger.
-    snip1.simple_data.snip.data[4] = '\0';
-    snip1.simple_data.snip.bytes = 5;
-    snip1.simple_data.snip.chars = 5;
-    assert( string_compare( &(snip1.object), &(stringc1.object) ) ==  1 );
-    assert( string_compare( &(stringc1.object), &(snip1.object) ) == -1 );
+    snip1.data.string_snip.data[4] = '\0';
+    snip1.data.string_snip.bytes = 5;
+    snip1.data.string_snip.chars = 5;
+    assert( string_compare( &snip1, &stringc1 ) ==  1 );
+    assert( string_compare( &stringc1, &snip1 ) == -1 );
 }

@@ -3,12 +3,9 @@
 
 #include "structures.h"
 
-collector *collector_spawn (               );
-void       collector_pause ( collector *cr );
-void       collector_free  ( collector *cr );
-
-collection *gc_get_collection ( collector *cr                 );
-void        gc_ret_collection ( collector *cr, collection *cn );
+void collector_start();
+void collector_pause();
+void collector_stop();
 
 // TODO: Make atomic
 uint32_t gc_add_ref( object *o ) {

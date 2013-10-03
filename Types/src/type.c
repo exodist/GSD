@@ -5,8 +5,12 @@
 #include "collector.h"
 #include <assert.h>
 
-int is_simple( object *o ) {
-    return o->type >= SIMPLE_TYPE_START;
+int is_primitive( object *o ) {
+    return o->primitive ? 1 : 0;
+}
+
+int is_string( object *o ) {
+    return o->primitive >= STRING_TYPE_START;
 }
 
 exception    type_compile    ( object *t                             );

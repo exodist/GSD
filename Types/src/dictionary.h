@@ -16,8 +16,8 @@ typedef struct gc_dict_bounds gc_dict_bounds;
 extern dict_methods DOBJ_METH;
 
 struct gc_dict_bounds {
-    object_simple *upper;
-    object_simple *lower;
+    object *upper;
+    object *lower;
 };
 
 struct gc_dict_meta {

@@ -1,6 +1,6 @@
 #ifndef TYPE_H
 #define TYPE_H
 
-int is_simple( object *o );
+int is_primitive( object *o );
 
 #endif

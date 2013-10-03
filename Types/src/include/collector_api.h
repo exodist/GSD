@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "type_api.h"
 
-typedef struct object    object;
+typedef struct object object;
 
 void collector_start();
 void collector_pause();
