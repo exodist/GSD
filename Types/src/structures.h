@@ -45,6 +45,10 @@ typedef enum {
     GC_ATTRIBUTE = 11,
     GC_CFUNCTION = 12,
     GC_CMETHOD   = 13,
+    GC_LIST      = 14,
+    GC_SET       = 15,
+    GC_GRAPH     = 16,
+    GC_CONTAINER = 17,
 
     GC_SNIP    = STRING_TYPE_START,
     GC_STRING  = STRING_TYPE_START + 1,
@@ -59,10 +63,12 @@ struct string_snip {
 };
 
 struct component {
-    dict *roles;
-    dict *symbols;
-    dict *attributes;
-    dict *composed;
+    dict *roles;      // Roles that go into this one
+    dict *symbols;    // Defined symbols
+    dict *abstract;   // Symbols that must be implemented in consumers
+    dict *attributes; // Data for the object
+    dict *composed;   // Final symbol table after the above have all be
+                      // processed.
 };
 
 struct type {
@@ -138,7 +144,7 @@ struct string_iterator {
 
 struct object {
     primitive primitive : 8;
-    enum { GC_UNCHECKED, GC_CHECKING, GC_CHECKED } state : 8;
+    enum { GC_UNCHECKED, GC_CHECKING, GC_CHECKED, GC_DISPOSE } state : 8;
 
     uint8_t  permanent : 8;
     uint8_t  epoch     : 8;
