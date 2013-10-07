@@ -2,7 +2,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>
-#include <stdio.h>
 
 #include "include/gsd_prm.h"
 #include "prm.h"
@@ -41,13 +40,37 @@ prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d
     return p;
 }
 
-void free_prm( prm *p ) {
-    // wait on detached threads
-    // free all trash_bags
+int free_prm( prm *p ) {
+    // Lock all epochs
+    for (uint8_t i = 0; i < p->count; i++) {
+        int ok = __sync_bool_compare_and_swap( &(p->epochs[i].active), 0, 1 );
+        if (!ok) {
+            for (uint8_t j = 0; j < p->count; j++) {
+                assert(__sync_bool_compare_and_swap( &(p->epochs[i].active), 1, 0 ));
+            }
+            return 0;
+        }
+    }
+
+    // Sucks that this needs to be a second loop, but it does for
+    // error-handling.
+    for (uint8_t i = 0; i < p->count; i++) {
+        trash_bag *c = (trash_bag *)p->epochs[i].trash_bags;
+        while (c) {
+            void *kill = c;
+            c = c->next;
+            free(kill);
+        }
+    }
+
     // free epochs
-    // free prm
-    fprintf( stderr, "Ooops, not implemented, %s line %i\n", __FILE__, __LINE__ );
-    abort();
+    free( p->epochs );
+
+    // wait on detached threads
+    while ( p->detached_threads ) sleep( 0 );
+
+    free( p );
+    return 1;
 }
 
 uint8_t join_epoch( prm *p ) {
@@ -221,7 +244,7 @@ void free_garbage( prm *p, trash_bag *b ) {
     while (b != NULL) {
         size_t last = p->size;
         if (last > b->idx) last = b->idx;
-    
+
         destructor *d = p->destroy;
         for(size_t i = 0; i < last; i++) {
             if ( d ) {
@@ -232,6 +255,8 @@ void free_garbage( prm *p, trash_bag *b ) {
             }
         }
 
+        void *kill = b;
         b = b->next;
+        free(kill);
     }
 }

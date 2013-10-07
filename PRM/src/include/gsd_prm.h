@@ -13,7 +13,7 @@ struct destructor {
 };
 
 prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d );
-void free_prm( prm *c );
+int free_prm( prm *c );
 
 uint8_t join_epoch( prm *c );
 void   leave_epoch( prm *c, uint8_t epoch );
