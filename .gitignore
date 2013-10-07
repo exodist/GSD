@@ -1,4 +1,6 @@
+*.gch
 *.o
 *.run
 *.so
+*.so*
 *.so.*
