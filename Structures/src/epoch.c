@@ -8,44 +8,33 @@
 #include "alloc.h"
 #include <stdio.h>
 
-void x_dispose( dict *d, trash *garbage, char *fn, size_t ln ) {
-    if ( garbage == NULL ) return;
+epoch_set *build_epoch_set( uint8_t epochs, size_t compactor_size ) {
+    epoch_set *s = malloc(sizeof( epoch_set ));
+    if (!s) return NULL;
 
-#ifdef TRASH_CHECK
-    if ( garbage->fn ) {
-        fprintf( stderr, "\n********\nDouble dispose: %s:%zi - %s,%zi\n*******\n", fn, ln, garbage->fn, garbage->ln );
-        dev_assert( 0 );
-    }
-    garbage->fn = fn;
-    garbage->ln = ln;
-#endif
-
-    epoch *e = join_epoch( d );
-
-    // Add the trash to the pile
-    int success = 0;
-    trash *first = NULL;
-    while ( !success ) {
-        first = e->trash;
-        garbage->next = first;
-        success = __sync_bool_compare_and_swap( &(e->trash), first, garbage );
+    s->epochs = malloc(sizeof(epoch) * epochs);
+    if (!s->epochs) {
+        free(s);
+        return NULL;
     }
 
-    // Try to find a new epoch and put it in place, unless epoch has already
-    // changed, or this is the first and only garbage so far.
-    if ( first ) {
-        advance_epoch( d, e );
-    }
+    s->count   = epochs;
+    s->current = 0;
 
-    leave_epoch( d, e );
+    return s;
 }
 
-epoch *join_epoch( dict *d ) {
+void free_epoch_set( epoch_set *s ) {
+    free( s->epochs );
+    free( s );
+}
+
+epoch *join_epoch( epoch_set *s ) {
     int success = 0;
     epoch *e = NULL;
 
     while ( !success ) {
-        e = &(d->epochs[d->epoch]);
+        e = &(s->epochs[s->current]);
         size_t active = e->active;
         switch (active) {
             case 0:
@@ -67,105 +56,174 @@ epoch *join_epoch( dict *d ) {
     return e;
 }
 
-void *free_trash_worker( void *args ) {
-    void **a = args;
-    dict  *d    = a[0];
-    trash *garb = a[1];
-    epoch *dep  = a[2];
+void leave_epoch( epoch_set *s, epoch *e ) {
+    size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
+
+    if ( nactive != 1 ) return;
+    // we are last, time to clean up.
+
+    // Get references to things that need to be cleaned
+    compactor *c = e->compactor;
+    epoch *dep   = e->dep;
+
+    // This is safe, if nactive is 1 it means no others are active on this
+    // epoch, and none will ever join
+    e->compactor = NULL;
+    e->dep       = NULL;
+
+    // re-open epoch, including memory barrier
+    // We want to be sure the epoch is made available before we free the
+    // garbage and dependancies in case it is expensive to free them, we do
+    // not want the other threads to spin.
+    __sync_bool_compare_and_swap( &(e->active), 1, 0 );
+
+    // Don't spawn a new thread without garbage worth the effort
+    if ( c->idx < FORK_FOR_TRASH_COUNT ) {
+        free_garbage( s, c );
+        if (dep) leave_epoch( s, dep );
+        return;
+    }
+
+    __sync_add_and_fetch( &(s->detached_threads), 1 );
+
+    garbage_bin *bin = malloc(sizeof(garbage_bin));
+    bin->compactor = c;
+    bin->dep       = dep;
+    bin->set       = s;
+
+    pthread_t p;
+    pthread_create( &p, NULL, garbage_truck, bin );
+    pthread_detach( p );
+}
+
+void *garbage_truck( void *args ) {
+    garbage_bin *bin = args;
 
     // Free Garbage
-    if ( garb != NULL ) free_trash( d, garb );
+    if ( bin->compactor != NULL )
+        free_garbage( bin->set, bin->compactor );
 
     // dec dep
-    if ( dep != NULL ) leave_epoch( d, dep );
+    if ( bin->dep != NULL )
+        leave_epoch( bin->set, bin->dep );
 
-    free( args );
+    free( bin );
 
-    __sync_sub_and_fetch( &(d->detached_threads), 1 );
+    __sync_sub_and_fetch( &(bin->set->detached_threads), 1 );
     return NULL;
 }
 
-void leave_epoch( dict *d, epoch *e ) {
-    size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
+int dispose( epoch_set *s, void *garbage, destructor *d ) {
+    if ( garbage == NULL ) return 1;
 
-    if ( nactive == 1 ) { // we are last, time to clean up.
-        // Get references to things that need to be cleaned
-        trash *garb = e->trash;
-        epoch *dep  = e->dep;
+    // Add the trash to the pile
+    epoch *ne = e;
+    while( 1 ) {
+        compactor *c = ne->compactor;
 
-        // This is safe, if nactive is 1 it means no others are active on this
-        // epoch, and none will ever join
-        e->trash = NULL;
-        e->dep   = NULL;
+        size_t index;
+        if (!c) {
+            c = new_compactor(e, NULL, s->compactor_size);
+            if (!c) {
+                if (!ne->compactor) return 0;
+                continue;
+            }
+            // new_compactor sets idx to 1 assuming a slot is needed in the
+            // newly created compactor.
+            index = 0;
+        }
+        else {
+            index = __sync_fetch_and_add(&(c->idx), 1);
 
-        // re-open epoch, including memory barrier
-        // We want to be sure the epoch is made available before we free the
-        // garbage and dependancies in case it is expensive to free them, we do
-        // not want the other threads to spin.
-        __sync_bool_compare_and_swap( &(e->active), 1, 0 );
+            if ( index >= s->compactor_size ) {
+                ne = advance_epoch( s, e );
+                if ( ne != e ) continue;
 
-        // Don't spawn a new thread without garbage worth the effort
-        if ( !garb || (garb->type < NODE && !garb->next) ) {
-            if ( garb != NULL ) free_trash( d, garb );
-            if ( dep != NULL ) leave_epoch( d, dep );
-            return;
+                // Only the first dispose at the end of the compactor should add a
+                // new one.
+                if ( index != s->compactor_size ) continue;
+
+                // Create a new compactor
+                c = new_compactor(e, c, s->compactor_size);
+                if (!c) return 0;
+                index = 0;
+            }
         }
 
-        __sync_add_and_fetch( &(d->detached_threads), 1 );
-
-        void **args = malloc( sizeof(void *) * 3 );
-        args[0] = d;
-        args[1] = garb;
-        args[2] = dep;
-
-        pthread_t p;
-        pthread_create( &p, NULL, free_trash_worker, args );
-        pthread_detach( p );
+        c->garbage[index].mem     = garbage;
+        c->garbage[index].destroy = d;
+        return 1;
     }
 }
 
-int advance_epoch( dict *d, epoch *e ) {
-    // If we have a dep, epoch has already been changed.
-    if ( e->dep ) return -1;
+compactor *new_compactor(epoch *e, compactor *current, size_t size) {
+    compactor *new = malloc(sizeof(compactor));
+    if (!new) return NULL;
 
-    uint8_t ci = d->epoch;
-    epoch  *ce = &(d->epochs[ci]);
+    new->idx     = 1;
+    new->next    = NULL;
+    new->garbage = malloc( sizeof(trash) * size );
+    if (!new->garbage) {
+        free(new);
+        return NULL;
+    }
+
+    if (!__sync_bool_compare_and_swap(&(e->compactor), NULL, new)) {
+        free(new->garbage);
+        free(new);
+        return NULL;
+    }
+
+    return new;
+}
+
+epoch *advance_epoch( epoch_set *s, epoch *e ) {
+    // If we have a dep, epoch has already been changed.
+    if ( e->dep ) return NULL;
+
+    uint8_t ci = s->current;
+    epoch  *ce = &(s->epochs[ci]);
 
     // Epoch has already been advanced
-    if ( ce != e ) return -1;
+    if ( ce != e ) return e;
 
-    for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
+    for ( uint8_t i = 0; i < s->count; i++ ) {
         // Skip current epoch
         if ( i == ci ) continue;
-        if ( d->epochs[i].active ) continue;
+        if ( s->epochs[i].active ) continue;
 
-        if (!__sync_bool_compare_and_swap( &(d->epochs[i].active), 0, 2 )) continue;
+        if (!__sync_bool_compare_and_swap( &(s->epochs[i].active), 0, 2 )) continue;
 
         // **** At this point we have a next epoch, and it is active ****
 
         // Try to create the dependancy relationship, otherwise leave the next
         // epoch.
-        if (!__sync_bool_compare_and_swap( &(e->dep), NULL, &(d->epochs[i]) )) {
+        if (!__sync_bool_compare_and_swap( &(e->dep), NULL, &(s->epochs[i]) )) {
             // Ooops, something already set a dep...
-            leave_epoch( d, &(d->epochs[i]) );
-            return -1;
+            leave_epoch( s, &(s->epochs[i]) );
+            return e;
         }
 
         // **** At this point we have a next epoch, and the dep relationship ****
-        dev_assert_or_do( __sync_bool_compare_and_swap( &(d->epoch), ci, i ));
+        dev_assert_or_do( __sync_bool_compare_and_swap( &(s->current), ci, i ));
 
-#ifdef METRICS
-        __sync_add_and_fetch( &(d->epoch_changed), 1 );
-#endif
-        return 1;
+        return &(s->epochs[i]);
     }
 
-    // Could not advance epoch, check if another thread has.
-    int out = ci == d->epoch ? 0 : -1;
+    return e;
+}
 
-#ifdef METRICS
-    if ( out == 0 ) __sync_add_and_fetch( &(d->epoch_failed), 1 );
-#endif
+void free_garbage( epoch_set *s, compactor *c ) {
+    size_t last = s->compactor_size;
+    if (last > c->idx) last = c->idx;
 
-    return out;
+    for(size_t i = 0; i < last; i++) {
+        destructor *d = c->garbage[i].destroy;
+        if ( d ) {
+            d->callback( dc->garbage[i].mem, d->arg );
+        }
+        else {
+            free( dc->garbage[i].mem );
+        }
+    }
 }

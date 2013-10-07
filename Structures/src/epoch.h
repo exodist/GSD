@@ -13,13 +13,28 @@
 #include <stdlib.h>
 
 #include "error.h"
+#include "include/gsd_dict_epoch.h"
 
-#define EPOCH_LIMIT 4
+#define FORK_FOR_TRASH_COUNT 20 
 
-typedef struct dict  dict;
-typedef struct trash trash;
+typedef struct compactor   compactor;
+typedef struct epoch       epoch;
+typedef struct epoch_set   epoch_set;
+typedef struct garbage_bin garbage_bin;
+typedef struct trash       trash;
 
-typedef struct epoch epoch;
+struct trash {
+    void       *mem;
+    destructor *destroy;
+};
+
+struct compactor {
+    trash *garbage;
+    size_t idx;
+
+    compactor *next;
+};
+
 struct epoch {
     /*\
      * epoch count of 0 means free
@@ -27,17 +42,30 @@ struct epoch {
      * epoch count of >1 means active
     \*/
     size_t active;
-    trash  * volatile trash;
-
     epoch *dep;
+    compactor *compactor;
 };
 
-#define dispose( d, g ) x_dispose( d, g, __FILE__, __LINE__ )
+struct epoch_set {
+    epoch *epochs;
+    uint32_t detached_threads;
+    uint8_t  count;
+    uint8_t  current;
+    size_t   compactor_size;
+};
 
-void x_dispose( dict *d, trash *garbage, char *fn, size_t ln );
-epoch *join_epoch( dict *d );
-void leave_epoch( dict *d, epoch *e );
+struct garbage_bin {
+    epoch_set *set;
+    compactor *compactor;
+    epoch     *dep;
+};
 
-int advance_epoch( dict *d, epoch *e );
+
+compactor *new_compactor(epoch *e, compactor *old, size_t size);
+void *garbage_truck( void *args );
+void free_garbage( epoch_set *s, compactor *c );
+
+epoch *advance_epoch( epoch_set *s, epoch *e );
 
 #endif
+

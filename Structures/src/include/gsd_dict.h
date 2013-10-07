@@ -11,8 +11,8 @@ typedef struct dict_settings dict_settings;
 typedef struct dict_methods  dict_methods;
 typedef struct dict dict;
 
-typedef void   (dict_change)( dict *d, void *meta, void *key, void *old_val, void *new_val );
-typedef void   (dict_ref)( dict *d, void *ref, int delta );
+typedef void   (dict_change)( void *meta, void *key, void *old_val, void *new_val );
+typedef void   (dict_ref)( void *ref, int delta );
 typedef int    (dict_handler)( void *key, void *value, void *args );
 typedef int    (dict_cmp)( void *meta, void *key1, void *key2, uint8_t *error );
 typedef size_t (dict_loc)( size_t slot_count, void *meta, void *key, uint8_t *error );
@@ -44,6 +44,9 @@ struct dict_methods {
     // These are called whenever a dictionary adds or removes a reference to
     // key or value. These can be used for reference counting purposes.
     dict_ref *ref; // Callback when the dictionary adds or removes a ref
+
+    // This is for internal use, never use this yourself.
+    void *internal;
 };
 
 /* Dictionary Settings:
