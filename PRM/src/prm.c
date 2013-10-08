@@ -209,7 +209,7 @@ int new_trash_bag(prm *p, uint8_t e) {
     trash_bag *new = malloc(sizeof(trash_bag));
     if (!new) return 0;
 
-    new->idx     = 1;
+    new->idx     = 1; // assume 0 will be used by whatever created the bag.
     new->next    = (trash_bag *)(p->epochs[e].trash_bags);
     new->garbage = malloc( sizeof(void *) * p->size );
     if (!new->garbage) {
