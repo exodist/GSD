@@ -27,20 +27,17 @@ collector *build_collector(
 );
 
 void start_collector( collector *c );
-void pause_collector( collector *c );
-
-// Add/remove root objects
-size_t collector_add_root( collector *c );
-void   collector_rem_root( collector *c, size_t idx );
 
 // Get a pointer to memory at least 'size' bytes large
-void *gc_alloc( collector *c, size_t size );
+// The root variant should be used to allocate root objects (never
+// destroyed) It cannot be used after the collector is started.
+void *gc_alloc_root( collector *c, size_t size );
+void *gc_alloc     ( collector *c, size_t size );
 
-// This will actually return the memory to the collector for re-use, do not use
-// this if there is a chance other references to the memory exist in this or
-// other threads. In a concurrent environment you might want to look at pairing
-// the collector with PRM (Parallel Resource Manager). 
-void gc_free( collector *c, void *alloc );
+// Operations that may cause objects references to be removed must be
+// wrapped with this.
+void gc_join_epoch ( collector *c );
+void gc_leave_epoch( collector *c );
 
 /*\ *** WARNING ***
  * The following all ASSUME that the pointers passed to them are pointers
@@ -48,11 +45,11 @@ void gc_free( collector *c, void *alloc );
  * randomish memory.
 \*/
 
-// Get a pointer to the 20 bits of padding between the GC tag and the pointer.
+// Get a pointer to the 24 bits of padding between the GC tag and the pointer.
 // You may use this for anything you want.
 // A good use of this might be to identify what kind of data is stored in the
 // memory.
-void *gc_pad( void *alloc );
+uint8_t *gc_pad( void *alloc );
 
 // Activate an allocation when you make a reference to it not reachable via a
 // 'root' object.
@@ -62,5 +59,6 @@ void *gc_pad( void *alloc );
 // deactivate on them at some point or they will leak.
 void gc_activate  ( void *alloc );
 void gc_deactivate( void *alloc );
+
 
 #endif
