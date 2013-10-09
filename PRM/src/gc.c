@@ -19,7 +19,9 @@ collector *build_collector(
     gc_callback *callback,
 
     gc_destructor *destroy,
-    void          *destarg
+    void          *destarg,
+
+    size_t bucket_counts
 ) {
     // Code later relies on this assertion, but we put it here to keep it from
     // running more than once.
@@ -30,13 +32,23 @@ collector *build_collector(
 
     memset(c, 0, sizeof(collector));
 
-    c->iterable     = iterable;
-    c->get_iterator = get_iterator;
-    c->next         = next;
-    c->iterate      = iterate;
-    c->callback     = callback;
-    c->destroy      = destroy;
-    c->destarg      = destarg;
+    c->iterable      = iterable;
+    c->get_iterator  = get_iterator;
+    c->next          = next;
+    c->iterate       = iterate;
+    c->callback      = callback;
+    c->destroy       = destroy;
+    c->destarg       = destarg;
+    c->bucket_counts = bucket_counts;
+
+    for( int i = 0; i < MAX_BUCKET; i++ ) {
+        c->buckets[i] = create_bucket( i + 1, bucket_counts );
+        if (!c->buckets[i]) {
+            for (int j = 0; j < i; j++) free_bucket((bucket *)(c->buckets[j]));
+            free(c);
+            return NULL;
+        }
+    }
 
     return c;
 }
@@ -62,14 +74,8 @@ void *free_collector( collector *c ) {
     pthread_join( c->thread, NULL );
 
     // free buckets
-    for (size_t i = 0; i < MAX_BUCKET; i++) {
-        bucket *b = (bucket *)(c->buckets[i]);
-        while (b) {
-            bucket *kill = b;
-            b = b->next;
-            free(kill);
-        }
-    }
+    for (size_t i = 0; i < MAX_BUCKET; i++)
+        free_bucket((bucket *)(c->buckets[i]));
 
     // free bigs
     bigtag *bt = (bigtag *)(c->big);
@@ -200,21 +206,93 @@ void gc_leave_epoch( collector *c, uint8_t e ) {
 }
 
 void *gc_alloc ( collector *c, size_t size ) {
-    // if buckets[size - 1] use bucket
-    // else malloc and push onto 'big'
-    // mark as CHECKED
-    // set bucket ? Maybe it should just always be set?
-    // set active
-    // 0 out padding
+    uint8_t b = size / 8;
+
+    tag *out = NULL;
+
+    if ( b < MAX_BUCKET ) {
+        while (1) {
+            out = (tag *)(c->free[b]);
+            if (!out) break;
+
+            tag *n = out + 1;
+
+            // Claim the tag, put the next free item in front
+            if (__sync_bool_compare_and_swap(c->free + b, out, n))
+                break;
+        }
+
+        while(1) {
+            bucket *bk = (bucket *)(c->buckets[b]);
+            size_t idx = bk->index;
+
+            // Another thread will add a new bucket
+            if (idx > size) continue;
+
+            if (!__sync_bool_compare_and_swap( &(bk->index), idx, idx + bk->units ))
+                continue;
+
+            if (idx < size) { // EASY!
+                out = (tag *)(bk->space + idx);
+                break;
+            }
+
+            // We drew the short straw, time to add a new bucket
+            bucket *nbk = create_bucket( b + 1, c->bucket_counts );
+            if (!nbk) {
+                // Reset the index so that another thread can try
+                assert(__sync_bool_compare_and_swap( &(bk->index), idx + bk->units, idx));
+                return NULL; // Out of memory!
+            }
+
+            nbk->index += nbk->units;
+            out = (tag *)(nbk->space + 0);
+            assert(__sync_bool_compare_and_swap( c->buckets + b, bk, nbk));
+            break;
+        }
+    }
+    // Have to do a bigtag
+    else {
+        b = -1;
+        bigtag *o = malloc( sizeof(bigtag) + size );
+        if (!o) return NULL;
+        while(1) {
+            o->next = (bigtag *)(c->big);
+            if (__sync_bool_compare_and_swap(&(c->big), o->next, o)) {
+                out = &(o->tag);
+                break;
+            }
+        }
+    }
+
+    out->active = 1;
+    out->bucket = b;
+    out->pad[0] = 0;
+    out->pad[1] = 0;
+    out++;
+    memset(out, 0, size);
+
+    return out;
 }
 
 unsigned int update_to_unchecked( collector *c, tag *t ) {
-    // if active set GC_ACTIVE_TO_CHECK
-    // else      set GC_UNCHECKED
+    if (t->state == GC_FREE)
+        return 0;
+
+    while (1) {
+        tag old = *t;
+        tag new = *t;
+
+        new.state = old.active ? GC_UNCHECKED : GC_ACTIVE_TO_CHECK;
+
+        // Atomic swap( t, old, new );
+        if (atomic_tag_update(t, old, new)) break;
+    }
+
+    return 1;
 }
 
 unsigned int update_to_checked( collector *c, tag *t ) {
-    tag *t = gc_tag(alloc);
     while (1) {
         tag old = *t;
         tag new = *t;
@@ -227,21 +305,49 @@ unsigned int update_to_checked( collector *c, tag *t ) {
                 new.state = GC_FREE;
             break;
 
-            default: return 0
+            default: return 0;
         }
 
         // Atomic swap( t, old, new );
         if (atomic_tag_update(t, old, new)) break;
     }
 
-    //TODO: children
-    assert(0);
+    void *iterator = NULL;
+    switch(c->iterable( t + 1 )) {
+        case GC_NONE: break;
+
+        case GC_ITERATOR:
+            iterator = c->get_iterator( t + 1 );
+            assert(iterator);
+            tag *it = c->next( iterator );
+            while(it) {
+                it++; // next returns the alloc, we -- to get the actual tag
+
+                // Update it to checked
+                while(it->state != GC_TO_CHECK && it->state != GC_ACTIVE_TO_CHECK) {
+                    assert( it->state != GC_FREE );
+                    tag old = *it;
+                    tag new = *it;
+
+                    new.state = old.active ? GC_ACTIVE_TO_CHECK : GC_TO_CHECK;
+
+                    // Atomic swap( t, old, new );
+                    if (atomic_tag_update(t, old, new)) break;
+                }
+
+                it = c->next( iterator );
+            }
+        break;
+
+        case GC_CALLBACK:
+            c->iterate( t + 1, c->callback );
+        break;
+    }
 
     return 1;
 }
 
 unsigned int update_to_free( collector *c, tag *t ) {
-    tag *t = gc_tag(alloc);
     while (1) {
         tag old = *t;
         tag new = *t;
@@ -260,8 +366,19 @@ unsigned int update_to_free( collector *c, tag *t ) {
         if (atomic_tag_update(t, old, new)) break;
     }
 
-    // TODO add to free list.
-    assert(0);
+    c->destroy( c->destarg, t + 1 );
+
+    // This is a bigtag, it will be cleaned up later
+    if (t->bucket == -1) return 1;
+
+    // Push the tag to the front of the free list.
+    tag **slot = (tag **)(c->free + t->bucket);
+    while (1) {
+        // All tags are the 64-bit tag, followed by (bucket+1)*64 bits
+        tag *next = t + 1;
+        next = *slot;
+        __sync_bool_compare_and_swap( slot, next, t );
+    }
 
     return 1;
 }
@@ -313,8 +430,10 @@ void *collector_thread(void *arg) {
             while (c->epochs[e] > 1) sleep(0);
 
             // One last check, there is at least one scenario that can result
-            // in to_check's being present.
-            // GC               ThreadA         ThreadB
+            // in to_check's being present.  The 3 operations below surrounded
+            // with exclamation points are key.
+            //
+            // GC          |    ThreadA      |  ThreadB
             // ------------+-----------------+-------------
             //                  join_epoch
             //                                  join_epoch
@@ -324,10 +443,9 @@ void *collector_thread(void *arg) {
             //                                  cont = tc
             //                  get cont
             //                  cont = tc
-            //                  get item
-            //                                  delete item from cont
-            //                                  leave_epoch
-            // check cont
+            //                  !get item!
+            //                                  !delete item from cont!
+            // !check cont!
             // cont = cd
             // item is not reachable
             // cycle ends 1+
@@ -346,5 +464,54 @@ void *collector_thread(void *arg) {
         // Anything still GC_UNCHECKED is garbage (in buckets and/or big)
         // This will also reset things to UNCHECKED
         collector_cycle( c, update_to_free );
+
+        bigtag *b = (bigtag *)(c->big);
+        if (b) {
+            while (b->next) {
+                bigtag *n = b->next;
+
+                // Next is not free, move on
+                if (n->tag.state != GC_FREE) {
+                    b = n;
+                    continue;
+                }
+
+                b->next = n->next;
+                // The destructor will have already run in the update_to_free
+                // cycle
+                free(n);
+            }
+        }
+    }
+
+    return NULL;
+}
+
+bucket *create_bucket( int units, size_t count ) {
+    assert(units);
+    bucket *out = malloc( sizeof(bucket) );
+    if (!out) return NULL;
+    memset(out, 0, sizeof(bucket));
+
+    units *= 8; // 64-bytes per unit.
+
+    out->space = malloc( count * units );
+    if (!out->space) {
+        free(out);
+        return NULL;
+    }
+
+    out->units = units;
+    out->size = count * units;
+
+    return out;
+}
+
+void free_bucket( bucket *b ) {
+    while (b) {
+        bucket *kill = b;
+        b = b->next;
+        free(kill->space);
+        free(kill);
     }
 }

@@ -27,7 +27,9 @@ collector *build_collector(
     gc_callback *callback,
 
     gc_destructor *destroy,
-    void          *destarg
+    void          *destarg,
+
+    size_t bucket_counts
 );
 
 // free_collector will return the destarg in case you
