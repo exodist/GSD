@@ -6,15 +6,17 @@
 #include "include/gsd_gc.h"
 #include "include/gsd_prm.h"
 
+#define MAX_BUCKET 5
+
 typedef struct tag       tag;
 typedef struct bigtag    bigtag;
 typedef struct bucket    bucket;
 typedef struct collector collector;
 
 struct tag {
-    uint32_t active : 32;
+    volatile uint32_t active;
 
-    enum {
+    volatile enum {
         GC_FREE,
 
         GC_UNCHECKED,
@@ -25,7 +27,9 @@ struct tag {
         GC_CHECKED,
     } state : 8;
 
-    uint8_t pad[3];
+    int8_t bucket;
+
+    uint8_t pad[2];
 };
 
 struct bigtag {
@@ -51,23 +55,34 @@ struct collector {
     gc_iterate  *iterate;
     gc_callback *callback;
 
-    int       started;
-    pthread_t thread;
+    gc_destructor *destroy;
+    void          *destarg;
 
-    bucket *buckets[4];
-    void   *free[4];
+    int          started;
+    volatile int stopped;
+    pthread_t    thread;
 
-    bigtag *big;
+    volatile bucket *buckets[MAX_BUCKET];
+    volatile void   *free[MAX_BUCKET];
 
-    tag   *roots;
+    volatile bigtag *big;
+
+    tag   **roots;
     size_t root_size;
     size_t root_index;
 
-    size_t  epochs[2];
-    uint8_t epoch;
+    volatile size_t  epochs[2];
+    volatile uint8_t epoch;
 };
 
+int atomic_tag_update( tag *t, tag old, tag new );
+
+unsigned int update_to_unchecked( collector *c, tag *t );
+unsigned int update_to_checked  ( collector *c, tag *t );
+unsigned int update_to_free     ( collector *c, tag *t );
+
 void *collector_thread(void *arg);
+size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t) );
 
 tag *gc_tag( void *alloc );
 
