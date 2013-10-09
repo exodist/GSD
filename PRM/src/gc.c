@@ -44,7 +44,7 @@ collector *build_collector(
     for( int i = 0; i < MAX_BUCKET; i++ ) {
         c->buckets[i] = create_bucket( i + 1, bucket_counts );
         if (!c->buckets[i]) {
-            for (int j = 0; j < i; j++) free_bucket((bucket *)(c->buckets[j]));
+            for (int j = 0; j < i; j++) free_bucket((bucket *)(c->buckets[j]), NULL, NULL);
             free(c);
             return NULL;
         }
@@ -75,13 +75,14 @@ void *free_collector( collector *c ) {
 
     // free buckets
     for (size_t i = 0; i < MAX_BUCKET; i++)
-        free_bucket((bucket *)(c->buckets[i]));
+        free_bucket((bucket *)(c->buckets[i]), c->destroy, c->destarg);
 
     // free bigs
     bigtag *bt = (bigtag *)(c->big);
     while (bt) {
         bigtag *kill = bt;
         bt = bt->next;
+        c->destroy( c->destarg, kill );
         free(kill);
     }
 
@@ -507,10 +508,16 @@ bucket *create_bucket( int units, size_t count ) {
     return out;
 }
 
-void free_bucket( bucket *b ) {
+void free_bucket( bucket *b, gc_destructor *destroy, void *destarg ) {
     while (b) {
         bucket *kill = b;
         b = b->next;
+        if (destroy) {
+            for (size_t i = 0; i < kill->index; i += kill->units) {
+                tag *t = (tag *)(kill->space + i);
+                destroy( destarg, t + 1 );
+            }
+        }
         free(kill->space);
         free(kill);
     }

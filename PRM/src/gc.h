@@ -89,6 +89,6 @@ size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t
 tag *gc_tag( void *alloc );
 
 bucket *create_bucket( int units, size_t count );
-void free_bucket( bucket *b );
+void free_bucket( bucket *b, gc_destructor *destroy, void *destroyarg );
 
 #endif
