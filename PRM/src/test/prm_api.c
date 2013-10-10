@@ -4,6 +4,7 @@
 
 int DRAN  = 0;
 int DRAN2 = 0;
+int DRAN3 = 0;
 
 void destroy( void *ptr, void *arg ) {
     DRAN++;
@@ -15,11 +16,17 @@ void destroy2( void *ptr, void *arg ) {
     free( ptr );
 }
 
+void destroy3( void *ptr, void *arg ) {
+    DRAN3 = *((int *)arg);
+    free( ptr );
+}
+
 void test_simple(prm *p);
 void test_destructor(prm *p);
 void test_multiple_users(prm *p);
 void test_multi_epoch_ordered_exit(prm *p);
 void test_multi_epoch_reverse_exit(prm *p);
+void test_destructor_arg(prm *p);
 
 int main() {
     prm *p = build_prm(
@@ -33,6 +40,7 @@ int main() {
     test_multiple_users(p);
     test_multi_epoch_ordered_exit(p);
     test_multi_epoch_reverse_exit(p);
+    test_destructor_arg(p);
 
     printf( "Freeing prm\n" );
     free_prm( p );
@@ -144,7 +152,18 @@ void test_multi_epoch_reverse_exit(prm *p) {
 }
 
 void test_destructor_arg(prm *p) {
+    // Join epoch
+    uint8_t e = join_epoch( p );
+    // add garbage
+    void *g = malloc(1);
 
+    int arg = 12345;
+
+    dispose( p, g, destroy3, &arg );
+    // leave epoch
+    leave_epoch( p, e );
+    // check that destructor ran
+    assert( DRAN3 == arg );
 }
 
 void test_all_epochs_full_add_bag() {
