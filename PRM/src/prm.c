@@ -27,8 +27,7 @@ prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t fork_at ) {
     memset( p->epochs, 0, sizeof(epoch) * epochs );
     for ( uint8_t i = 0; i < epochs; i++ ) {
         p->epochs[i].dep = -1;
-        int ok = new_trash_bag( p, i, 1 );
-        if (!ok) {
+        if (!new_trash_bag( p, i, 0 )) {
             for ( uint8_t j = 0; j < i; j++ ) {
                 free( (trash_bag *)p->epochs[i].trash_bags );
             }
@@ -46,7 +45,6 @@ int free_prm( prm *p ) {
     for (uint8_t i = 0; i < p->count; i++) {
         int ok = __sync_bool_compare_and_swap( &(p->epochs[i].active), 0, 1 );
         if (!ok) {
-            printf( "Failed to lock epoch %i\n", i );
             for (uint8_t j = 0; j < p->count; j++) {
                 assert(__sync_bool_compare_and_swap( &(p->epochs[i].active), 1, 0 ));
             }
@@ -117,7 +115,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // We want to be sure the epoch is made available before we free the
     // garbage and dependancies in case it is expensive to free them, we do
     // not want the other threads to spin.
-    if(new_trash_bag( p, ei, 1 )) {
+    if(new_trash_bag( p, ei, 0 )) {
         assert( __sync_bool_compare_and_swap( &(e->active), 1, 0 ));
     }
 
@@ -150,7 +148,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // If we fail then we will still open the epoch up the trash bag can be
     // added later.
     if (!e->trash_bags) {
-        new_trash_bag( p, ei, 1 );
+        new_trash_bag( p, ei, 0 );
         assert(__sync_bool_compare_and_swap( &(e->active), 1, 0 ));
     }
 }
@@ -180,13 +178,14 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
 
     uint8_t e;
     size_t  index;
+    trash_bag *b;
     while( 1 ) {
         // Get the epoch
         e = p->current;
 
-        trash_bag *b = (trash_bag *)(p->epochs[e].trash_bags);
+        b = (trash_bag *)(p->epochs[e].trash_bags);
         if (!b) {
-            new_trash_bag( p, e, 1 );
+            new_trash_bag( p, e, 0 );
             continue;
         }
 
@@ -200,6 +199,8 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
 
             int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + (waste ? 1 : need) );
             if (ok && !waste) break;
+
+            p->epochs[e].trash_bags->garbage[index] = NULL;
             continue; // try again :-(
         }
 
@@ -214,45 +215,48 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
         e = advance_epoch( p, e );
 
         // If this fails then we are out of memory! that sucks!
-        if(!new_trash_bag( p, e, 0 )) return 0;
+        b = new_trash_bag( p, e, need );
+        if (!b) return 0;
 
         // the new trashbag will already have idx = 1 so that we can use 0.
         index = 0;
+        break;
     }
 
-    p->epochs[e].trash_bags->garbage[index] = garbage;
+    b->garbage[index] = garbage;
     if (destroy) {
         assert( index < 64 );
         while(1) {
-            uint64_t old = p->epochs[e].trash_bags->destructor_map;
+            uint64_t old = b->destructor_map;
             uint64_t new = old | (1 << index);
             int ok = __sync_bool_compare_and_swap(
-                &(p->epochs[e].trash_bags->destructor_map),
+                &(b->destructor_map),
                 old,
                 new
             );
             if (ok) break;
         }
 
-        p->epochs[e].trash_bags->garbage[index + 1] = destroy;
+        b->garbage[index + 1] = destroy;
     }
 
     return 1;
 }
 
-int new_trash_bag(prm *p, uint8_t e, int first) {
+trash_bag *new_trash_bag(prm *p, uint8_t e, uint8_t slots) {
     trash_bag *new = malloc(sizeof(trash_bag));
-    if (!new) return 0;
+    if (!new) return NULL;
     memset( new, 0, sizeof(trash_bag) );
 
-    // assume 0 will be used by whatever created the bag if this is not the first bag..
-    new->idx  = first ? 0 : 1;
-    new->next = first ? NULL : (trash_bag *)(p->epochs[e].trash_bags);
+    // slots will be used by whatever created the bag if this is not the first bag..
+    // If no slots are needed this MUST be a first bag, so 'next' must be null
+    new->idx  = slots;
+    new->next = slots ? (trash_bag *)(p->epochs[e].trash_bags) : NULL;
 
     new->garbage = malloc( sizeof(void *) * p->size );
     if (!new->garbage) {
         free(new);
-        return 0;
+        return NULL;
     }
     //memset( new->garbage, 0, sizeof(void *) * p->size );
 
@@ -260,13 +264,13 @@ int new_trash_bag(prm *p, uint8_t e, int first) {
     new->destructor_map = 0;
 
     if(__sync_bool_compare_and_swap(&(p->epochs[e].trash_bags), new->next, new)) {
-        return 1;
+        return new;
     }
 
     free( new->garbage );
     free( new );
 
-    return 0;
+    return NULL;
 }
 
 uint8_t advance_epoch( prm *p, uint8_t e ) {
@@ -293,6 +297,10 @@ void free_garbage( prm *p, trash_bag *b ) {
         if (last > b->idx) last = b->idx;
 
         for(size_t i = 0; i < last; i++) {
+            // This happens if a destructor pair is added with only 1 slot
+            // remaining
+            if ( b->garbage[i] == NULL ) continue;
+
             int has_d = b->destructor_map & (1 << i);
 
             if ( has_d ) {

@@ -1,9 +1,10 @@
 FILES=$(shell ls *.c | sed 's,\.c,.run,g')
 GCC=/usr/bin/gcc
-CFLAGS=-g -std=gnu99 -Wall -fPIC -pthread -O2
+CFLAGS=-std=gnu99 -Wall -fPIC -pthread -O2
 LOCLIBS=-L.. -lGSDPRM
 
 .PHONY: test
+CFLAGS := $(CFLAGS) -g -O0
 test: $(FILES)
 	for i in *.run; do \
 		echo "Running $$i.."; \
@@ -12,7 +13,7 @@ test: $(FILES)
 	done
 
 .PHONY: testgrind
-CFLAGS := $(CFLAGS) -O0
+CFLAGS := $(CFLAGS) -g -O0
 testgrind: $(FILES)
 	for i in *.run; do \
 	    echo "Running $$i.."; \

@@ -49,7 +49,7 @@ struct trash_bag {
 
 uint8_t advance_epoch( prm *p, uint8_t e );
 
-int new_trash_bag(prm *p, uint8_t epoch, int first);
+trash_bag *new_trash_bag(prm *p, uint8_t epoch, uint8_t slots);
 
 void *garbage_truck( void *args );
 void free_garbage( prm *s, trash_bag *b );

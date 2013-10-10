@@ -1,5 +1,5 @@
 GCC=/usr/bin/gcc
-CFLAGS=-g -O2 -std=gnu99 -Wall -fPIC -pthread
+CFLAGS=-O2 -std=gnu99 -Wall -fPIC -pthread
 
 libGSDPRM.so: $(shell ls *.c | sed 's,\.c,.o,g')
 	$(GCC) -shared -Wl,-soname,libGSDPRM.so.1.0.0 -o libGSDPRM.so.1.0.0 *.o $(EXTLIBS)
@@ -8,7 +8,7 @@ libGSDPRM.so: $(shell ls *.c | sed 's,\.c,.o,g')
 	ln -sf libGSDPRM.so.1.0.0 libGSDPRM.so
 
 %.o: %.c
-	$(GCC) $(CFLAGS) -O2 -c $< -o $@
+	$(GCC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:
@@ -19,11 +19,12 @@ clean:
 	$(MAKE) -C test clean
 
 .PHONY: test
+CFLAGS := $(CFLAGS) -g -O0
 test: libGSDPRM.so
 	$(MAKE) -C test
 
 .PHONY: testgrind
-CFLAGS := $(CFLAGS) -O0
+CFLAGS := $(CFLAGS) -g -O0
 testgrind: libGSDPRM.so
 	$(MAKE) -C test testgrind
 
