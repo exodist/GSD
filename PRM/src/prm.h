@@ -20,8 +20,6 @@ struct prm {
     size_t fork_at;
     size_t detached_threads;
 
-    destructor *destroy;
-
     epoch   *epochs;
     size_t   size;
     uint8_t  count;
@@ -42,7 +40,8 @@ struct epoch {
 };
 
 struct trash_bag {
-    void **garbage;
+    uint64_t destructor_map;
+    void   **garbage;
     volatile size_t idx;
 
     trash_bag *next;
@@ -50,7 +49,7 @@ struct trash_bag {
 
 uint8_t advance_epoch( prm *p, uint8_t e );
 
-int new_trash_bag(prm *p, uint8_t epoch);
+int new_trash_bag(prm *p, uint8_t epoch, int first);
 
 void *garbage_truck( void *args );
 void free_garbage( prm *s, trash_bag *b );

@@ -7,17 +7,12 @@
 typedef struct prm        prm;
 typedef struct destructor destructor;
 
-struct destructor {
-    void (*callback)( void *mem, void *arg );
-    void *arg;
-};
+prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t fork_at );
+int free_prm( prm *p );
 
-prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d );
-int free_prm( prm *c );
+uint8_t join_epoch( prm *p );
+void   leave_epoch( prm *p, uint8_t epoch );
 
-uint8_t join_epoch( prm *c );
-void   leave_epoch( prm *c, uint8_t epoch );
-
-int dispose( prm *p, void *garbage );
+int dispose( prm *p, void *garbage, void (*destroy)(void *) );
 
 #endif

@@ -2,13 +2,22 @@
 #include <string.h>
 #include <pthread.h>
 #include <assert.h>
+#include <stdio.h>
 
 #include "include/gsd_prm.h"
 #include "prm.h"
 
-prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d ) {
+prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t fork_at ) {
+    if (epoch_size > 64) epoch_size = 64;
+    if (epoch_size < 8)   epoch_size = 8;
+
     prm *p = malloc(sizeof( prm ));
     if (!p) return NULL;
+    memset( p, 0, sizeof( prm ));
+
+    p->fork_at = fork_at;
+    p->size    = epoch_size;
+    p->count   = epochs;
 
     p->epochs = malloc(sizeof(epoch) * epochs);
     if (!p->epochs) {
@@ -18,7 +27,7 @@ prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d
     memset( p->epochs, 0, sizeof(epoch) * epochs );
     for ( uint8_t i = 0; i < epochs; i++ ) {
         p->epochs[i].dep = -1;
-        int ok = new_trash_bag( p, i );
+        int ok = new_trash_bag( p, i, 1 );
         if (!ok) {
             for ( uint8_t j = 0; j < i; j++ ) {
                 free( (trash_bag *)p->epochs[i].trash_bags );
@@ -29,14 +38,6 @@ prm *build_prm( uint8_t epochs, size_t epoch_size, size_t fork_at, destructor *d
         }
     }
 
-    p->detached_threads = 0;
-
-    p->fork_at = fork_at;
-    p->destroy = d;
-    p->size    = epoch_size;
-    p->count   = epochs;
-    p->current = 0;
-
     return p;
 }
 
@@ -45,6 +46,7 @@ int free_prm( prm *p ) {
     for (uint8_t i = 0; i < p->count; i++) {
         int ok = __sync_bool_compare_and_swap( &(p->epochs[i].active), 0, 1 );
         if (!ok) {
+            printf( "Failed to lock epoch %i\n", i );
             for (uint8_t j = 0; j < p->count; j++) {
                 assert(__sync_bool_compare_and_swap( &(p->epochs[i].active), 1, 0 ));
             }
@@ -55,12 +57,7 @@ int free_prm( prm *p ) {
     // Sucks that this needs to be a second loop, but it does for
     // error-handling.
     for (uint8_t i = 0; i < p->count; i++) {
-        trash_bag *c = (trash_bag *)p->epochs[i].trash_bags;
-        while (c) {
-            void *kill = c;
-            c = c->next;
-            free(kill);
-        }
+        free_garbage( p, (trash_bag *)(p->epochs[i].trash_bags) );
     }
 
     // free epochs
@@ -109,7 +106,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
 
     // Get references to things that need to be cleaned
     trash_bag *b = (trash_bag *)(e->trash_bags);
-    uint8_t dep  = e->dep;
+    int16_t dep  = e->dep;
 
     // This is safe, if nactive is 1 it means no others are active on this
     // epoch, and none will ever join
@@ -120,7 +117,9 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // We want to be sure the epoch is made available before we free the
     // garbage and dependancies in case it is expensive to free them, we do
     // not want the other threads to spin.
-    __sync_bool_compare_and_swap( &(e->active), 1, 0 );
+    if(new_trash_bag( p, ei, 1 )) {
+        assert( __sync_bool_compare_and_swap( &(e->active), 1, 0 ));
+    }
 
     // Don't spawn a new thread without garbage worth the effort
     size_t count = 0;
@@ -129,22 +128,31 @@ void leave_epoch( prm *p, uint8_t ei ) {
         count += c->idx;
         c = c->next;
     }
+
     if ( count < p->fork_at ) {
         free_garbage( p, b );
-        if (dep) leave_epoch( p, dep );
-        return;
+        if (dep != -1) leave_epoch( p, dep );
+    }
+    else {
+        __sync_add_and_fetch( &(p->detached_threads), 1 );
+
+        trash_bin *bin  = malloc(sizeof(trash_bin));
+        bin->prm        = p;
+        bin->trash_bags = b;
+        bin->dep        = dep;
+
+        pthread_t pt;
+        pthread_create( &pt, NULL, garbage_truck, bin );
+        pthread_detach( pt );
     }
 
-    __sync_add_and_fetch( &(p->detached_threads), 1 );
-
-    trash_bin *bin  = malloc(sizeof(trash_bin));
-    bin->prm        = p;
-    bin->trash_bags = b;
-    bin->dep        = dep;
-
-    pthread_t pt;
-    pthread_create( &pt, NULL, garbage_truck, bin );
-    pthread_detach( pt );
+    // If adding a trash bag failed earlier, try again
+    // If we fail then we will still open the epoch up the trash bag can be
+    // added later.
+    if (!e->trash_bags) {
+        new_trash_bag( p, ei, 1 );
+        assert(__sync_bool_compare_and_swap( &(e->active), 1, 0 ));
+    }
 }
 
 void *garbage_truck( void *args ) {
@@ -155,7 +163,7 @@ void *garbage_truck( void *args ) {
         free_garbage( bin->prm, bin->trash_bags );
 
     // dec dep
-    if ( bin->dep >= 0 )
+    if ( bin->dep != -1 )
         leave_epoch( bin->prm, bin->dep );
 
     __sync_sub_and_fetch( &(bin->prm->detached_threads), 1 );
@@ -165,8 +173,10 @@ void *garbage_truck( void *args ) {
     return NULL;
 }
 
-int dispose( prm *p, void *garbage ) {
+int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
     if ( garbage == NULL ) return 1;
+
+    int need = destroy ? 2 : 1;
 
     uint8_t e;
     size_t  index;
@@ -174,12 +184,22 @@ int dispose( prm *p, void *garbage ) {
         // Get the epoch
         e = p->current;
 
-        // get the index
         trash_bag *b = (trash_bag *)(p->epochs[e].trash_bags);
+        if (!b) {
+            new_trash_bag( p, e, 1 );
+            continue;
+        }
+
+        // get the index
         index = b->idx;
+
         if (index < p->size) {
-            int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + 1 );
-            if (ok) break;
+            // We would waste this slot if we get it, cause we need 2 slots,
+            // but there is only space for 1.
+            int waste = index + need > p->size ? 1 : 0;
+
+            int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + (waste ? 1 : need) );
+            if (ok && !waste) break;
             continue; // try again :-(
         }
 
@@ -194,32 +214,59 @@ int dispose( prm *p, void *garbage ) {
         e = advance_epoch( p, e );
 
         // If this fails then we are out of memory! that sucks!
-        if(!new_trash_bag( p, e )) return 0;
+        if(!new_trash_bag( p, e, 0 )) return 0;
 
         // the new trashbag will already have idx = 1 so that we can use 0.
         index = 0;
     }
 
     p->epochs[e].trash_bags->garbage[index] = garbage;
+    if (destroy) {
+        assert( index < 64 );
+        while(1) {
+            uint64_t old = p->epochs[e].trash_bags->destructor_map;
+            uint64_t new = old | (1 << index);
+            int ok = __sync_bool_compare_and_swap(
+                &(p->epochs[e].trash_bags->destructor_map),
+                old,
+                new
+            );
+            if (ok) break;
+        }
+
+        p->epochs[e].trash_bags->garbage[index + 1] = destroy;
+    }
 
     return 1;
 }
 
-int new_trash_bag(prm *p, uint8_t e) {
+int new_trash_bag(prm *p, uint8_t e, int first) {
     trash_bag *new = malloc(sizeof(trash_bag));
     if (!new) return 0;
+    memset( new, 0, sizeof(trash_bag) );
 
-    new->idx     = 1; // assume 0 will be used by whatever created the bag.
-    new->next    = (trash_bag *)(p->epochs[e].trash_bags);
+    // assume 0 will be used by whatever created the bag if this is not the first bag..
+    new->idx  = first ? 0 : 1;
+    new->next = first ? NULL : (trash_bag *)(p->epochs[e].trash_bags);
+
     new->garbage = malloc( sizeof(void *) * p->size );
     if (!new->garbage) {
         free(new);
         return 0;
     }
+    //memset( new->garbage, 0, sizeof(void *) * p->size );
 
-    assert( __sync_bool_compare_and_swap(&(p->epochs[e].trash_bags), new->next, new) );
+    // Clear all bits
+    new->destructor_map = 0;
 
-    return 1;
+    if(__sync_bool_compare_and_swap(&(p->epochs[e].trash_bags), new->next, new)) {
+        return 1;
+    }
+
+    free( new->garbage );
+    free( new );
+
+    return 0;
 }
 
 uint8_t advance_epoch( prm *p, uint8_t e ) {
@@ -245,18 +292,22 @@ void free_garbage( prm *p, trash_bag *b ) {
         size_t last = p->size;
         if (last > b->idx) last = b->idx;
 
-        destructor *d = p->destroy;
         for(size_t i = 0; i < last; i++) {
-            if ( d ) {
-                d->callback( b->garbage[i], d->arg );
+            int has_d = b->destructor_map & (1 << i);
+
+            if ( has_d ) {
+                void (*destroy)(void *) = b->garbage[i+1];
+                destroy( b->garbage[i] );
+                i++; // Make sure we skip the destructor pointer.
             }
             else {
                 free( b->garbage[i] );
             }
         }
 
-        void *kill = b;
+        trash_bag *kill = b;
         b = b->next;
+        free(kill->garbage);
         free(kill);
     }
 }
