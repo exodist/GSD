@@ -171,10 +171,17 @@ void *garbage_truck( void *args ) {
     return NULL;
 }
 
-int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
+int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) {
     if ( garbage == NULL ) return 1;
 
-    int need = destroy ? 2 : 1;
+    int need = 1;
+    if (destroy) {
+        need++;
+        if (arg) need++;
+    }
+    else {
+        assert( !arg );
+    }
 
     uint8_t e;
     size_t  index;
@@ -195,12 +202,17 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
         if (index < p->size) {
             // We would waste this slot if we get it, cause we need 2 slots,
             // but there is only space for 1.
-            int waste = index + need > p->size ? 1 : 0;
+            int waste = 0;
+            if( index + need > p->size) {
+                waste = index + need - p->size;
+            }
 
-            int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + (waste ? 1 : need) );
+            int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + (waste ? waste : need) );
             if (ok && !waste) break;
 
-            p->epochs[e].trash_bags->garbage[index] = NULL;
+            for( int i = 0; i < waste; i++ ) {
+                p->epochs[e].trash_bags->garbage[index + i] = NULL;
+            }
             continue; // try again :-(
         }
 
@@ -229,6 +241,9 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
         while(1) {
             uint64_t old = b->destructor_map;
             uint64_t new = old | (1 << index);
+            if ( arg ) {
+                new = new | (1 << (index + 1));
+            }
             int ok = __sync_bool_compare_and_swap(
                 &(b->destructor_map),
                 old,
@@ -237,7 +252,8 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *) ) {
             if (ok) break;
         }
 
-        b->garbage[index + 1] = destroy;
+                 b->garbage[index + 1] = destroy;
+        if (arg) b->garbage[index + 2] = arg;
     }
 
     return 1;
@@ -297,16 +313,22 @@ void free_garbage( prm *p, trash_bag *b ) {
         if (last > b->idx) last = b->idx;
 
         for(size_t i = 0; i < last; i++) {
-            // This happens if a destructor pair is added with only 1 slot
+            // This happens if a destructor set is added without enough slots
             // remaining
             if ( b->garbage[i] == NULL ) continue;
 
             int has_d = b->destructor_map & (1 << i);
 
             if ( has_d ) {
-                void (*destroy)(void *) = b->garbage[i+1];
-                destroy( b->garbage[i] );
+                void (*destroy)(void *, void *) = b->garbage[i+1];
+                void *arg = NULL;
+                if (b->destructor_map & (1 << (i + 1))) {
+                    arg = b->garbage[i+2];
+                }
+
+                destroy( b->garbage[i], arg );
                 i++; // Make sure we skip the destructor pointer.
+                if (arg) i++;
             }
             else {
                 free( b->garbage[i] );

@@ -13,6 +13,6 @@ int free_prm( prm *p );
 uint8_t join_epoch( prm *p );
 void   leave_epoch( prm *p, uint8_t epoch );
 
-int dispose( prm *p, void *garbage, void (*destroy)(void *) );
+int dispose( prm *p, void *garbage, void (*destroy)(void *ptr, void *arg), void *arg );
 
 #endif
