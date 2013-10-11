@@ -4,7 +4,7 @@ CFLAGS=-std=gnu99 -Wall -fPIC -pthread -O2
 LOCLIBS=-L.. -lGSDPRM
 
 .PHONY: test
-CFLAGS := $(CFLAGS) -g -O0
+test: CFLAGS := $(CFLAGS) -g -O0
 test: $(FILES)
 	for i in *.run; do \
 		echo "Running $$i.."; \
@@ -13,7 +13,7 @@ test: $(FILES)
 	done
 
 .PHONY: testgrind
-CFLAGS := $(CFLAGS) -g -O0
+testgrind: CFLAGS := $(CFLAGS) -g -O0
 testgrind: $(FILES)
 	for i in *.run; do \
 	    echo "Running $$i.."; \
@@ -21,6 +21,15 @@ testgrind: $(FILES)
 	                                  --read-var-info=yes \
 	                                  --track-origins=yes \
 	                        ./$$i; \
+	    echo; \
+	done
+
+.PHONY: testgdb
+testgdb: CFLAGS := $(CFLAGS) -g -O0
+testgdb: $(FILES)
+	for i in *.run; do \
+	    echo "Running $$i.."; \
+	    LD_LIBRARY_PATH=".." gdb ./$$i; \
 	    echo; \
 	done
 

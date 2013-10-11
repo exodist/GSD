@@ -2,16 +2,18 @@
 #define GSD_GC_H
 
 #include <stdlib.h>
+#include <stdint.h>
 
 typedef struct collector collector;
 
 // Various callback functions that are needed
 typedef void (gc_callback)( void *alloc );
-typedef enum { GC_NONE, GC_ITERATOR, GC_CALLBACK } (gc_iterable)( void *alloc );
+typedef enum { GC_NONE, GC_ITERATOR, GC_CALLBACK } iteration_type;
+typedef iteration_type (gc_iterable)( void *alloc );
 typedef void *(gc_iterator)( void *alloc );
 typedef void *(gc_iterate_next)( void *iterator );
 typedef void  (gc_iterate)( void *alloc, gc_callback *callback );
-typedef void  (gc_destructor)( void *arg, void *alloc );
+typedef void  (gc_destructor)( void *alloc, void *arg );
 
 // Create start/pause a collector
 collector *build_collector(
@@ -42,8 +44,8 @@ void *free_collector( collector *c );
 // destroyed) It cannot be used after the collector is started.
 // The root variant also is not multithread-safe,
 // only use it in one thread at a time!
-void *gc_alloc_root( collector *c, size_t size );
-void *gc_alloc     ( collector *c, size_t size );
+void *gc_alloc_root( collector *c, size_t size                );
+void *gc_alloc     ( collector *c, size_t size, uint8_t epoch );
 
 // Operations that may cause objects references to be removed must be
 // wrapped with this.
@@ -60,15 +62,12 @@ void    gc_leave_epoch( collector *c, uint8_t e );
 // A good use of this might be to identify what kind of data is stored in the
 // memory.
 // The pad is 2-bytes long.
-uint8_t *gc_pad( void *alloc );
+uint32_t gc_get_pad( void *alloc               );
+void     gc_set_pad( void *alloc, uint32_t val );
 
 // Activate an allocation when you make a reference to it not reachable via a
 // 'root' object.
-// Deactivate an allocation when you remove a reference that is not reachable
-// via a root object.
 // Objects are returned from gc_alloc already 'activated', you MUST call
-// deactivate on them at some point or they will leak.
-void gc_activate  ( void *alloc );
-void gc_deactivate( void *alloc );
+void gc_activate( collector *c, void *alloc, uint8_t epoch );
 
 #endif

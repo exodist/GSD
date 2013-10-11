@@ -14,10 +14,10 @@ typedef struct bucket    bucket;
 typedef struct collector collector;
 
 struct tag {
-    volatile uint32_t active;
+    uint8_t active[2];
 
     volatile enum {
-        GC_FREE,
+        GC_FREE = 0,
 
         GC_UNCHECKED,
 
@@ -29,7 +29,7 @@ struct tag {
 
     int8_t bucket;
 
-    uint8_t pad[2];
+    volatile uint32_t pad;
 };
 
 struct bigtag {
@@ -73,7 +73,8 @@ struct collector {
     size_t  root_size;
     size_t  root_index;
 
-    volatile size_t  epochs[2];
+    size_t  volatile epochs[2];
+    uint8_t volatile active[2];
     volatile uint8_t epoch;
 };
 

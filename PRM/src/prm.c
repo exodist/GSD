@@ -7,7 +7,7 @@
 #include "include/gsd_prm.h"
 #include "prm.h"
 
-prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t fork_at ) {
+prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
     if (epoch_size > 64) epoch_size = 64;
     if (epoch_size < 8)   epoch_size = 8;
 
@@ -15,7 +15,7 @@ prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t fork_at ) {
     if (!p) return NULL;
     memset( p, 0, sizeof( prm ));
 
-    p->fork_at = fork_at;
+    p->thread_at = thread_at;
     p->size    = epoch_size;
     p->count   = epochs;
 
@@ -122,12 +122,12 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // Don't spawn a new thread without garbage worth the effort
     size_t count = 0;
     trash_bag *c = b;
-    while ( c && count < p->fork_at ) {
+    while ( c && count < p->thread_at ) {
         count += c->idx;
         c = c->next;
     }
 
-    if ( count < p->fork_at ) {
+    if ( !p->thread_at || count < p->thread_at ) {
         free_garbage( p, b );
         if (dep != -1) leave_epoch( p, dep );
     }

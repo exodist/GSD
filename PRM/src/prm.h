@@ -17,7 +17,7 @@ struct trash_bin {
 };
 
 struct prm {
-    size_t fork_at;
+    size_t thread_at;
     size_t detached_threads;
 
     epoch   *epochs;

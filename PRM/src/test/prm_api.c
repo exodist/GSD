@@ -1,6 +1,7 @@
 #include "../include/gsd_prm.h"
 #include <stdio.h>
 #include <assert.h>
+#include <pthread.h>
 
 int DRAN  = 0;
 int DRAN2 = 0;
@@ -21,12 +22,20 @@ void destroy3( void *ptr, void *arg ) {
     free( ptr );
 }
 
+void destroy4( void *ptr, void *arg ) {
+    pthread_t *it = arg;
+    *it = pthread_self();
+    free( ptr );
+}
+
 void test_simple(prm *p);
 void test_destructor(prm *p);
 void test_multiple_users(prm *p);
 void test_multi_epoch_ordered_exit(prm *p);
 void test_multi_epoch_reverse_exit(prm *p);
 void test_destructor_arg(prm *p);
+void test_all_epochs_full_add_bag();
+void test_thread_on_garbage_limit();
 
 int main() {
     prm *p = build_prm(
@@ -42,10 +51,13 @@ int main() {
     test_multi_epoch_reverse_exit(p);
     test_destructor_arg(p);
 
-    printf( "Freeing prm\n" );
+    printf( "Freeing shared prm\n" );
     free_prm( p );
 
-    printf( "No errors!\n" );
+    test_all_epochs_full_add_bag();
+    test_thread_on_garbage_limit();
+
+    printf( "Completed all tests\n" );
 
     return 0;
 }
@@ -58,6 +70,8 @@ void test_simple(prm *p) {
     dispose( p, g, NULL, NULL );
     // leave epoch
     leave_epoch( p, e );
+
+    printf( "Completed simple test\n" );
 }
 
 void test_destructor(prm *p) {
@@ -70,6 +84,8 @@ void test_destructor(prm *p) {
     leave_epoch( p, e );
     // check that destructor ran
     assert( DRAN == 1 );
+
+    printf( "Completed destructor test\n" );
 }
 
 void test_multiple_users(prm *p) {
@@ -89,6 +105,8 @@ void test_multiple_users(prm *p) {
     leave_epoch( p, e2 );
     // check that destructor ran
     assert( DRAN == 1 );
+
+    printf( "Completed multi-user test\n" );
 }
 
 void test_multi_epoch_ordered_exit(prm *p) {
@@ -120,6 +138,8 @@ void test_multi_epoch_ordered_exit(prm *p) {
     // ensure garbage is gone
     assert( DRAN  == 6 );
     assert( DRAN2 == 1 );
+
+    printf( "Completed ordered epoch exit test\n" );
 }
 
 void test_multi_epoch_reverse_exit(prm *p) {
@@ -149,6 +169,8 @@ void test_multi_epoch_reverse_exit(prm *p) {
     // ensure garbage is gone
     assert( DRAN  == 6 );
     assert( DRAN2 == 1 );
+
+    printf( "Completed reverse epoch exit test\n" );
 }
 
 void test_destructor_arg(prm *p) {
@@ -164,13 +186,79 @@ void test_destructor_arg(prm *p) {
     leave_epoch( p, e );
     // check that destructor ran
     assert( DRAN3 == arg );
+
+    printf( "Completed destructor arg test\n" );
 }
 
 void test_all_epochs_full_add_bag() {
+    prm *p = build_prm(
+        2,   // Epoch Count
+        8,   // Bag limit
+        100  // Fork for this much garbage
+    );
 
+    uint8_t e = join_epoch( p );
+
+    for( int i = 0; i <= 8; i++ ) {
+        void *g = malloc(1);
+        dispose( p, g, NULL, NULL );
+    }
+
+    uint8_t e2 = join_epoch( p );
+    assert( e != e2 );
+
+    // This should add a bunch of bags to the second epoch
+    for( int i = 0; i < 50; i++ ) {
+        void *g = malloc(1);
+        dispose( p, g, NULL, NULL );
+    }
+
+    uint8_t e3 = join_epoch( p );
+    assert( e2 == e3 ); // Could not change epoch
+
+    // leave epoch
+    leave_epoch( p, e );
+    leave_epoch( p, e2 );
+    leave_epoch( p, e3 );
+    free_prm( p );
+
+    printf( "Completed full bag test\n" );
 }
 
-void test_fork_on_garbage_limit() {
+void test_thread_on_garbage_limit() {
     // Check that a new process is used when garbage is over the limit, (check
     // by storing the thread_id from the destructor).
+    prm *p = build_prm(
+        1,   // Epoch Count
+        8,   // Bag limit
+        20  // Fork for this much garbage
+    );
+
+    uint8_t e = join_epoch( p );
+
+    for( int i = 0; i <= 8; i++ ) {
+        void *g = malloc(1);
+        dispose( p, g, NULL, NULL );
+    }
+
+    // This should add a bunch of bags to the second epoch
+    for( int i = 0; i < 50; i++ ) {
+        void *g = malloc(1);
+        dispose( p, g, NULL, NULL );
+    }
+
+    pthread_t me = pthread_self();
+    pthread_t it = me;
+    void *g = malloc(1);
+    dispose( p, g, destroy4, &it );
+
+    // leave epoch
+    leave_epoch( p, e );
+
+    // This will wait for cleanup threads
+    free_prm( p );
+
+    assert( me != it ); // Make sure destructor ran in another thread
+
+    printf( "Completed thread test\n" );
 }
