@@ -12,11 +12,35 @@ typedef struct tag       tag;
 typedef struct bigtag    bigtag;
 typedef struct bucket    bucket;
 typedef struct collector collector;
+typedef struct epochs    epochs;
+
+struct epochs {
+    /* not-bitfield
+    int8_t epoch;
+    int8_t pulse;
+    uint8_t active0;
+    uint8_t active1;
+    uint16_t counter0;
+    uint16_t counter1;
+    */
+
+    /* bitfield
+    // Using this allows for bigger counters, but may be slower and less
+    // portable. Order of the fields is important for alignment and to keep GCC
+    // from padding the struct.
+    */
+    unsigned int counter0 : 24;
+    unsigned int epoch    : 1;
+    unsigned int active0  : 7;
+    unsigned int counter1 : 24;
+    unsigned int pulse    : 1;
+    unsigned int active1  : 7;
+};
 
 struct tag {
     uint8_t active[2];
 
-    volatile enum {
+    enum {
         GC_FREE = 0,
 
         GC_UNCHECKED,
@@ -29,7 +53,7 @@ struct tag {
 
     int8_t bucket;
 
-    volatile uint32_t pad;
+    uint32_t pad;
 };
 
 struct bigtag {
@@ -42,7 +66,7 @@ struct bucket {
     size_t   size;
     size_t   units;
 
-    volatile size_t index;
+    size_t index;
 
     bucket *next;
 };
@@ -59,26 +83,28 @@ struct collector {
     gc_destructor *destroy;
     void          *destarg;
 
-    int          started;
-    volatile int stopped;
-    pthread_t    thread;
+    int       started;
+    int       stopped;
+    pthread_t thread;
 
-    size_t           bucket_counts;
-    volatile bucket *buckets[MAX_BUCKET];
-    volatile tag    *free[MAX_BUCKET];
+    size_t  bucket_counts;
+    bucket *buckets[MAX_BUCKET];
+    tag    *free[MAX_BUCKET];
 
-    volatile bigtag *big;
+    bigtag *big;
 
     tag   **roots;
     size_t  root_size;
     size_t  root_index;
 
-    size_t  volatile epochs[2];
-    uint8_t volatile active[2];
-    volatile uint8_t epoch;
+    epochs epochs;
 };
 
-int atomic_tag_update( tag *t, tag old, tag new );
+int atomic_tag_update( tag *tp, tag *oldv, tag newv );
+int atomic_epoch_update( epochs *e, epochs *old, epochs new );
+
+int8_t change_epoch( epochs *es );
+void   wait_epoch( epochs *es, int8_t e );
 
 unsigned int update_to_unchecked( collector *c, tag *t );
 unsigned int update_to_checked  ( collector *c, tag *t );

@@ -1,4 +1,5 @@
 #include "../include/gsd_gc.h"
+#include "../gc.h"
 #include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
@@ -11,10 +12,12 @@ void test_lots_of_garbage_in_epoch();
 void test_all_buckets();
 void test_bigtag();
 void test_destructor();
+void test_recycling();
 
 iteration_type not_iterable( void *alloc ) { return GC_NONE; }
 
 int main() {
+    assert( sizeof(epochs) == 8 );
     test_simple_no_iteration();
     test_destructor();
     test_iterator_iteration();
@@ -22,6 +25,7 @@ int main() {
     test_lots_of_garbage_in_epoch();
     test_all_buckets();
     test_bigtag();
+    test_recycling();
 
     printf( "Testing complete...\n" );
     return 0;
@@ -93,5 +97,8 @@ void test_all_buckets() {
 }
 
 void test_bigtag() {
+}
+
+void test_recycling() {
 }
 

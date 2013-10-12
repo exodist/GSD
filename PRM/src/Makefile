@@ -19,7 +19,6 @@ clean:
 	$(MAKE) -C test clean
 
 .PHONY: test
-test: CFLAGS := $(CFLAGS) -g -O0
 test: libGSDPRM.so
 	$(MAKE) -C test test
 
@@ -32,4 +31,9 @@ testgrind: libGSDPRM.so
 testgdb: CFLAGS := $(CFLAGS) -g -O0
 testgdb: libGSDPRM.so
 	$(MAKE) -C test testgdb
+
+.PHONY: testgdbgrind
+testgdbgrind: CFLAGS := $(CFLAGS) -g -O0
+testgdbgrind: libGSDPRM.so
+	$(MAKE) -C test testgdbgrind
 

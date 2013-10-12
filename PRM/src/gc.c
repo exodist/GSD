@@ -5,8 +5,37 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <signal.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include "include/gsd_gc.h"
 #include "gc.h"
+
+epochs load_c_epochs( collector *c ) {
+    epochs out;
+    __atomic_load( &(c->epochs), &out, __ATOMIC_CONSUME );
+    return out;
+}
+
+epochs load_epochs( epochs *es ) {
+    epochs out;
+    __atomic_load( es, &out, __ATOMIC_CONSUME );
+    return out;
+}
+
+tag load_tag( tag *t ) {
+    tag out;
+    __atomic_load( t, &out, __ATOMIC_CONSUME );
+    return out;
+}
+
+int atomic_tag_update( tag *tp, tag *old, tag new ) {
+    return __atomic_compare_exchange( tp, old, &new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
+}
+
+int atomic_epoch_update( epochs *ep, epochs *old, epochs new ) {
+    return __atomic_compare_exchange( ep, old, &new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
+}
+
 
 collector *build_collector(
     // Check if an item is iterable, and how
@@ -43,9 +72,6 @@ collector *build_collector(
     c->destarg       = destarg;
     c->bucket_counts = bucket_counts;
 
-    c->active[0] = 1;
-    c->active[1] = 1;
-
     for( int i = 0; i < MAX_BUCKET; i++ ) {
         c->buckets[i] = create_bucket( i + 1, bucket_counts );
         if (!c->buckets[i]) {
@@ -59,22 +85,26 @@ collector *build_collector(
 }
 
 void start_collector( collector *c ) {
-    if (c->started) return;
+    if (__atomic_fetch_add( &(c->started), 1, __ATOMIC_SEQ_CST))
+        return;
 
     // Make sure we have at least one root
     assert( c->root_size && c->root_index && c->roots[0] );
 
     // create the pthread and start it
-    assert( __sync_bool_compare_and_swap( &(c->started), 0, 1 ));
     assert( !pthread_create( &(c->thread), NULL, collector_thread, c ));
+    __atomic_store_n( &(c->started), 1, __ATOMIC_SEQ_CST );
 }
 
 void *free_collector( collector *c ) {
-    assert( __sync_bool_compare_and_swap( &(c->stopped), 0, 1 ));
+    assert(!__atomic_fetch_add( &(c->stopped), 1, __ATOMIC_SEQ_CST));
 
     // Make sure no epochs are active
-    while ( c->epochs[0] > 1 || c->epochs[1] > 1) {
-        sleep(0);
+    epochs e = load_c_epochs(c);
+    while ( e.counter0 > 1 || e.counter1 > 1) {
+        struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+        select( 0, NULL, NULL, NULL, &timeout );
+        e = load_c_epochs(c);
     }
 
     // wait on pthread
@@ -114,7 +144,7 @@ void *free_collector( collector *c ) {
 }
 
 void *gc_alloc_root( collector *c, size_t size ) {
-    assert( !c->started );
+    assert( !__atomic_load_n( &(c->started), __ATOMIC_SEQ_CST ));
 
     size_t idx = c->root_index++;
     if ( idx == c->root_size ) {
@@ -144,40 +174,24 @@ tag *gc_tag( void *alloc ) {
 }
 
 uint32_t gc_get_pad( void *alloc ) {
-    return (uint32_t)(gc_tag(alloc)->pad);
-}
-
-void gc_set_pad( void *alloc, uint32_t val ) {
     tag *t = gc_tag(alloc);
-    while (1) {
-        tag old = *t;
-        tag new = old;
-        new.pad = val;
-        if (atomic_tag_update( t, old, new )) return;
-    }
+    return __atomic_load_n(&(t->pad), __ATOMIC_CONSUME);
 }
 
-int atomic_tag_update( tag *tp, tag oldv, tag newv ) {
-    union { tag *t; uint64_t *i; } t;
-    union { tag  t; uint64_t  i; } old;
-    union { tag  t; uint64_t  i; } new;
-
-    t.t = tp;
-    old.t = oldv;
-    new.t = newv;
-    if (old.i == new.i) return 1;
-
-    return __sync_bool_compare_and_swap( t.i, old.i, new.i );
+int gc_set_pad( void *alloc, uint32_t *old, uint32_t new ) {
+    tag *t = gc_tag(alloc);
+    return __atomic_compare_exchange_n( &(t->pad), old, new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
 }
 
-void gc_activate( collector *c, void *alloc, uint8_t e ) {
+void gc_activate( collector *c, void *alloc, int8_t e ) {
     tag *t = gc_tag(alloc);
 
+    tag old = load_tag(t);
     while (1) {
-        tag old = *t;
         tag new = old;
 
-        new.active[e] = c->active[e];
+        epochs es = load_c_epochs(c);
+        new.active[e] = e ? es.active1 : es.active0;
         switch( new.state ) {
             case GC_UNCHECKED:
             case GC_TO_CHECK:
@@ -197,77 +211,176 @@ void gc_activate( collector *c, void *alloc, uint8_t e ) {
                 abort();
         }
 
-        // Atomic swap( t, old, new );
-        if (atomic_tag_update(t, old, new)) break;
+        if (atomic_tag_update(t, &old, new)) break;
     }
 }
 
-uint8_t gc_join_epoch( collector *c ) {
-    while(1) {
-        uint8_t e  = c->epoch;
-        size_t val = c->epochs[e];
-        switch( val ) {
-            case 0:
-                if (__sync_bool_compare_and_swap( c->epochs + e, 0, 2 ))
-                    return e;
+int8_t gc_join_epoch( collector *c ) {
+    epochs old = load_c_epochs(c);
+    while( 1 ) {
+        epochs new = old;
 
-            case 1: break;
+        new.pulse = 1;
+        switch(new.epoch) {
+            case 0:
+                new.counter0++;
+                if (new.counter0 < old.counter0) return -1;
+            break;
+
+            case 1:
+                new.counter1++;
+                if (new.counter1 < old.counter1) return -1;
+            break;
+        }
+
+        if(atomic_epoch_update( &(c->epochs), &old, new ))
+            return new.epoch;
+    }
+}
+
+void gc_leave_epoch( collector *c, int8_t e ) {
+    epochs old = load_c_epochs(c);
+    while( 1 ) {
+        epochs new = old;
+
+        new.pulse = 1;
+        switch(e) {
+            case 0:
+                new.counter0--;
+                if (new.counter0 > old.counter0) {
+                    fprintf( stderr, "Invalid attempt to leave epoch!\n" );
+                    abort();
+                }
+            break;
+
+            case 1:
+                new.counter1--;
+                if (new.counter1 > old.counter1) {
+                    fprintf( stderr, "Invalid attempt to leave epoch!\n" );
+                    abort();
+                };
+            break;
 
             default:
-                if (__sync_bool_compare_and_swap( c->epochs + e, val, val + 1 ))
-                    return e;
+                fprintf( stderr, "Attempt to leave epoch '%i'.", e );
+                abort();
         }
+
+        if(atomic_epoch_update( &(c->epochs), &old, new ))
+            return;
     }
 }
 
-void gc_leave_epoch( collector *c, uint8_t e ) {
-    // Much easier to leave then to join :-)
-    __sync_sub_and_fetch( c->epochs + e, 1 );
+int8_t change_epoch( epochs *es ) {
+    epochs old = load_epochs(es);
+    while(1) {
+        epochs new = old;
+        new.epoch = old.epoch ? 0 : 1;
+        new.pulse = 0;
+
+        switch(new.epoch) {
+            case 0:
+                assert( !new.counter0 ); // Make sure new epoch is empty
+                new.active0++;
+            break;
+
+            case 1:
+                assert( !new.counter1 ); // Make sure new epoch is empty
+                new.active1++;
+            break;
+        }
+
+        if (atomic_epoch_update(es, &old, new))
+            return old.epoch;
+    }
 }
 
-void *gc_alloc( collector *c, size_t size, uint8_t e ) {
+void wait_epoch( epochs *es, int8_t e ) {
+    assert( e == 0 || e == 1 );
+    epochs v = load_epochs(es);
+    switch(e) {
+        case 0:
+            while( v.counter0 ) {
+                struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+                select( 0, NULL, NULL, NULL, &timeout );
+                v = load_epochs(es);
+            }
+        break;
+
+        case 1:
+            while( v.counter1 ) {
+                struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+                select( 0, NULL, NULL, NULL, &timeout );
+                v = load_epochs(es);
+            }
+        break;
+    }
+}
+
+void *gc_alloc( collector *c, size_t size, int8_t e ) {
     uint8_t b = size / 8;
 
     tag *out = NULL;
 
     if ( b < MAX_BUCKET ) {
         while (1) {
-            out = (tag *)(c->free[b]);
+            __atomic_load( c->free + b, &out, __ATOMIC_CONSUME );
             if (!out) break;
 
-            tag *n = out + 1;
+            tag *next = out + 1;
 
             // Claim the tag, put the next free item in front
-            if (__sync_bool_compare_and_swap(c->free + b, out, n))
-                break;
+            if (__atomic_compare_exchange(
+                c->free + b,
+                &out,
+                &next,
+                0,
+                __ATOMIC_ACQ_REL,
+                __ATOMIC_RELAXED
+            )) break;
         }
 
-        while(1) {
-            bucket *bk = (bucket *)(c->buckets[b]);
-            size_t idx = bk->index;
+        if (!out) {
+            while(1) {
+                bucket *bk = __atomic_load_n(c->buckets + b, __ATOMIC_CONSUME);
+                size_t idx = bk->index;
 
-            // Another thread will add a new bucket
-            if (idx > size) continue;
+                // Another thread will add a new bucket
+                if (idx > size) continue;
 
-            if (!__sync_bool_compare_and_swap( &(bk->index), idx, idx + bk->units ))
-                continue;
+                if (!__atomic_compare_exchange_n(
+                    &(bk->index),
+                    &idx,
+                    idx + bk->units,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_RELAXED
+                )) continue;
 
-            if (idx < size) { // EASY!
-                out = (tag *)(bk->space + idx);
+                if (idx < size) { // EASY!
+                    out = (tag *)(bk->space + idx);
+                    break;
+                }
+
+                // We drew the short straw, time to add a new bucket
+                bucket *nbk = create_bucket( b + 1, c->bucket_counts );
+                if (!nbk) {
+                    // Reset the index so that another thread can try
+                    __atomic_store_n( &(bk->index), idx, __ATOMIC_RELEASE );
+                    return NULL; // Out of memory!
+                }
+
+                out = (tag *)(nbk->space + 0);
+                assert(__atomic_compare_exchange_n(
+                    c->buckets + b,
+                    &bk,
+                    nbk,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_RELAXED
+                ));
                 break;
             }
-
-            // We drew the short straw, time to add a new bucket
-            bucket *nbk = create_bucket( b + 1, c->bucket_counts );
-            if (!nbk) {
-                // Reset the index so that another thread can try
-                assert(__sync_bool_compare_and_swap( &(bk->index), idx + bk->units, idx));
-                return NULL; // Out of memory!
-            }
-
-            out = (tag *)(nbk->space + 0);
-            assert(__sync_bool_compare_and_swap( c->buckets + b, bk, nbk));
-            break;
         }
     }
     // Have to do a bigtag
@@ -275,24 +388,35 @@ void *gc_alloc( collector *c, size_t size, uint8_t e ) {
         b = -1;
         bigtag *o = malloc( sizeof(bigtag) + size );
         if (!o) return NULL;
+        __atomic_load(&(c->big), &(o->next), __ATOMIC_CONSUME);
         while(1) {
-            o->next = (bigtag *)(c->big);
-            if (__sync_bool_compare_and_swap(&(c->big), o->next, o)) {
+            int success = __atomic_compare_exchange_n(
+                &(c->big),
+                o->next,
+                o,
+                0,
+                __ATOMIC_ACQ_REL,
+                __ATOMIC_CONSUME
+            );
+            if (success) {
                 out = &(o->tag);
                 break;
             }
         }
     }
 
-    while( 1 ) {
-        tag old = *out;
-        tag new = old;
-        new.state  = GC_CHECKED;
-        new.active[e] = c->active[e];
-        new.bucket = b;
-        new.pad    = 0;
-        if (atomic_tag_update(out, old, new)) break;
-    }
+    epochs es = load_c_epochs(c);
+    tag old = load_tag( out );
+    tag new = old;
+
+    assert( new.state == GC_FREE );
+    new.state     = GC_CHECKED;
+    new.active[e] = e ? es.active1 : es.active0;
+    new.bucket    = b;
+
+    assert(atomic_tag_update(out, &old, new));
+    __atomic_store_n( &(out->pad), 0, __ATOMIC_RELEASE );
+
     out++;
     memset(out, 0, size);
 
@@ -303,24 +427,24 @@ unsigned int update_to_unchecked( collector *c, tag *t ) {
     if (t->state == GC_FREE)
         return 0;
 
+    tag old = load_tag( t );
     while (1) {
-        tag old = *t;
         tag new = old;
 
-        new.state = old.active[0] == c->active[0] || old.active[1] == c->active[1]
+        epochs es = load_c_epochs(c);
+        new.state = old.active[0] == es.active0 || old.active[1] == es.active1
             ? GC_UNCHECKED
             : GC_ACTIVE_TO_CHECK;
 
-        // Atomic swap( t, old, new );
-        if (atomic_tag_update(t, old, new)) break;
+        if (atomic_tag_update(t, &old, new)) break;
     }
 
     return 1;
 }
 
 unsigned int update_to_checked( collector *c, tag *t ) {
+    tag old = load_tag( t );
     while (1) {
-        tag old = *t;
         tag new = old;
 
         switch( old.state ) {
@@ -334,8 +458,7 @@ unsigned int update_to_checked( collector *c, tag *t ) {
             default: return 0;
         }
 
-        // Atomic swap( t, old, new );
-        if (atomic_tag_update(t, old, new)) break;
+        if (atomic_tag_update(t, &old, new)) break;
     }
 
     void *iterator = NULL;
@@ -347,20 +470,20 @@ unsigned int update_to_checked( collector *c, tag *t ) {
             assert(iterator);
             tag *it = c->next( iterator );
             while(it) {
-                it++; // next returns the alloc, we -- to get the actual tag
+                it--; // next returns the alloc, we -- to get the actual tag
+                tag old = load_tag( it );
 
                 // Update it to checked
-                while(it->state != GC_TO_CHECK && it->state != GC_ACTIVE_TO_CHECK) {
-                    assert( it->state != GC_FREE );
-                    tag old = *it;
+                while(old.state != GC_TO_CHECK && old.state != GC_ACTIVE_TO_CHECK) {
+                    assert( old.state != GC_FREE );
                     tag new = old;
 
-                    new.state = old.active[0] == c->active[0] || old.active[1] == c->active[1]
+                    epochs es = load_c_epochs(c);
+                    new.state = old.active[0] == es.active0 || old.active[1] == es.active1
                         ? GC_ACTIVE_TO_CHECK
                         : GC_TO_CHECK;
 
-                    // Atomic swap( t, old, new );
-                    if (atomic_tag_update(t, old, new)) break;
+                    if (atomic_tag_update(t, &old, new)) break;
                 }
 
                 it = c->next( iterator );
@@ -376,8 +499,8 @@ unsigned int update_to_checked( collector *c, tag *t ) {
 }
 
 unsigned int update_to_free( collector *c, tag *t ) {
+    tag old = load_tag( t );
     while (1) {
-        tag old = *t;
         tag new = old;
 
         switch( old.state ) {
@@ -390,8 +513,7 @@ unsigned int update_to_free( collector *c, tag *t ) {
             default: return update_to_unchecked( c, t );
         }
 
-        // Atomic swap( t, old, new );
-        if (atomic_tag_update(t, old, new)) break;
+        if (atomic_tag_update(t, &old, new)) break;
     }
 
     if (c->destroy) {
@@ -402,12 +524,14 @@ unsigned int update_to_free( collector *c, tag *t ) {
     if (t->bucket == -1) return 1;
 
     // Push the tag to the front of the free list.
-    tag **slot = (tag **)(c->free + t->bucket);
+    tag **slot = (c->free + t->bucket);
+    tag **next = (void *)(t + 1);
     while (1) {
         // All tags are the 64-bit tag, followed by (bucket+1)*64 bits
-        tag *next = t + 1;
-        next = *slot;
-        if(__sync_bool_compare_and_swap( slot, next, t )) break;
+        *next = __atomic_load_n(slot, __ATOMIC_CONSUME);
+
+        if(__atomic_compare_exchange_n( slot, next, t, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME ))
+            break;
     }
 
     return 1;
@@ -445,10 +569,22 @@ void *collector_thread(void *arg) {
 
     collector_cycle( c, update_to_unchecked );
 
-    while (!c->stopped) {
+    while (!__atomic_load_n(&(c->stopped), __ATOMIC_CONSUME)) {
+        epochs es = load_c_epochs(c);
+        while(!(es.pulse || __atomic_load_n(&(c->stopped), __ATOMIC_CONSUME))) {
+            struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+            select( 0, NULL, NULL, NULL, &timeout );
+            es = load_c_epochs(c);
+        }
+
         // iterate roots setting to *_TO_CHECK
         for (size_t i = 0; i < c->root_index; i++) {
-            c->roots[i]->state = GC_ACTIVE_TO_CHECK;
+            tag old = load_tag( c->roots[i] );
+            while(1) {
+                tag new = old;
+                new.state = GC_ACTIVE_TO_CHECK;
+                if(atomic_tag_update( c->roots[i], &old, new )) break;
+            }
         }
 
         size_t found = 1;
@@ -457,31 +593,14 @@ void *collector_thread(void *arg) {
                 found = collector_cycle( c, update_to_checked );
             }
 
-            // change epoch
-            uint8_t e = c->epoch;
-            c->epoch = e ? 0 : 1;
-
-            // wait for old epoch to finish (if it hits 1 it is finished)
-            while (c->epochs[e] > 1) {
-                sleep(0);
-            }
-            // Change the number that sets a tag as active for this epoch.
-            // But never let it be 0.
-            // This will cycle around and possibly make old items from a
-            // previosu cycle seem active, this false-positive is ok, it just
-            // means a delay in collection till the next epoch change.
-            c->active[e] = c->active[e] == 256 ? 1 : c->active[e] + 1;
-
-            // Close out epoch if necessary
-            if (c->epochs[e]) {
-                assert( __sync_bool_compare_and_swap( c->epochs + e, 1, 0 ));
-            }
+            int8_t e = change_epoch( &(c->epochs) );
+            wait_epoch( &(c->epochs), e );
 
             /*\ Explanation for final cycle:
              * One last check, there is at least one scenario that can result
              * in to_check's being present.  The 3 operations below surrounded
              * with exclamation points are key.
-             * 
+             *
              * GC          |    ThreadA      |  ThreadB
              * ------------+-----------------+-------------
              *                  join_epoch
@@ -502,7 +621,7 @@ void *collector_thread(void *arg) {
              * <------------- We are here --------------->
              *                  item = tc
              *                  leave_epoch
-             * 
+             *
              * The epoch system gives us a syncronization point at which we can
              * be sure operations have completed. Once we complete an epoch and
              * find no TO_CHECK items we know it is safe to clear anything that
@@ -510,14 +629,14 @@ void *collector_thread(void *arg) {
             \*/
 
             found = collector_cycle( c, update_to_checked );
-            sleep(1);
         }
 
         // Anything still GC_UNCHECKED is garbage (in buckets and/or big)
         // This will also reset things to UNCHECKED
         collector_cycle( c, update_to_free );
 
-        bigtag *b = (bigtag *)(c->big);
+        bigtag *b = NULL;
+        __atomic_load( &(c->big), &b, __ATOMIC_CONSUME );
         if (b) {
             while (b->next) {
                 bigtag *n = b->next;
@@ -528,6 +647,8 @@ void *collector_thread(void *arg) {
                     continue;
                 }
 
+                // No need ot be atomic, apart from c->big itself none of these
+                // links are read outside this thread.
                 b->next = n->next;
                 // The destructor will have already run in the update_to_free
                 // cycle

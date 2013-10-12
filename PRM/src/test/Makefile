@@ -4,7 +4,6 @@ CFLAGS=-std=gnu99 -Wall -fPIC -pthread -O2
 LOCLIBS=-L.. -lGSDPRM
 
 .PHONY: test
-test: CFLAGS := $(CFLAGS) -g -O0
 test: $(FILES)
 	for i in *.run; do \
 		echo "Running $$i.."; \
@@ -30,6 +29,20 @@ testgdb: $(FILES)
 	for i in *.run; do \
 	    echo "Running $$i.."; \
 	    LD_LIBRARY_PATH=".." gdb ./$$i; \
+	    echo; \
+	done
+
+.PHONY: testgdbgrind
+testgdbgrind: CFLAGS := $(CFLAGS) -g -O0
+testgdbgrind: $(FILES)
+	for i in *.run; do \
+	    echo "Running $$i.."; \
+	    LD_LIBRARY_PATH=".." valgrind --leak-check=full \
+	                                  --read-var-info=yes \
+	                                  --track-origins=yes \
+									  --vgdb=yes \
+									  --vgdb-error=0 \
+	                        ./$$i; \
 	    echo; \
 	done
 
