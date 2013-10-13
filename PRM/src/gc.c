@@ -22,20 +22,36 @@ epochs load_epochs( epochs *es ) {
     return out;
 }
 
-tag load_tag( tag *t ) {
-    tag out;
-    __atomic_load( t, &out, __ATOMIC_CONSUME );
-    return out;
-}
-
-int atomic_tag_update( tag *tp, tag *old, tag new ) {
-    return __atomic_compare_exchange( tp, old, &new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
-}
-
 int atomic_epoch_update( epochs *ep, epochs *old, epochs new ) {
     return __atomic_compare_exchange( ep, old, &new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
 }
 
+tag load_tag( tag *t ) {
+    tag out;
+    __atomic_load( (uint32_t *)t, (uint32_t *)&out, __ATOMIC_CONSUME );
+    return out;
+}
+
+int atomic_tag_update( tag *tp, tag *old, tag new ) {
+    return __atomic_compare_exchange(
+        (uint32_t *)tp,
+        (uint32_t *)old,
+        (uint32_t *)&new,
+        0,
+        __ATOMIC_ACQ_REL,
+        __ATOMIC_CONSUME
+    );
+}
+
+uint32_t gc_get_pad( void *alloc ) {
+    tag *t = gc_tag(alloc);
+    return __atomic_load_n(&(t->pad), __ATOMIC_CONSUME);
+}
+
+int gc_set_pad( void *alloc, uint32_t *old, uint32_t new ) {
+    tag *t = gc_tag(alloc);
+    return __atomic_compare_exchange_n( &(t->pad), old, new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
+}
 
 collector *build_collector(
     // Check if an item is iterable, and how
@@ -171,16 +187,6 @@ void *gc_alloc_root( collector *c, size_t size ) {
 tag *gc_tag( void *alloc ) {
     tag *t = alloc;
     return t - 1;
-}
-
-uint32_t gc_get_pad( void *alloc ) {
-    tag *t = gc_tag(alloc);
-    return __atomic_load_n(&(t->pad), __ATOMIC_CONSUME);
-}
-
-int gc_set_pad( void *alloc, uint32_t *old, uint32_t new ) {
-    tag *t = gc_tag(alloc);
-    return __atomic_compare_exchange_n( &(t->pad), old, new, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME );
 }
 
 void gc_activate( collector *c, void *alloc, int8_t e ) {
