@@ -24,7 +24,7 @@ struct prm {
     size_t   size;
     uint8_t  count;
 
-    volatile uint8_t current;
+    uint8_t current;
 };
 
 struct epoch {
@@ -33,8 +33,8 @@ struct epoch {
      * active count of 1 means needs to be cleared (not joinable)
      * active count of >1 means joinable
     \*/
-    volatile trash_bag *trash_bags;
-    volatile size_t active;
+    trash_bag *trash_bags;
+    size_t active;
 
     int16_t dep;
 };
@@ -42,7 +42,7 @@ struct epoch {
 struct trash_bag {
     uint64_t destructor_map;
     void   **garbage;
-    volatile size_t idx;
+    size_t idx;
 
     trash_bag *next;
 };

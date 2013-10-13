@@ -3,21 +3,23 @@
 #include <pthread.h>
 #include <assert.h>
 #include <stdio.h>
+#include <sys/select.h>
+#include <sys/time.h>
 
 #include "include/gsd_prm.h"
 #include "prm.h"
 
 prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
     if (epoch_size > 64) epoch_size = 64;
-    if (epoch_size < 8)   epoch_size = 8;
+    if (epoch_size < 8)  epoch_size = 8;
 
     prm *p = malloc(sizeof( prm ));
     if (!p) return NULL;
     memset( p, 0, sizeof( prm ));
 
     p->thread_at = thread_at;
-    p->size    = epoch_size;
-    p->count   = epochs;
+    p->size      = epoch_size;
+    p->count     = epochs;
 
     p->epochs = malloc(sizeof(epoch) * epochs);
     if (!p->epochs) {
@@ -43,26 +45,35 @@ prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
 int free_prm( prm *p ) {
     // Lock all epochs
     for (uint8_t i = 0; i < p->count; i++) {
-        int ok = __sync_bool_compare_and_swap( &(p->epochs[i].active), 0, 1 );
-        if (!ok) {
-            for (uint8_t j = 0; j < p->count; j++) {
-                assert(__sync_bool_compare_and_swap( &(p->epochs[i].active), 1, 0 ));
+        int ok = __atomic_add_fetch( &(p->epochs[i].active), 1, __ATOMIC_SEQ_CST );
+        if (ok != 1) {
+            for (uint8_t j = 0; j < i; j++) {
+                assert( __atomic_sub_fetch( &(p->epochs[j].active), 1, __ATOMIC_SEQ_CST) == 0 );
             }
             return 0;
         }
     }
 
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+
     // Sucks that this needs to be a second loop, but it does for
     // error-handling.
     for (uint8_t i = 0; i < p->count; i++) {
-        free_garbage( p, (trash_bag *)(p->epochs[i].trash_bags) );
+        trash_bag *b = NULL;
+        __atomic_load( &(p->epochs[i].trash_bags), &b, __ATOMIC_CONSUME );
+        free_garbage( p, b );
     }
 
     // free epochs
     free( p->epochs );
 
     // wait on detached threads
-    while ( p->detached_threads ) sleep( 0 );
+    size_t detached = __atomic_load_n( &(p->detached_threads), __ATOMIC_CONSUME );
+    while ( detached ) {
+        struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+        select( 0, NULL, NULL, NULL, &timeout );
+        detached = __atomic_load_n( &(p->detached_threads), __ATOMIC_CONSUME );
+    }
 
     free( p );
     return 1;
@@ -73,12 +84,19 @@ uint8_t join_epoch( prm *p ) {
     uint8_t e = 0;
 
     while ( !success ) {
-        e = p->current;
-        size_t active = p->epochs[e].active;
+        e = __atomic_load_n( &(p->current), __ATOMIC_CONSUME );
+        size_t active = __atomic_load_n( &(p->epochs[e].active), __ATOMIC_ACQUIRE );
         switch (active) {
             case 0:
                 // Try to set the epoch to 2, thus activating it.
-                success = __sync_bool_compare_and_swap( &(p->epochs[e].active), 0, 2 );
+                success = __atomic_compare_exchange_n(
+                    &(p->epochs[e].active),
+                    &active,
+                    2,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_RELAXED
+                );
             break;
 
             case 1: // not usable, we need to wait for the epoch to change or open.
@@ -87,7 +105,14 @@ uint8_t join_epoch( prm *p ) {
 
             default:
                 // Epoch is active, add ourselves to it
-                success = __sync_bool_compare_and_swap( &(p->epochs[e].active), active, active + 1 );
+                success = __atomic_compare_exchange_n(
+                    &(p->epochs[e].active),
+                    &active,
+                    active + 1,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_RELAXED
+                );
             break;
         }
     }
@@ -96,18 +121,21 @@ uint8_t join_epoch( prm *p ) {
 }
 
 void leave_epoch( prm *p, uint8_t ei ) {
-    epoch *e = &(p->epochs[ei]);
-    size_t nactive = __sync_sub_and_fetch( &(e->active), 1 );
+    epoch *e = p->epochs + ei;
+    // ATOMIC __ATOMIC_ACQ_REL
+    size_t nactive = __atomic_sub_fetch( &(e->active), 1, __ATOMIC_ACQ_REL );
 
     if ( nactive != 1 ) return;
     // we are last, time to clean up.
 
     // Get references to things that need to be cleaned
-    trash_bag *b = (trash_bag *)(e->trash_bags);
-    int16_t dep  = e->dep;
+    trash_bag *b = NULL;
+    __atomic_load( &(e->trash_bags), &b, __ATOMIC_ACQUIRE );
+    int16_t dep = __atomic_load_n( &(e->dep), __ATOMIC_ACQUIRE );
 
     // This is safe, if nactive is 1 it means no others are active on this
     // epoch, and none will ever join
+    // These do not need to be atomic because of the re-open fence
     e->trash_bags = NULL;
     e->dep        = -1;
 
@@ -116,7 +144,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // garbage and dependancies in case it is expensive to free them, we do
     // not want the other threads to spin.
     if(new_trash_bag( p, ei, 0 )) {
-        assert( __sync_bool_compare_and_swap( &(e->active), 1, 0 ));
+        assert( __atomic_sub_fetch( &(e->active), 1, __ATOMIC_SEQ_CST ) == 0 );
     }
 
     // Don't spawn a new thread without garbage worth the effort
@@ -132,7 +160,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
         if (dep != -1) leave_epoch( p, dep );
     }
     else {
-        __sync_add_and_fetch( &(p->detached_threads), 1 );
+        __atomic_add_fetch( &(p->detached_threads), 1, __ATOMIC_ACQ_REL );
 
         trash_bin *bin  = malloc(sizeof(trash_bin));
         bin->prm        = p;
@@ -149,7 +177,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
     // added later.
     if (!e->trash_bags) {
         new_trash_bag( p, ei, 0 );
-        assert(__sync_bool_compare_and_swap( &(e->active), 1, 0 ));
+        assert( __atomic_sub_fetch( &(e->active), 1, __ATOMIC_SEQ_CST ) == 0 );
     }
 }
 
@@ -164,7 +192,7 @@ void *garbage_truck( void *args ) {
     if ( bin->dep != -1 )
         leave_epoch( bin->prm, bin->dep );
 
-    __sync_sub_and_fetch( &(bin->prm->detached_threads), 1 );
+    __atomic_sub_fetch( &(bin->prm->detached_threads), 1, __ATOMIC_ACQ_REL );
 
     free( args );
 
@@ -188,16 +216,16 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) 
     trash_bag *b;
     while( 1 ) {
         // Get the epoch
-        e = p->current;
+        e = __atomic_load_n( &(p->current), __ATOMIC_CONSUME );
 
-        b = (trash_bag *)(p->epochs[e].trash_bags);
+        __atomic_load( &(p->epochs[e].trash_bags), &b, __ATOMIC_CONSUME );
         if (!b) {
             new_trash_bag( p, e, 0 );
             continue;
         }
 
         // get the index
-        index = b->idx;
+        index = __atomic_load_n( &(b->idx), __ATOMIC_CONSUME );
 
         if (index < p->size) {
             // We would waste this slot if we get it, cause we need 2 slots,
@@ -207,20 +235,32 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) 
                 waste = index + need - p->size;
             }
 
-            int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + (waste ? waste : need) );
+            int ok = __atomic_compare_exchange_n(
+                &(b->idx),
+                &index,
+                index + (waste ? waste : need),
+                0,
+                __ATOMIC_RELEASE,
+                __ATOMIC_RELAXED
+            );
             if (ok && !waste) break;
 
-            for( int i = 0; i < waste; i++ ) {
-                p->epochs[e].trash_bags->garbage[index + i] = NULL;
-            }
+            // NO NEED TO SET WASTE TO NULL, SHOULD ALREADY BE NULL
             continue; // try again :-(
         }
 
         // Another thread is already responsible for getting things moving
         if ( index > p->size ) continue;
 
-        // index == size, lets see if it is out job to fix things.
-        int ok = __sync_bool_compare_and_swap( &(b->idx), index, index + 1 );
+        // index == size, lets see if it is our job to fix things.
+        int ok = __atomic_compare_exchange_n(
+            &(b->idx),
+            &index,
+            index + 1,
+            0,
+            __ATOMIC_RELEASE,
+            __ATOMIC_RELAXED
+        );
         if (!ok) continue; // Nope!
 
         // Try to advance the epoch. 'e' will be correct either way
@@ -235,25 +275,30 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) 
         break;
     }
 
-    b->garbage[index] = garbage;
+    __atomic_store( b->garbage + index, &garbage, __ATOMIC_RELEASE );
     if (destroy) {
         assert( index < 64 );
+        uint64_t old = __atomic_load_n( &(b->destructor_map), __ATOMIC_CONSUME );
         while(1) {
-            uint64_t old = b->destructor_map;
             uint64_t new = old | (1 << index);
             if ( arg ) {
                 new = new | (1 << (index + 1));
             }
-            int ok = __sync_bool_compare_and_swap(
+
+            // ATOMIC __ATOMIC_ACQ_REL/CONSUME
+            int ok = __atomic_compare_exchange_n(
                 &(b->destructor_map),
-                old,
-                new
+                &old,
+                new,
+                0,
+                __ATOMIC_ACQ_REL,
+                __ATOMIC_CONSUME
             );
             if (ok) break;
         }
 
-                 b->garbage[index + 1] = destroy;
-        if (arg) b->garbage[index + 2] = arg;
+                 __atomic_store( b->garbage + index + 1, &destroy, __ATOMIC_RELEASE );
+        if (arg) __atomic_store( b->garbage + index + 2, &arg,     __ATOMIC_RELEASE );
     }
 
     return 1;
@@ -267,21 +312,34 @@ trash_bag *new_trash_bag(prm *p, uint8_t e, uint8_t slots) {
     // slots will be used by whatever created the bag if this is not the first bag..
     // If no slots are needed this MUST be a first bag, so 'next' must be null
     new->idx  = slots;
-    new->next = slots ? (trash_bag *)(p->epochs[e].trash_bags) : NULL;
+    if ( slots ) {
+        __atomic_load( &((p->epochs[e].trash_bags)), &(new->next), __ATOMIC_CONSUME );
+    }
+    else {
+        new->next = NULL;
+    }
 
     new->garbage = malloc( sizeof(void *) * p->size );
     if (!new->garbage) {
         free(new);
         return NULL;
     }
-    //memset( new->garbage, 0, sizeof(void *) * p->size );
+    // DO NOT REMOVE THIS, UNUSED GARBAGE MUST BE NULL
+    memset( new->garbage, 0, sizeof(void *) * p->size );
 
     // Clear all bits
     new->destructor_map = 0;
 
-    if(__sync_bool_compare_and_swap(&(p->epochs[e].trash_bags), new->next, new)) {
-        return new;
-    }
+    // ATOMIC ACQ_REL/RELAXED
+    int ok = __atomic_compare_exchange(
+        &(p->epochs[e].trash_bags),
+        &(new->next),
+        &new,
+        0,
+        __ATOMIC_ACQ_REL,
+        __ATOMIC_RELAXED
+    );
+    if (ok) return new;
 
     free( new->garbage );
     free( new );
@@ -294,12 +352,12 @@ uint8_t advance_epoch( prm *p, uint8_t e ) {
 
     for ( uint8_t i = 0; i < p->count; i++ ) {
         // Skip current epoch
-        if ( i == e )              continue;
-        if ( p->epochs[i].active ) continue;
+        if ( i == e ) continue;
+        if ( __atomic_load_n( &(p->epochs[i].active), __ATOMIC_CONSUME )) continue;
 
-        assert( __sync_bool_compare_and_swap( &(p->epochs[i].active), 0, 2 ));
-        assert( __sync_bool_compare_and_swap( &(p->epochs[e].dep),   -1, i ));
-        assert( __sync_bool_compare_and_swap( &(p->current),          e, i ));
+        __atomic_store_n( &(p->epochs[i].active), 2, __ATOMIC_RELEASE );
+        __atomic_store_n( &(p->epochs[e].dep),    i, __ATOMIC_RELEASE );
+        __atomic_store_n( &(p->current),          i, __ATOMIC_SEQ_CST );
 
         return i;
     }
@@ -308,6 +366,7 @@ uint8_t advance_epoch( prm *p, uint8_t e ) {
 }
 
 void free_garbage( prm *p, trash_bag *b ) {
+    __atomic_thread_fence( __ATOMIC_ACQ_REL );
     while (b != NULL) {
         size_t last = p->size;
         if (last > b->idx) last = b->idx;
