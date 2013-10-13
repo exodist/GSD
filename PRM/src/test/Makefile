@@ -17,6 +17,7 @@ testgrind: $(FILES)
 	for i in *.run; do \
 	    echo "Running $$i.."; \
 	    LD_LIBRARY_PATH=".." valgrind --leak-check=full \
+									  --max-stackframe=8008048 \
 	                                  --read-var-info=yes \
 	                                  --track-origins=yes \
 	                        ./$$i; \
