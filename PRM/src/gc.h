@@ -69,6 +69,7 @@ struct bucket {
     size_t index;
 
     bucket *next;
+    bucket *release;
 };
 
 struct collector {
@@ -85,11 +86,13 @@ struct collector {
 
     int       started;
     int       stopped;
-    pthread_t thread;
+    pthread_t sweep_thread;
+    pthread_t bucket_thread;
 
     size_t  bucket_counts;
     bucket *buckets[MAX_BUCKET];
     tag    *free[MAX_BUCKET];
+    bucket *release;
 
     bigtag *big;
 
@@ -110,12 +113,14 @@ unsigned int update_to_unchecked( collector *c, tag *t );
 unsigned int update_to_checked  ( collector *c, tag *t );
 unsigned int update_to_free     ( collector *c, tag *t );
 
-void *collector_thread(void *arg);
+void *sweep_thread(void *arg);
+void *bucket_thread(void *arg);
 size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t) );
 
 tag *gc_tag( void *alloc );
 
 bucket *create_bucket( int units, size_t count );
 void free_bucket( bucket *b, gc_destructor *destroy, void *destroyarg );
+void release_bucket( bucket *b );
 
 #endif

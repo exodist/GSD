@@ -31,6 +31,7 @@ collector *build_collector(
     gc_destructor *destroy,
     void          *destarg,
 
+    // How many objects to allocate per bucket (higher is better up to a point)
     size_t bucket_counts
 );
 
@@ -61,7 +62,7 @@ void   gc_leave_epoch( collector *c, int8_t e );
 // You may use this for anything you want.
 // A good use of this might be to identify what kind of data is stored in the
 // memory.
-// The pad is 2-bytes long.
+// The pad is 4-bytes long.
 uint32_t gc_get_pad( void *alloc                              );
 int      gc_set_pad( void *alloc, uint32_t *old, uint32_t new );
 

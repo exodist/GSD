@@ -91,7 +91,7 @@ collector *build_collector(
     for( int i = 0; i < MAX_BUCKET; i++ ) {
         c->buckets[i] = create_bucket( i + 1, bucket_counts );
         if (!c->buckets[i]) {
-            for (int j = 0; j < i; j++) free_bucket((bucket *)(c->buckets[j]), NULL, NULL);
+            for (int j = 0; j < i; j++) free_bucket(c->buckets[j], NULL, NULL);
             free(c);
             return NULL;
         }
@@ -108,7 +108,8 @@ void start_collector( collector *c ) {
     assert( c->root_size && c->root_index && c->roots[0] );
 
     // create the pthread and start it
-    assert( !pthread_create( &(c->thread), NULL, collector_thread, c ));
+    assert( !pthread_create( &(c->sweep_thread),  NULL, sweep_thread,  c ));
+    assert( !pthread_create( &(c->bucket_thread), NULL, bucket_thread, c ));
     __atomic_store_n( &(c->started), 1, __ATOMIC_SEQ_CST );
 }
 
@@ -118,20 +119,25 @@ void *free_collector( collector *c ) {
     // Make sure no epochs are active
     epochs e = load_c_epochs(c);
     while ( e.counter0 > 1 || e.counter1 > 1) {
-        struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+        struct timeval timeout = { .tv_sec = 0, .tv_usec = 10 };
         select( 0, NULL, NULL, NULL, &timeout );
         e = load_c_epochs(c);
     }
 
     // wait on pthread
-    pthread_join( c->thread, NULL );
+    pthread_join( c->sweep_thread, NULL );
+    pthread_join( c->bucket_thread, NULL );
 
     // free buckets
     for (size_t i = 0; i < MAX_BUCKET; i++) {
         if ( !c->buckets[i] ) {
             continue;
         }
-        free_bucket((bucket *)(c->buckets[i]), c->destroy, c->destarg);
+        free_bucket(c->buckets[i], c->destroy, c->destarg);
+    }
+
+    if (c->release) {
+        release_bucket(c->release);
     }
 
     // free bigs
@@ -239,8 +245,9 @@ int8_t gc_join_epoch( collector *c ) {
             break;
         }
 
-        if(atomic_epoch_update( &(c->epochs), &old, new ))
+        if(atomic_epoch_update( &(c->epochs), &old, new )) {
             return new.epoch;
+        }
     }
 }
 
@@ -272,8 +279,9 @@ void gc_leave_epoch( collector *c, int8_t e ) {
                 abort();
         }
 
-        if(atomic_epoch_update( &(c->epochs), &old, new ))
+        if(atomic_epoch_update( &(c->epochs), &old, new )) {
             return;
+        }
     }
 }
 
@@ -296,8 +304,9 @@ int8_t change_epoch( epochs *es ) {
             break;
         }
 
-        if (atomic_epoch_update(es, &old, new))
+        if (atomic_epoch_update(es, &old, new)) {
             return old.epoch;
+        }
     }
 }
 
@@ -307,7 +316,7 @@ void wait_epoch( epochs *es, int8_t e ) {
     switch(e) {
         case 0:
             while( v.counter0 ) {
-                struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+                struct timeval timeout = { .tv_sec = 0, .tv_usec = 100 };
                 select( 0, NULL, NULL, NULL, &timeout );
                 v = load_epochs(es);
             }
@@ -315,7 +324,7 @@ void wait_epoch( epochs *es, int8_t e ) {
 
         case 1:
             while( v.counter1 ) {
-                struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+                struct timeval timeout = { .tv_sec = 0, .tv_usec = 100 };
                 select( 0, NULL, NULL, NULL, &timeout );
                 v = load_epochs(es);
             }
@@ -352,7 +361,7 @@ void *gc_alloc( collector *c, size_t size, int8_t e ) {
                 size_t idx = bk->index;
 
                 // Another thread will add a new bucket
-                if (idx > size) continue;
+                if (idx > bk->size) continue;
 
                 if (!__atomic_compare_exchange_n(
                     &(bk->index),
@@ -363,7 +372,7 @@ void *gc_alloc( collector *c, size_t size, int8_t e ) {
                     __ATOMIC_RELAXED
                 )) continue;
 
-                if (idx < size) { // EASY!
+                if (idx < bk->size) { // EASY!
                     out = (tag *)(bk->space + idx);
                     break;
                 }
@@ -376,6 +385,8 @@ void *gc_alloc( collector *c, size_t size, int8_t e ) {
                     return NULL; // Out of memory!
                 }
 
+                __atomic_store( &(nbk->next), &bk, __ATOMIC_RELEASE );
+                __atomic_store_n( &(nbk->index), bk->units, __ATOMIC_RELEASE );
                 out = (tag *)(nbk->space + 0);
                 assert(__atomic_compare_exchange_n(
                     c->buckets + b,
@@ -526,20 +537,6 @@ unsigned int update_to_free( collector *c, tag *t ) {
         c->destroy( t + 1, c->destarg );
     }
 
-    // This is a bigtag, it will be cleaned up later
-    if (t->bucket == -1) return 1;
-
-    // Push the tag to the front of the free list.
-    tag **slot = (c->free + t->bucket);
-    tag **next = (void *)(t + 1);
-    while (1) {
-        // All tags are the 64-bit tag, followed by (bucket+1)*64 bits
-        *next = __atomic_load_n(slot, __ATOMIC_CONSUME);
-
-        if(__atomic_compare_exchange_n( slot, next, t, 0, __ATOMIC_ACQ_REL, __ATOMIC_CONSUME ))
-            break;
-    }
-
     return 1;
 }
 
@@ -551,13 +548,14 @@ size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t
     }
 
     for(int i = 0; i < MAX_BUCKET; i++) {
-        bucket *b = (bucket *)(c->buckets[i]);
+        bucket *b = NULL;
+        __atomic_load( c->buckets + i, &b, __ATOMIC_ACQUIRE );
         while (b) {
-            for (size_t i = 0; i < b->index / b->units; i++) {
+            for (size_t i = 0; i < c->bucket_counts; i++) {
                 tag *ti = (tag *)(b->space + (i * b->units));
                 found += update(c, ti);
             }
-            b = b->next;
+            __atomic_load( &(b->next), &b, __ATOMIC_ACQUIRE );
         }
     }
 
@@ -570,17 +568,16 @@ size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t
     return found;
 }
 
-void *collector_thread(void *arg) {
+void *sweep_thread(void *arg) {
     collector *c = arg;
 
     collector_cycle( c, update_to_unchecked );
 
     while (!__atomic_load_n(&(c->stopped), __ATOMIC_CONSUME)) {
         epochs es = load_c_epochs(c);
-        while(!(es.pulse || __atomic_load_n(&(c->stopped), __ATOMIC_CONSUME))) {
-            struct timeval timeout = { .tv_sec = 0, .tv_usec = 1 };
+        if(!(es.pulse || __atomic_load_n(&(c->stopped), __ATOMIC_CONSUME))) {
+            struct timeval timeout = { .tv_sec = 0, .tv_usec = 100 };
             select( 0, NULL, NULL, NULL, &timeout );
-            es = load_c_epochs(c);
         }
 
         // iterate roots setting to *_TO_CHECK
@@ -661,6 +658,23 @@ void *collector_thread(void *arg) {
                 free(n);
             }
         }
+
+        bucket *release = NULL;
+        __atomic_load( &(c->release), &release, __ATOMIC_ACQUIRE );
+        if (release) {
+            while(1) {
+                int ok = __atomic_compare_exchange_n(
+                    &(c->release),
+                    &release,
+                    NULL,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_ACQUIRE
+                );
+                if (ok) break;
+            }
+        }
+        if (release) release_bucket(release);
     }
 
     return NULL;
@@ -673,6 +687,7 @@ bucket *create_bucket( int units, size_t count ) {
     memset(out, 0, sizeof(bucket));
 
     units *= 8; // 64-bytes per unit.
+    units += 8; // Add the tag
 
     out->space = malloc( count * units );
     if (!out->space) {
@@ -685,6 +700,15 @@ bucket *create_bucket( int units, size_t count ) {
     out->size = count * units;
 
     return out;
+}
+
+void release_bucket( bucket *b ) {
+    while (b) {
+        bucket *kill = b;
+        b = b->release;
+        if( kill->space ) free(kill->space);
+        free(kill);
+    }
 }
 
 void free_bucket( bucket *b, gc_destructor *destroy, void *destarg ) {
@@ -703,4 +727,87 @@ void free_bucket( bucket *b, gc_destructor *destroy, void *destarg ) {
         if( kill->space ) free(kill->space);
         free(kill);
     }
+}
+
+void *bucket_thread(void *arg) {
+    collector *c = arg;
+
+    while (!__atomic_load_n(&(c->stopped), __ATOMIC_CONSUME)) {
+        struct timeval timeout = { .tv_sec = 0, .tv_usec = 200 };
+        select( 0, NULL, NULL, NULL, &timeout );
+
+        for ( int i = 0; i < MAX_BUCKET; i++ ) {
+            // Nullify the free list
+            __atomic_store_n( c->free + i, NULL, __ATOMIC_RELEASE );
+
+            // Iterate buckets
+            bucket *l = NULL;
+            __atomic_load( c->buckets + i, &l, __ATOMIC_CONSUME );
+            if (!l) continue;
+
+            bucket *b = l->next;
+
+            while (b) {
+                tag *free = NULL;
+                size_t nonfree = 0;
+
+                size_t max = b->index / b->units;
+                if (max != 0) max -= 1;
+
+                for (size_t i = 0; i < c->bucket_counts; i++) {
+                    tag *ti = (tag *)(b->space + (i * b->units));
+                    tag  t = load_tag( ti );
+                    if ( t.state == GC_FREE ) {
+                        tag **next = (void *)(ti + 1);
+                        *next = free;
+                        free = ti;
+                    }
+                    else {
+                        nonfree++;
+                    }
+                }
+                if (nonfree) {
+                    tag **slot = (c->free + i);
+
+                    tag *first = (tag *)(b->space);
+                    tag **next = (void *)(first + 1);
+
+                    __atomic_load( slot, next, __ATOMIC_ACQUIRE );
+                    while(1) {
+                        int ok = __atomic_compare_exchange_n(
+                            slot,
+                            next,
+                            free,
+                            0,
+                            __ATOMIC_ACQ_REL,
+                            __ATOMIC_ACQUIRE
+                        );
+                        if (ok) break;
+                    }
+                    l = b;
+                }
+                else {
+                    // Remove b from the list
+                    __atomic_store( &(l->next), &(b->next), __ATOMIC_RELEASE );
+
+                    __atomic_load( &(c->release), &(b->release), __ATOMIC_ACQUIRE );
+                    while(1) {
+                        int ok = __atomic_compare_exchange_n(
+                            &(c->release),
+                            &(b->release),
+                            b,
+                            0,
+                            __ATOMIC_ACQ_REL,
+                            __ATOMIC_ACQUIRE
+                        );
+                        if (ok) break;
+                    }
+                }
+
+                b = l->next;
+            }
+        }
+    }
+
+    return NULL;
 }
