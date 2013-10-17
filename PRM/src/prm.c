@@ -263,14 +263,14 @@ int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) 
         );
         if (!ok) continue; // Nope!
 
-        // Try to advance the epoch. 'e' will be correct either way
-        e = advance_epoch( p, e );
+        // Advance epoch and continue, or we need a new bag
+        if( advance_epoch( p, e ) != e ) continue;
 
         // If this fails then we are out of memory! that sucks!
         b = new_trash_bag( p, e, need );
         if (!b) return 0;
 
-        // the new trashbag will already have idx = 1 so that we can use 0.
+        // the new trashbag will already have idx = need so that we can use 0 -> n-1.
         index = 0;
         break;
     }

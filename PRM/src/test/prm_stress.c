@@ -4,7 +4,7 @@
 #include <pthread.h>
 
 #define THREADS 16
-#define ALLOCS  10000
+#define ALLOCS  1000
 
 void *worker( void * );
 
@@ -26,10 +26,25 @@ void destroy2(void *ptr, void *arg) {
     free( p );
 }
 
+void do_it();
+
 int main() {
+    for (int i = 1; i <= 1000; i++ ) {
+        do_it();
+        printf( "%-7i", i );
+        if (!(i % 10)) printf( "\n" );
+        fflush( stdout );
+    }
+
+    printf( "\nCompleted all tests\n" );
+
+    return 0;
+}
+
+void do_it() {
     prm *p = build_prm(
         4,   // Epoch Count
-        100, // Bag limit
+        64, // Bag limit
         0    // Fork for this much garbage
     );
 
@@ -50,7 +65,6 @@ int main() {
         args->allocs = allocs[t];
         pthread_create( pthreads + t, NULL, worker, args );
     }
-    printf( "Threads initialized\n" );
 
     for (int t = 0; t < THREADS; t++) {
         pthread_join( pthreads[t], NULL );
@@ -59,7 +73,6 @@ int main() {
             assert( *(allocs[t][i]) == 25 );
         }
     }
-    printf( "Threads completed\n" );
 
     leave_epoch( p, e );
 
@@ -72,19 +85,14 @@ int main() {
             dispose( p, allocs[t][i], destroy2, NULL );
         }
     }
-    printf( "Disposal completed\n" );
     leave_epoch( p, e );
 
-    printf( "Freeing shared prm\n" );
     free_prm( p );
-    printf( "Completed all tests\n" );
 
     for (int i = 0; i < THREADS; i++ ) {
         free(allocs[i]);
     }
     free(allocs);
-
-    return 0;
 }
 
 void *worker( void *in ) {
