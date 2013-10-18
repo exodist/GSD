@@ -11,6 +11,7 @@ typedef void (gc_callback)( void *alloc );
 typedef enum { GC_NONE, GC_ITERATOR, GC_CALLBACK } iteration_type;
 typedef iteration_type (gc_iterable)( void *alloc );
 typedef void *(gc_iterator)( void *alloc );
+typedef void  (gc_iterate_free)( void *iterator );
 typedef void *(gc_iterate_next)( void *iterator );
 typedef void  (gc_iterate)( void *alloc, gc_callback *callback );
 typedef void  (gc_destructor)( void *alloc, void *arg );
@@ -23,6 +24,7 @@ collector *build_collector(
     // Iterate items via an iterator object
     gc_iterator     *get_iterator,
     gc_iterate_next *next,
+    gc_iterate_free *free_iterator,
 
     // Objects that need to iterate for you with a callback
     gc_iterate  *iterate,

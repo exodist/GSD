@@ -60,6 +60,7 @@ collector *build_collector(
     // Iterate items via an iterator object
     gc_iterator     *get_iterator,
     gc_iterate_next *next,
+    gc_iterate_free *free_iterator,
 
     // Objects that need to iterate for you with a callback
     gc_iterate  *iterate,
@@ -82,6 +83,7 @@ collector *build_collector(
     c->iterable      = iterable;
     c->get_iterator  = get_iterator;
     c->next          = next;
+    c->free_iterator = free_iterator;
     c->iterate       = iterate;
     c->callback      = callback;
     c->destroy       = destroy;
@@ -500,11 +502,12 @@ unsigned int update_to_checked( collector *c, tag *t ) {
                         ? GC_ACTIVE_TO_CHECK
                         : GC_TO_CHECK;
 
-                    if (atomic_tag_update(t, &old, new)) break;
+                    if (atomic_tag_update(it, &old, new)) break;
                 }
 
                 it = c->next( iterator );
             }
+            c->free_iterator( iterator );
         break;
 
         case GC_CALLBACK:

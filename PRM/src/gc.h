@@ -77,6 +77,7 @@ struct collector {
 
     gc_iterator     *get_iterator;
     gc_iterate_next *next;
+    gc_iterate_free *free_iterator;
 
     gc_iterate  *iterate;
     gc_callback *callback;

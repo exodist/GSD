@@ -24,7 +24,41 @@ void test_callback_iteration();
 void test_lots_of_garbage_in_epoch();
 void test_destructor();
 
+typedef struct iterator iterator;
+struct iterator {
+    size_t index;
+    void **alloc;
+};
+
 iteration_type not_iterable( void *alloc ) { return GC_NONE; }
+iteration_type use_iterator( void *alloc ) {
+    uint32_t pad = gc_get_pad( alloc );
+    switch( pad ) {
+        case 1: return GC_NONE;
+        case 2: return GC_ITERATOR;
+    }
+    assert( 0 );
+}
+
+void *get_iterator( void *alloc ) {
+    iterator *i = malloc( sizeof( iterator ));
+    i->index = 0;
+    i->alloc = (void **)alloc;
+
+    return i;
+}
+
+void *iterator_next( void *iter ) {
+    iterator *i = iter;
+    if ( i->index < 2 ) {
+        return i->alloc[i->index++];
+    }
+    return NULL;
+}
+
+void iterator_free( void *iter ) {
+    free( iter );
+}
 
 int main() {
     assert( sizeof(epochs) == 8 );
@@ -43,9 +77,10 @@ int main() {
 // Use valgrind for this to be useful in checking for leaks. It is useful as-is
 // in checking for segfaults and other very bad things.
 void test_simple_no_iteration() {
-    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
+    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
     void *root = gc_alloc_root( c, 1 );
     assert( root );
+
     start_collector( c );
     uint8_t e = gc_join_epoch( c );
 
@@ -65,7 +100,7 @@ void destructor_simple( void *alloc, void *arg ) {
 }
 
 void test_destructor() {
-    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, destructor_simple, NULL, 5 );
+    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, destructor_simple, NULL, 5 );
     void *root = gc_alloc_root( c, 1 );
     assert( root );
     start_collector( c );
@@ -94,7 +129,7 @@ void test_destructor() {
 }
 
 void test_lots_of_garbage_in_epoch() {
-    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
+    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
     void *root = gc_alloc_root( c, 1 );
     assert( root );
     start_collector( c );
@@ -116,6 +151,55 @@ void test_lots_of_garbage_in_epoch() {
 }
 
 void test_iterator_iteration() {
+    collector *c = build_collector(
+        use_iterator,
+        get_iterator,
+        iterator_next,
+        iterator_free,
+        NULL, NULL,
+        destructor_simple, NULL,
+        5
+    );
+    void *root = gc_alloc_root( c, sizeof(void *) * 2 );
+    assert( root );
+
+    uint32_t old = 0;
+    assert( gc_set_pad( root, &old, 2 ));
+
+    start_collector( c );
+    uint8_t e = gc_join_epoch( c );
+
+    void *A = gc_alloc( c, 1, e );
+    void *B = gc_alloc( c, 1, e );
+    void *C = gc_alloc( c, 1, e );
+    assert( A );
+    assert( B );
+    assert( C );
+    assert( gc_set_pad( A, &old, 1 ));
+    assert( gc_set_pad( B, &old, 1 ));
+
+    // Add a and b as children of root
+    void **r = (void **)root;
+    r[0] = A;
+    r[1] = B;
+
+    FREED = 0;
+    gc_leave_epoch( c, e );
+    for ( int i = 0; i < 10 && !FREED; i++ ) {
+        printf( "Waiting\n" );
+        sleep(1);
+    }
+
+    // c should be cleared.
+    assert( FREED == (uintptr_t)C );
+    assert( gc_tag(C)->state == GC_FREE );
+
+    assert( gc_tag(A)->state != GC_FREE );
+    assert( gc_tag(B)->state != GC_FREE );
+
+    free_collector( c );
+
+    printf( "Completed test_iterator_iteration\n" );
 }
 
 void test_callback_iteration() {

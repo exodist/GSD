@@ -36,7 +36,7 @@ void test_recycling() {
 }
 
 void test_return_to_system() {
-    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
+    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 5 );
     void *root = gc_alloc_root( c, 1 );
     assert( root );
     start_collector( c );
