@@ -18,6 +18,10 @@ typedef void  (gc_iterate)( collector *c, void *alloc, gc_callback *callback );
 // The destructor should return 1 if it is fine to truly free the object. If
 // the destructor did something that will hold on to the object (return 0) then
 // you must later call destructor_free() on the object to allow it to be freed.
+// The destructor may also return -1 in the event of an error, this will leave
+// the object in a state of to-destroy, and destruction will be attempted again
+// later, the idea being that the destructor should also do something to make
+// sure it will work later.
 typedef int (gc_destructor)( void *alloc, void *arg );
 
 // Create start/pause a collector

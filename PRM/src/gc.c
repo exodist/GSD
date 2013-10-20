@@ -602,6 +602,7 @@ unsigned int do_destroy( collector *c, tag *t ) {
     if (old.drefs)               return 0;
 
     int result = c->destroy( t + 1, c->destarg );
+    if ( result < 0 ) return 1;
 
     while(1) {
         tag new = old;
