@@ -51,7 +51,7 @@ testgdbgrind: $(FILES)
 	$(GCC) $(CFLAGS) $< $(LOCLIBS) -o $@
 
 clean:
-	rm -rf *.run
+	rm -rf *.run *.out
 
 .PHONY: testprof
 testprof: CFLAGS := $(CFLAGS) -g -O0
