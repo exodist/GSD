@@ -906,26 +906,26 @@ void free_bucket( bucket *b ) {
 }
 
 void return_buckets( collector *c ) {
-    for ( int i = 0; i < MAX_BUCKET; i++ ) {
+    for ( int ib = 0; ib < MAX_BUCKET; ib++ ) {
         // Nullify the free list
-        __atomic_store_n( c->free + i, NULL, __ATOMIC_RELEASE );
+        __atomic_store_n( c->free + ib, NULL, __ATOMIC_RELEASE );
 
         // Iterate buckets
-        bucket *l = NULL;
-        __atomic_load( c->buckets + i, &l, __ATOMIC_CONSUME );
-        if (!l) continue;
+        bucket *b = NULL;
+        __atomic_load( c->buckets + ib, &b, __ATOMIC_CONSUME );
+        if (!b) continue;
 
-        bucket *b = l->next;
+        bucket **from = c->buckets + ib;
 
+        // First loop must not release the bucket.
+        size_t nonfree = 1;
         while (b) {
             tag *f = NULL;
-            size_t nonfree = 0;
 
             size_t max = b->index / b->units;
-            if (max != 0) max -= 1;
 
-            for (size_t i = 0; i < c->bucket_counts; i++) {
-                tag *ti = (tag *)(b->space + (i * b->units));
+            for (size_t it = 0; it < max && it < c->bucket_counts; it++) {
+                tag *ti = (tag *)(b->space + (it * b->units));
                 tag  t = load_tag( ti );
                 if ( t.state == GC_FREE ) {
                     tag **next = (void *)(ti + 1);
@@ -936,10 +936,16 @@ void return_buckets( collector *c ) {
                     nonfree++;
                 }
             }
-            if (nonfree) {
-                tag **slot = (c->free + i);
 
-                tag *first = (tag *)(b->space);
+            bucket *old = b;
+            b = b->next;
+
+            if (nonfree) {
+                from = &(old->next);
+
+                tag **slot = (c->free + ib);
+
+                tag *first = (tag *)(old->space);
                 tag **next = (void *)(first + 1);
 
                 __atomic_load( slot, next, __ATOMIC_ACQUIRE );
@@ -954,17 +960,16 @@ void return_buckets( collector *c ) {
                     );
                     if (ok) break;
                 }
-                l = b;
             }
             else {
                 // Remove b from the list
-                __atomic_store( &(l->next), &(b->next), __ATOMIC_RELEASE );
+                __atomic_store( from, &(old->next), __ATOMIC_RELEASE );
 
-                if( b->space ) free(b->space);
-                free(b);
+                free(old->space);
+                free(old);
             }
 
-            b = l->next;
+            nonfree = 0;
         }
     }
 }
