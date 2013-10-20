@@ -149,8 +149,6 @@ void test_lots_of_garbage_in_epoch() {
     uint8_t e = gc_join_epoch( c );
 
     for(int i = 0; i < 1000; i++ ) {
-        printf( "." );
-        fflush( stdout );
         void *extra = gc_alloc( c, 1, e );
         assert( extra );
     }
