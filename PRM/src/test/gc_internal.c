@@ -118,10 +118,12 @@ void test_recycling() {
     printf( "Sleeping 4 seconds\n" );
     sleep(4);
 
+    e = gc_join_epoch( c );
     void *C2 = gc_alloc( c, 1, e );
     printf( "A: %p\nB: %p\n", C1, C2 );
     assert( C1 == C2 );
 
+    gc_leave_epoch( c, e );
     stop_collector_thread( c );
     free_collector( c );
 
