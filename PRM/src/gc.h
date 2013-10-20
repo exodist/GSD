@@ -38,6 +38,8 @@ struct epochs {
 };
 
 struct tag {
+    uint32_t drefs;
+
     uint8_t active[2];
 
     enum {
@@ -49,11 +51,12 @@ struct tag {
         GC_ACTIVE_TO_CHECK,
 
         GC_CHECKED,
+
+        GC_DESTROY,
+        GC_DESTROYED,
     } state : 8;
 
-    int8_t bucket;
-
-    uint32_t pad;
+    uint8_t pad;
 };
 
 struct bigtag {
@@ -69,7 +72,6 @@ struct bucket {
     size_t index;
 
     bucket *next;
-    bucket *release;
 };
 
 struct collector {
@@ -80,7 +82,6 @@ struct collector {
     gc_iterate_free *free_iterator;
 
     gc_iterate  *iterate;
-    gc_callback *callback;
 
     gc_destructor *destroy;
     void          *destarg;
@@ -88,12 +89,21 @@ struct collector {
     int       started;
     int       stopped;
     pthread_t sweep_thread;
-    pthread_t bucket_thread;
+
+    enum {
+        GC_CYCLE_INITIAL     = 0,
+        GC_CYCLE_PULSE       = 1,
+        GC_CYCLE_CHECK       = 2,
+        GC_CYCLE_EPOCH       = 3,
+        GC_CYCLE_FINAL_CHECK = 4,
+        GC_CYCLE_FREE        = 5,
+        GC_CYCLE_RETURN      = 6,
+    } cycle_state;
+    int cycle_epoch;
 
     size_t  bucket_counts;
     bucket *buckets[MAX_BUCKET];
     tag    *free[MAX_BUCKET];
-    bucket *release;
 
     bigtag *big;
 
@@ -112,16 +122,22 @@ void   wait_epoch( epochs *es, int8_t e );
 
 unsigned int update_to_unchecked( collector *c, tag *t );
 unsigned int update_to_checked  ( collector *c, tag *t );
-unsigned int update_to_free     ( collector *c, tag *t );
+unsigned int update_to_destroy  ( collector *c, tag *t );
+unsigned int destroy_all        ( collector *c, tag *t );
 
 void *sweep_thread(void *arg);
-void *bucket_thread(void *arg);
 size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t) );
+void return_buckets( collector *c );
 
 tag *gc_tag( void *alloc );
 
 bucket *create_bucket( int units, size_t count );
-void free_bucket( bucket *b, gc_destructor *destroy, void *destroyarg );
-void release_bucket( bucket *b );
+void free_bucket( bucket *b );
+
+void collector_destroy( collector *c );
+
+void update_drefs_sub( collector *c, void *alloc );
+void update_drefs_add( collector *c, void *alloc );
+void update_drefs    ( collector *c, void *alloc, int delta );
 
 #endif

@@ -27,6 +27,11 @@ testgrind: CFLAGS := $(CFLAGS) -g -O0
 testgrind: libGSDPRM.so
 	$(MAKE) -C test testgrind
 
+.PHONY: testprof
+testprof: CFLAGS := $(CFLAGS) -g -O0
+testprof: libGSDPRM.so
+	$(MAKE) -C test testprof
+
 .PHONY: testgdb
 testgdb: CFLAGS := $(CFLAGS) -g -O0
 testgdb: libGSDPRM.so

@@ -7,14 +7,19 @@
 typedef struct collector collector;
 
 // Various callback functions that are needed
-typedef void (gc_callback)( void *alloc );
+typedef void (gc_callback)( collector *c, void *alloc );
 typedef enum { GC_NONE, GC_ITERATOR, GC_CALLBACK } iteration_type;
 typedef iteration_type (gc_iterable)( void *alloc );
 typedef void *(gc_iterator)( void *alloc );
 typedef void  (gc_iterate_free)( void *iterator );
 typedef void *(gc_iterate_next)( void *iterator );
-typedef void  (gc_iterate)( void *alloc, gc_callback *callback );
-typedef void  (gc_destructor)( void *alloc, void *arg );
+typedef void  (gc_iterate)( collector *c, void *alloc, gc_callback *callback );
+
+// The destructor should return 1 if it is fine to truly free the object. If
+// the destructor did something that will hold on to the object (return 0) then
+// you must later call destructor_free(), or destructor_restore() on the object
+// to either allow it to be freed, or put it back into circulation.
+typedef int (gc_destructor)( void *alloc, void *arg );
 
 // Create start/pause a collector
 collector *build_collector(
@@ -28,7 +33,6 @@ collector *build_collector(
 
     // Objects that need to iterate for you with a callback
     gc_iterate  *iterate,
-    gc_callback *callback,
 
     gc_destructor *destroy,
     void          *destarg,
@@ -37,9 +41,43 @@ collector *build_collector(
     size_t bucket_counts
 );
 
+// Start the collector with a thread that constantly collects garbage
+void start_collector_thread( collector *c );
+void stop_collector_thread ( collector *c );
+
+// Start the collector, but do not start a collection thread, instead you will
+// have to call gc_cycle yourself.
+void start_collector( collector *c );
+void stop_collector( collector *c );
+int gc_cycle( collector *c );
+/*\ RETURN CODES:
+ * -2 Nothing was done (do something else and try again after a couple
+                        milliseconds)
+
+ * -1 Waiting for state (do something else and try again after a couple
+                         milliseconds)
+
+ *  0 Cycle advanced but not ready to collect, call again any time
+
+ *  1 ready to free memory, call again to do it
+
+ *  2 ready to return larger blocks to the system, call again to do it
+
+If the code is <0 then you should have the thread do something else, if there
+is nothing else you should sleep for a bit to avoid cpu churn.
+
+A code of 0 means stuff was done, and more can be done. You can do something
+else, or you can call again.
+
+A code of 1 means it is ready to free memory, you probably want to go ahead and
+call it again immedietly, but if there is something very pressing it is ok to
+do it first.
+\*/
+
+// destroy_collector() will call the destructor for every active object.
 // free_collector will return the destarg in case you
 // need to free it as well.
-void start_collector( collector *c );
+void  destroy_collector( collector *c );
 void *free_collector( collector *c );
 
 // Get a pointer to memory at least 'size' bytes large
@@ -64,13 +102,16 @@ void   gc_leave_epoch( collector *c, int8_t e );
 // You may use this for anything you want.
 // A good use of this might be to identify what kind of data is stored in the
 // memory.
-// The pad is 4-bytes long.
-uint32_t gc_get_pad( void *alloc                              );
-int      gc_set_pad( void *alloc, uint32_t *old, uint32_t new );
+// The pad is 1-byte long.
+uint8_t gc_get_pad( void *alloc                            );
+int     gc_set_pad( void *alloc, uint8_t *old, uint8_t new );
 
 // Activate an allocation when you make a reference to it not reachable via a
 // 'root' object.
 // Objects are returned from gc_alloc already 'activated', you MUST call
 void gc_activate( collector *c, void *alloc, int8_t epoch );
+
+void destructor_free( void *alloc );
+void destructor_restore( collector *c, void *alloc );
 
 #endif

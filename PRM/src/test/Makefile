@@ -52,3 +52,16 @@ testgdbgrind: $(FILES)
 
 clean:
 	rm -rf *.run
+
+.PHONY: testprof
+testprof: CFLAGS := $(CFLAGS) -g -O0
+testprof: $(FILES)
+	for i in *.run; do \
+	    echo "Running $$i.."; \
+	    LD_LIBRARY_PATH=".." valgrind --tool=callgrind \
+									  --callgrind-out-file=$$i.callgrind.out \
+	                        ./$$i; \
+	    echo; \
+	done
+
+
