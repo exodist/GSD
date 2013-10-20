@@ -17,8 +17,7 @@ typedef void  (gc_iterate)( collector *c, void *alloc, gc_callback *callback );
 
 // The destructor should return 1 if it is fine to truly free the object. If
 // the destructor did something that will hold on to the object (return 0) then
-// you must later call destructor_free(), or destructor_restore() on the object
-// to either allow it to be freed, or put it back into circulation.
+// you must later call destructor_free() on the object to allow it to be freed.
 typedef int (gc_destructor)( void *alloc, void *arg );
 
 // Create start/pause a collector
@@ -69,9 +68,9 @@ is nothing else you should sleep for a bit to avoid cpu churn.
 A code of 0 means stuff was done, and more can be done. You can do something
 else, or you can call again.
 
-A code of 1 means it is ready to free memory, you probably want to go ahead and
-call it again immedietly, but if there is something very pressing it is ok to
-do it first.
+A code of 1+ means it is ready to free memory, you probably want to go ahead
+and call it again immedietly, but if there is something very pressing it is ok
+to do it first.
 \*/
 
 // destroy_collector() will call the destructor for every active object.
@@ -112,6 +111,5 @@ int     gc_set_pad( void *alloc, uint8_t *old, uint8_t new );
 void gc_activate( collector *c, void *alloc, int8_t epoch );
 
 void destructor_free( void *alloc );
-void destructor_restore( collector *c, void *alloc );
 
 #endif

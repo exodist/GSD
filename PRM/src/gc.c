@@ -874,11 +874,6 @@ void destructor_free( void *alloc ) {
     }
 }
 
-void destructor_restore( collector *c, void *alloc ) {
-    tag *t = ((tag *)alloc) - 1;
-    update_to_be_checked( c, t );
-}
-
 bucket *create_bucket( int units, size_t count ) {
     assert(units);
     bucket *out = malloc( sizeof(bucket) );

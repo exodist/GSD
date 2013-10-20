@@ -5,7 +5,6 @@
 #include <pthread.h>
 #include <unistd.h>
 
-
 void test_bigtag();
 void test_recycling();
 void test_return_to_system();
