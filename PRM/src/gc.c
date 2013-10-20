@@ -906,16 +906,16 @@ void free_bucket( bucket *b ) {
 }
 
 void return_buckets( collector *c ) {
-    for ( int ib = 0; ib < MAX_BUCKET; ib++ ) {
+    for ( int bucket_index = 0; bucket_index < MAX_BUCKET; bucket_index++ ) {
         // Nullify the free list
-        __atomic_store_n( c->free + ib, NULL, __ATOMIC_RELEASE );
+        __atomic_store_n( c->free + bucket_index, NULL, __ATOMIC_RELEASE );
 
         // Iterate buckets
         bucket *b = NULL;
-        __atomic_load( c->buckets + ib, &b, __ATOMIC_CONSUME );
+        __atomic_load( c->buckets + bucket_index, &b, __ATOMIC_CONSUME );
         if (!b) continue;
 
-        bucket **from = c->buckets + ib;
+        bucket **from = c->buckets + bucket_index;
 
         // First loop must not release the bucket.
         size_t nonfree = 1;
@@ -924,13 +924,13 @@ void return_buckets( collector *c ) {
 
             size_t max = b->index / b->units;
 
-            for (size_t it = 0; it < max && it < c->bucket_counts; it++) {
-                tag *ti = (tag *)(b->space + (it * b->units));
-                tag  t = load_tag( ti );
+            for (size_t tag_index = 0; tag_index < max && tag_index < c->bucket_counts; tag_index++) {
+                tag *tp = (tag *)(b->space + (tag_index * b->units));
+                tag  t = load_tag( tp );
                 if ( t.state == GC_FREE ) {
-                    tag **next = (void *)(ti + 1);
+                    tag **next = (void *)(tp + 1);
                     *next = f;
-                    f = ti;
+                    f = tp;
                 }
                 else {
                     nonfree++;
@@ -943,7 +943,7 @@ void return_buckets( collector *c ) {
             if (nonfree) {
                 from = &(old->next);
 
-                tag **slot = (c->free + ib);
+                tag **slot = (c->free + bucket_index);
 
                 tag *first = (tag *)(old->space);
                 tag **next = (void *)(first + 1);
