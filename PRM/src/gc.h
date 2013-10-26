@@ -114,6 +114,8 @@ struct collector {
     epochs epochs;
 };
 
+// These are atomic swaps. True on success, false on failure.
+// for the tag update, oldv is updated to contain the updated value on failure.
 int atomic_tag_update( tag *tp, tag *oldv, tag newv );
 int atomic_epoch_update( epochs *e, epochs *old, epochs new );
 

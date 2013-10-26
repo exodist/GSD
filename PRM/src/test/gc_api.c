@@ -13,6 +13,8 @@ void test_iterator_iteration();
 void test_callback_iteration();
 void test_lots_of_garbage_in_epoch();
 void test_destructor();
+void test_deferred_destruction();
+void test_destruction_order();
 
 typedef struct iterator iterator;
 struct iterator {
@@ -78,6 +80,8 @@ int main() {
     test_iterator_iteration();
     test_callback_iteration();
     test_lots_of_garbage_in_epoch();
+    test_deferred_destruction();
+    test_destruction_order();
 
     printf( "Testing complete...\n\n" );
     return 0;
@@ -266,3 +270,18 @@ void test_callback_iteration() {
     printf( "Completed test_callback_iteration\n\n" );
 }
 
+void test_deferred_destruction() {
+    // Create item
+    // end epoch
+    // wait, then ensure item is added to list for us to use
+    // Verify its state
+    // Cycle a couple times
+    // Verify state
+    // call gc_destructor_free
+    // cleanup
+}
+
+void test_destruction_order() {
+    // Create nested items to destroy
+    // Ensure destruction order
+}

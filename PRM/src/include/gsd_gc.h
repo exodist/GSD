@@ -23,6 +23,7 @@ typedef void  (gc_iterate)( collector *c, void *alloc, gc_callback *callback );
 // later, the idea being that the destructor should also do something to make
 // sure it will work later.
 typedef int (gc_destructor)( void *alloc, void *arg );
+void destructor_free( void *alloc );
 
 // Create start/pause a collector
 collector *build_collector(
@@ -96,12 +97,6 @@ void *gc_alloc     ( collector *c, size_t size, int8_t epoch );
 int8_t gc_join_epoch ( collector *c );
 void   gc_leave_epoch( collector *c, int8_t e );
 
-/*\ *** WARNING ***
- * The following all ASSUME that the pointers passed to them are pointers
- * provided by gc_alloc. If you pass them other pointers you WILL touch
- * randomish memory.
-\*/
-
 // You may use this for anything you want.
 // A good use of this might be to identify what kind of data is stored in the
 // memory.
@@ -111,9 +106,8 @@ int     gc_set_pad( void *alloc, uint8_t *old, uint8_t new );
 
 // Activate an allocation when you make a reference to it not reachable via a
 // 'root' object.
-// Objects are returned from gc_alloc already 'activated', you MUST call
+// Objects are returned from gc_alloc already 'activated'
 void gc_activate( collector *c, void *alloc, int8_t epoch );
 
-void destructor_free( void *alloc );
 
 #endif

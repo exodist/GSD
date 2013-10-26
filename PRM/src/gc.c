@@ -70,10 +70,6 @@ collector *build_collector(
 
     size_t bucket_counts
 ) {
-    // Code later relies on this assertion, but we put it here to keep it from
-    // running more than once.
-    assert(sizeof(tag) == 8);
-
     collector *c = malloc(sizeof(collector));
     if (!c) return NULL;
 
@@ -101,8 +97,7 @@ collector *build_collector(
 }
 
 void start_collector_thread( collector *c ) {
-    if (__atomic_fetch_add( &(c->started), 1, __ATOMIC_SEQ_CST))
-        return;
+    assert(!__atomic_fetch_add( &(c->started), 1, __ATOMIC_SEQ_CST));
 
     // Make sure we have at least one root
     assert( c->root_size && c->root_index && c->roots[0] );
@@ -598,25 +593,35 @@ unsigned int update_to_destroy( collector *c, tag *t ) {
 
 unsigned int do_destroy( collector *c, tag *t ) {
     tag old = load_tag( t );
-    if (old.state != GC_DESTROY) return 0;
-    if (old.drefs)               return 0;
-
-    int result = c->destroy( t + 1, c->destarg );
-    if ( result < 0 ) return 1;
 
     while(1) {
+        if (old.state != GC_DESTROY) return 0;
+        if (old.drefs)               return 0;
+
+        tag new = old;
+        new.state = GC_DESTROYED;
+
+        if (atomic_tag_update(t, &old, new))
+            break;
+    }
+
+    int result = c->destroy( t + 1, c->destarg );
+
+    while(result) {
         tag new = old;
 
+        if (result < 0 ) {
+            new.state = GC_DESTROY;
+        }
         if (result) {
             new.state = GC_FREE;
-        }
-        else {
-            new.state = GC_DESTROYED;
         }
 
         if (atomic_tag_update(t, &old, new))
             break;
     }
+
+    if ( result < 0 ) return 1;
 
     void *iterator = NULL;
     switch(c->iterable( t + 1 )) {
@@ -644,20 +649,24 @@ unsigned int do_destroy( collector *c, tag *t ) {
 unsigned int destroy_all( collector *c, tag *t ) {
     tag old = load_tag( t );
 
-    if (old.state == GC_FREE)      return 0;
-    if (old.state == GC_DESTROYED) return 0;
+    while(1) {
+        if (old.state == GC_FREE)      return 0;
+        if (old.state == GC_DESTROYED) return 0;
+
+        tag new = old;
+        new.state = GC_DESTROYED;
+
+        if (atomic_tag_update(t, &old, new))
+            break;
+    }
 
     int result = c->destroy( t + 1, c->destarg );
 
+    if (result == 0) return 1;
+
     while(1) {
         tag new = old;
-
-        if (result) {
-            new.state = GC_FREE;
-        }
-        else {
-            new.state = GC_DESTROYED;
-        }
+        new.state = result ? GC_FREE : GC_DESTROY;
 
         if (atomic_tag_update(t, &old, new))
             break;
@@ -668,19 +677,23 @@ unsigned int destroy_all( collector *c, tag *t ) {
 
 unsigned int purge_ref_cycles( collector *c, tag *t ) {
     tag old = load_tag( t );
-    if (old.state != GC_DESTROY) return 0;
+    while(1) {
+        if (old.state != GC_DESTROY) return 0;
+
+        tag new = old;
+        new.state = GC_DESTROYED;
+
+        if (atomic_tag_update(t, &old, new))
+            break;
+    }
 
     int result = c->destroy( t + 1, c->destarg );
 
+    if (result == 0) return 1;
+
     while(1) {
         tag new = old;
-
-        if (result) {
-            new.state = GC_FREE;
-        }
-        else {
-            new.state = GC_DESTROYED;
-        }
+        new.state = result ? GC_FREE : GC_DESTROY;
 
         if (atomic_tag_update(t, &old, new))
             break;
@@ -703,10 +716,12 @@ void collector_destroy( collector *c ) {
 size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t) ) {
     size_t found = 0;
 
+    // Iterate Root objects
     for (size_t i = 0; i < c->root_index; i++) {
         found += update(c, c->roots[i]);
     }
 
+    // Iterate bucket objects
     for(int i = 0; i < MAX_BUCKET; i++) {
         bucket *b = NULL;
         __atomic_load( c->buckets + i, &b, __ATOMIC_ACQUIRE );
@@ -719,6 +734,7 @@ size_t collector_cycle(collector *c, unsigned int (*update)(collector *c, tag *t
         }
     }
 
+    // Iterate Bigtag objects
     bigtag *b = (bigtag *)(c->big);
     while(b) {
         found += update(c, &(b->tag));
@@ -867,7 +883,7 @@ void destructor_free( void *alloc ) {
     tag *t = ((tag *)alloc) - 1;
     tag old = load_tag( t );
     while (1) {
-        assert( old.state == GC_DESTROY );
+        assert( old.state == GC_DESTROYED );
         tag new   = old;
         new.state = GC_FREE;
         if (atomic_tag_update(t, &old, new))
@@ -942,6 +958,7 @@ void return_buckets( collector *c ) {
             b = b->next;
 
             if (nonfree) {
+                nonfree = 0; // For next loop
                 from = &(old->next);
 
                 tag **slot = (c->free + bucket_index);
@@ -969,8 +986,6 @@ void return_buckets( collector *c ) {
                 free(old->space);
                 free(old);
             }
-
-            nonfree = 0;
         }
     }
 }
