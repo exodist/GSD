@@ -8,9 +8,8 @@
 #include "alloc.h"
 #include "balance.h"
 #include "operations.h"
-#include "epoch.h"
 
-node NODE_SEP = { { 0 }, 0 };
+node NODE_SEP = { 0 };
 // Used for 'refs' mapping
 dict_settings dset = { 11, 3, NULL };
 
@@ -22,14 +21,14 @@ dict_methods dmet = {
 };
 
 char *dump_dot( dict *d, dict_dot *decode ) {
-    epoch *e = join_epoch( d );
+    uint8_t e = join_epoch( d->prm );
     set *s = d->set;
 
     if( !decode ) decode = dump_node_label;
 
     char *out = do_dump_dot( d, s, decode );
 
-    leave_epoch( d, e );
+    leave_epoch( d->prm, e );
     return out;
 }
 
@@ -44,7 +43,7 @@ char *dump_node_label( void *key, void *value ) {
 char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     char *out = NULL;
 
-    epoch *e = join_epoch( d ); 
+    uint8_t e = join_epoch( d->prm ); 
 
     dot dd;
     memset( &dd, 0, sizeof( dot ));
@@ -53,7 +52,6 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     if ( dd.nl == NULL ) goto DO_DUMP_DOT_CLEANUP;
 
     if( dump_dot_slots( s, &dd ).num)  goto DO_DUMP_DOT_CLEANUP;
-    if( dump_dot_epochs( d, &dd ).num) goto DO_DUMP_DOT_CLEANUP;
 
     out = dump_dot_merge( &dd );
 
@@ -61,19 +59,10 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode ) {
     if( dd.refs ) free( dd.refs );
     if( dd.slots ) free( dd.slots );
     if( dd.nodes ) free( dd.nodes );
-    if( dd.epochs ) free( dd.epochs );
     if( dd.slot_level ) free( dd.slot_level );
     if( dd.node_level ) free( dd.node_level );
-    leave_epoch( d, e );
+    leave_epoch( d->prm, e );
 
-    return out;
-}
-
-rstat dot_print_epochs( dot *d, char *format, ... ) {
-    va_list args;
-    va_start( args, format );
-    rstat out = dot_print( &(d->epochs), &(d->epochs_size), &(d->epochs_length), format, args );
-    va_end( args );
     return out;
 }
 
@@ -149,50 +138,6 @@ rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_l
     char *start = *buffer + *length;
     strncpy( start, tmp, add_length );
     *length += add_length;
-
-    return rstat_ok;
-}
-
-rstat dump_dot_epochs( dict *d, dot *dd ) {
-    rstat ret = dot_print_epochs( dd,
-        "node [color=pink,fontcolor=grey,style=dashed,shape=octagon]\n"
-    );
-    if ( ret.num ) return ret;
-
-    ret = dot_print_epochs( dd, "edge [color=cyan]\n" );
-    if ( ret.num ) return ret;
-
-    uint8_t a = d->epoch;
-    for ( uint8_t i = 0; i < EPOCH_LIMIT; i++ ) {
-        epoch *e = &(d->epochs[i]);
-        epoch *dep = e->dep;
-
-        if ( dep || i == a ) {
-            char *style = "style=solid,fontcolor=white";
-            char *color = ( i == a ) ? "yellow" : "green";
-            char *shape = dep ? ",shape=doubleoctagon" : "";
-
-            ret = dot_print_epochs( dd,
-                "\"%p\" [label=\"Epoch%i\",%s,color=%s%s]\n",
-                e, i, style, color, shape
-            );
-            if ( ret.num ) return ret;
-
-            if ( dep ) {
-                ret = dot_print_epochs( dd, "\"%p\"->\"%p\" [color=yellow]\n", e, dep );
-                if ( ret.num ) return ret;
-            }
-        }
-        else {
-            ret = dot_print_epochs( dd, "\"%p\" [label=\"Epoch%i\"]\n", e, i );
-            if ( ret.num ) return ret;
-        }
-
-        if ( i + 1 < EPOCH_LIMIT ) {
-            ret = dot_print_epochs( dd, "\"%p\"->\"%p\"\n", e, &(d->epochs[i + 1]) );
-            if ( ret.num ) return ret;
-        }
-    }
 
     return rstat_ok;
 }
@@ -393,10 +338,6 @@ char *dump_dot_merge( dot *dd ) {
                    "    splines=false\n"
                    "    node [color=white,fontcolor=white,shape=egg,style=solid]\n"
                    "    edge [color=blue,arrowhead=vee]\n"
-                   "    subgraph cluster_memory {\n"
-                   "        graph [style=solid,color=grey]\n"
-                   "%s\n"
-                   "    }\n"
                    "    subgraph cluster_slots {\n"
                    "        graph [style=solid,color=grey]\n"
                    "        node [color=green,fontcolor=cyan,shape=rectangle]\n"
@@ -413,7 +354,6 @@ char *dump_dot_merge( dot *dd ) {
                    "}\n";
 
     size_t size = strlen( format )
-                + dd->epochs_length
                 + dd->nodes_length
                 + dd->slots_length
                 + dd->node_level_length
@@ -424,7 +364,6 @@ char *dump_dot_merge( dot *dd ) {
     if ( out == NULL ) return NULL;
 
     snprintf( out, size, format,
-        dd->epochs,
         dd->nodes,
         dd->slots,
         dd->node_level,

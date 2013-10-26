@@ -12,7 +12,6 @@
 
 #include <stdarg.h>
 
-#include "epoch.h"
 #include "structure.h"
 #include "node_list.h"
 #include "error.h"
@@ -31,21 +30,18 @@ struct dot {
     dict *ref_tracker;
     size_t null_counter;
 
-    char *epochs;
     char *slots;
     char *nodes;
     char *node_level;
     char *slot_level;
     char *refs;
 
-    size_t epochs_size;
     size_t slots_size;
     size_t nodes_size;
     size_t node_level_size;
     size_t slot_level_size;
     size_t refs_size;
 
-    size_t epochs_length;
     size_t slots_length;
     size_t nodes_length;
     size_t node_level_length;
@@ -61,14 +57,12 @@ char *do_dump_dot( dict *d, set *s, dict_dot decode );
 
 rstat dot_print( char **buffer, size_t *size, size_t *length, char *format, va_list args );
 
-rstat dot_print_epochs( dot *d, char *format, ... );
 rstat dot_print_slots( dot *d, char *format, ... );
 rstat dot_print_nodes( dot *d, char *format, ... );
 rstat dot_print_node_level( dot *d, char *format, ... );
 rstat dot_print_slot_level( dot *d, char *format, ... );
 rstat dot_print_refs( dot *d, char *format, ... );
 
-rstat dump_dot_epochs( dict *d, dot *dd );
 rstat dump_dot_slots( set *s, dot *dd );
 char *dump_dot_merge( dot *dd );
 

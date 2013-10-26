@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 
+#include "../../PRM/src/include/gsd_prm.h"
+
 #include "include/gsd_dict.h"
 
 #include "devtools.h"
@@ -25,7 +27,7 @@ dict_methods get_methods( dict *d ) {
 }
 
 rstat reconfigure( dict *d, dict_settings settings, size_t max_threads ) {
-    epoch *e = join_epoch( d );
+    uint8_t e = join_epoch( d->prm );
     rstat out = rstat_ok;
 
     set *s = d->set;
@@ -50,7 +52,7 @@ rstat reconfigure( dict *d, dict_settings settings, size_t max_threads ) {
         out = rstat_trans;
     }
 
-    leave_epoch( d, e );
+    leave_epoch( d->prm, e );
     return out;
 }
 
@@ -76,7 +78,7 @@ rstat do_reconfigure( dict *d, size_t slot_count, void *meta, size_t max_threads
         dev_assert_or_do( __sync_bool_compare_and_swap( &(d->set), s, new_dict->set ));
         d->set->settings.max_imbalance = s->settings.max_imbalance;
         rebalance_all( d, max_threads );
-        dispose( d, (trash *)s );
+        dispose( d->prm, s, free_set, d );
         new_dict->set = NULL;
     }
 

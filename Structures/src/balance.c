@@ -3,7 +3,6 @@
 #include <pthread.h>
 
 #include "devtools.h"
-#include "epoch.h"
 #include "structure.h"
 #include "balance.h"
 #include "util.h"
@@ -55,7 +54,7 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
 #ifdef METRICS
         __sync_add_and_fetch( &(d->rebalanced), 1 );
 #endif
-        dispose( d, (trash *)old_slot );
+        dispose( d->prm, old_slot, free_slot, d );
         return rstat_ok;
     }
     else {
@@ -64,7 +63,7 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
 
     REBALANCE_CLEANUP:
     rebalance_unblock( sl->root );
-    if ( ns )  dispose( d, (trash *)ns );
+    if ( ns )  dispose( d->prm, ns, free_slot, d );
     if ( all ) free( all );
     __sync_bool_compare_and_swap( &(sl->rebuild), 1, 0 );
     return out;
@@ -116,7 +115,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
 
     node *new_node = create_node( key, n->usref, 1 );
     if ( !new_node ) {
-        dispose( d, (trash *)key );
+        dispose( d->prm, key, free_xtrn, d );
         return rstat_mem;
     }
 
@@ -124,7 +123,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     if ( *s == NULL ) {
         *s = create_slot( new_node );
         if ( *s == NULL ) {
-            dispose( d, (trash *)new_node );
+            dispose( d->prm, new_node, free_node, d );
             return rstat_mem;
         }
         return rstat_ok;
@@ -134,7 +133,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     rstat stat = locate_from_node( d, key->value, &loc, st, (*s)->root );
     if ( stat.bit.error ) {
         if ( loc ) free_location( d, loc );
-        dispose( d, (trash *)new_node );
+        dispose( d->prm, new_node, free_node, d );
         return stat;
     }
     dev_assert( loc );
@@ -242,7 +241,7 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
 }
 
 rstat rebalance_all( dict *d, size_t threads ) {
-    epoch *e = join_epoch( d );
+    uint8_t e = join_epoch( d->prm );
     set *s = d->set;
 
     void *args[1] = { d };
@@ -254,7 +253,7 @@ rstat rebalance_all( dict *d, size_t threads ) {
         threads
     );
 
-    leave_epoch( d, e );
+    leave_epoch( d->prm, e );
     return out;
 }
 

@@ -33,8 +33,8 @@ rstat merge( dict *from, dict *to, merge_settings s, size_t threads ) {
 }
 
 rstat do_merge( dict *orig, dict *dest, merge_settings s, size_t threads, const void *null_swap ) {
-    epoch *eo = join_epoch( orig );
-    epoch *ed = join_epoch( dest );
+    uint8_t eo = join_epoch( orig->prm );
+    uint8_t ed = join_epoch( dest->prm );
 
     const void *args[4] = { orig, dest, &s, null_swap };
 
@@ -46,8 +46,8 @@ rstat do_merge( dict *orig, dict *dest, merge_settings s, size_t threads, const 
         threads
     );
 
-    leave_epoch( orig, eo );
-    leave_epoch( dest, ed );
+    leave_epoch( orig->prm, eo );
+    leave_epoch( dest->prm, ed );
     return out;
 }
 

@@ -63,7 +63,7 @@ timespec time_diff(timespec start, timespec end) {
 
 int main() {
     size_t min_ops = 1024;
-    size_t max_ops = 1024 * 4 * 4 * 4;
+    size_t max_ops = 1024 * 4;
     size_t min_slots = 1024;
     size_t max_slots = 1024 * 4;
     size_t min_imbalance = 16;

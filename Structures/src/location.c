@@ -1,7 +1,6 @@
 #include <string.h>
 
 #include "devtools.h"
-#include "epoch.h"
 #include "structure.h"
 #include "location.h"
 #include "balance.h"
@@ -11,13 +10,13 @@ location *create_location( dict *d ) {
     if ( locate == NULL ) return NULL;
     memset( locate, 0, sizeof( location ));
 
-    locate->epoch = join_epoch( d );
+    locate->eid = join_epoch( d->prm );
 
     return locate;
 }
 
 void free_location( dict *d, location *locate ) {
-    leave_epoch( d, locate->epoch );
+    leave_epoch( d->prm, locate->eid );
     free( locate );
 }
 

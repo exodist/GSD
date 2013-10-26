@@ -200,12 +200,12 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
 
         // Lower ref count of old sref, dispose of sref if count hits 0
         size_t count = __sync_sub_and_fetch( &(r->refcount), 1 );
-        if ( count == 0 ) dispose( d, (trash *)r );
+        if ( count == 0 ) dispose( d->prm, r, free_sref, d );
         return rstat_ok;
     }
     else {
         size_t count = __sync_sub_and_fetch( &(swap->refcount), 1 );
-        if ( count == 0 ) dispose( d, (trash *)swap );
+        if ( count == 0 ) dispose( d->prm, swap, free_sref, d );
         return rstat_trans;
     }
 }
@@ -289,7 +289,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
     xtrn *new_xtrn = NULL;
 
     if ( val ) {
-        new_xtrn = do_set_create( d, loc->epoch, key, val, CREATE_XTRN, spec );
+        new_xtrn = do_set_create( d, loc->eid, key, val, CREATE_XTRN, spec );
         if ( !new_xtrn ) {
             *stat = rstat_mem;
             return 0;
@@ -309,13 +309,13 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
         if ( !diff ) {
             if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
                 *old_val = current->value;
-                dispose( d, (trash *)current );
+                dispose( d->prm, current, free_xtrn, d );
                 *stat = rstat_ok;
                 return 0;
             }
         }
 
-        dispose( d, (trash *)new_xtrn );
+        dispose( d->prm, new_xtrn, free_xtrn, d );
         *stat = rstat_trans;
         return 0;
     }
@@ -326,7 +326,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
         // If it is null we need to be able to insert
         // If it is not null we need to be able to update
         if (( !current && !spec->insert ) || ( current && !spec->update )) {
-            dispose( d, (trash *)new_xtrn );
+            dispose( d->prm, new_xtrn, free_xtrn, d );
             *stat = rstat_trans;
             return 0;
         }
@@ -340,7 +340,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
                 );
             }
 
-            if ( current ) dispose( d, (trash *)current );
+            if ( current ) dispose( d->prm, current, free_xtrn, d );
             *stat = rstat_ok;
             return 0;
         }
@@ -351,7 +351,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
 int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
     dev_assert( !spec->usref );
-    sref *new_sref = do_set_create( d, loc->epoch, key, val, CREATE_SREF, spec );
+    sref *new_sref = do_set_create( d, loc->eid, key, val, CREATE_SREF, spec );
     if( !new_sref ) {
         *stat = rstat_mem;
         return 0;
@@ -364,12 +364,12 @@ int do_set_usref( dict *d, location *loc, void *key, void *val, set_spec *spec, 
     }
 
     // Something else resurrected the node, tell do_set to try again.
-    dispose( d, (trash *)new_sref );
+    dispose( d->prm, new_sref, free_sref, d );
     return 1;
 }
 
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    node *new_node = do_set_create( d, loc->epoch, key, val, CREATE_NODE, spec );
+    node *new_node = do_set_create( d, loc->eid, key, val, CREATE_NODE, spec );
     if ( new_node == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -392,12 +392,12 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
                 branch = &(loc->parent->right);
             break;
             case 0:
-                dispose( d, (trash *)new_node );
+                dispose( d->prm, new_node, free_node, d );
                 *stat = error( 1, 0, DICT_UNKNOWN, "This should not be possible unless a nodes key has changed, which is not permitted." );
                 return 0;
             break;
             default:
-                dispose( d, (trash *)new_node );
+                dispose( d->prm, new_node, free_node, d );
                 *stat = error( 1, 0, DICT_API_MISUSE, "The Compare method must return 1, 0, or -1" );
                 return 0;
             break;
@@ -424,21 +424,21 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
         // Prepare to try again...
         *stat = locate_key( d, key, &loc );
         if ( stat->num ) {
-            dispose( d, (trash *)new_node );
+            dispose( d->prm, new_node, free_node, d );
             return 0;
         }
 
         // Matching node has been inserted :-( all that work for nothing,
         // retry...
         if ( loc->node ) {
-            dispose( d, (trash *)new_node );
+            dispose( d->prm, new_node, free_node, d );
             return 1;
         }
     }
 }
 
 int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat ) {
-    slot *new_slot = do_set_create( d, loc->epoch, key, val, CREATE_SLOT, spec );
+    slot *new_slot = do_set_create( d, loc->eid, key, val, CREATE_SLOT, spec );
     if ( new_slot == NULL ) {
         *stat = rstat_mem;
         return 0; //do not try again
@@ -452,7 +452,7 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
 
     // Slot was created by another thread, we need to start over (retry)
     if ( !success ) {
-        dispose( d, (trash *)new_slot );
+        dispose( d->prm, new_slot, free_slot, d );
         return 1;
     }
 
@@ -466,7 +466,7 @@ int do_set_slot( dict *d, location *loc, void *key, void *val, set_spec *spec, r
     return 0;
 }
 
-void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, set_spec *spec ) {
+void *do_set_create( dict *d, uint8_t eid, void *key, void *val, create_type type, set_spec *spec ) {
     usref *new_usref = NULL;
     if ( spec->usref ) {
         dev_assert( type != CREATE_XTRN );
@@ -487,14 +487,14 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, 
         if ( spec->trigger ) {
             trig = malloc( sizeof( trigger_ref ));
             if ( trig == NULL ) {
-                if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+                if( new_xtrn ) dispose( d->prm, new_xtrn, free_xtrn, d );
                 return NULL;
             }
 
             xtrn *arg = create_xtrn( d, spec->trigger_arg );
             if ( !arg ) {
                 free( trig );
-                if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+                if( new_xtrn ) dispose( d->prm, new_xtrn, free_xtrn, d );
                 return NULL;
             }
 
@@ -505,7 +505,7 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, 
         sref *new_sref = create_sref( new_xtrn, trig );
         if( !new_sref ) {
             if ( trig ) free( trig );
-            if( new_xtrn ) dispose( d, (trash *)new_xtrn );
+            if( new_xtrn ) dispose( d->prm, new_xtrn, free_xtrn, d );
             return NULL;
         }
         if ( type == CREATE_SREF ) {
@@ -515,28 +515,28 @@ void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, 
 
         new_usref = create_usref( new_sref );
         if( !new_usref ) {
-            dispose( d, (trash *)new_sref );
+            dispose( d->prm, new_sref, free_sref, d );
             return NULL;
         }
     }
 
     xtrn *new_xtrn_key = create_xtrn( d, key );
     if ( !new_xtrn_key ) {
-        dispose( d, (trash *)new_usref );
+        dispose( d->prm, new_usref, NULL, NULL );
         return NULL;
     }
 
     node *new_node = create_node( new_xtrn_key, new_usref, 0 );
     if ( !new_node ) {
-        dispose( d, (trash *)new_usref );
-        dispose( d, (trash *)new_xtrn_key );
+        dispose( d->prm, new_usref, NULL, NULL );
+        dispose( d->prm, new_xtrn_key, free_xtrn, d );
         return NULL;
     }
     if ( type == CREATE_NODE ) return new_node;
 
     slot *new_slot = create_slot( new_node );
     if ( !new_slot ) {
-        dispose( d, (trash *)new_node );
+        dispose( d->prm, new_node, free_node, d );
         return NULL;
     }
     return new_slot;

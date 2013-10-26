@@ -4,7 +4,7 @@
 #include "balance.h"
 
 int iterate( dict *d, dict_handler *h, void *args ) {
-    epoch *e = join_epoch( d );
+    uint8_t e = join_epoch( d->prm );
     set *s = d->set;
     int stop = 0;
 
@@ -17,7 +17,7 @@ int iterate( dict *d, dict_handler *h, void *args ) {
         if ( stop ) break;
     }
 
-    leave_epoch( d, e );
+    leave_epoch( d->prm, e );
     return stop;
 }
 

@@ -54,16 +54,6 @@ struct dict_methods {
  * slot_count determines how big of a hash table to use. More hash slots means
  * more memory usage, but potentially faster updates.
  *
- * epoch_count determines how many slots the garbage collector is assigned. In
- * a multithreaded environment this is very important. Too few and you can have
- * threads spinning waiting for garbage collection. Too many and you have
- * wasted space (See struct epoch in structures.h for the size of each epoch).
- *
- * It is unlikely (but possible) to use more epochs than you have threads
- * modifying the dictionary. Attempting to change the number of epochs after
- * the dictionary is created will result in an API error. As such even in a
- * single threaded environment this should be at least 5.
- *
  * meta is yours to use, it is not used internally, but is passed to several
  * callbacks.
 \*/

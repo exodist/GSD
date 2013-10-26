@@ -16,12 +16,11 @@
 // Also in include/gsd_dict.h
 rstat do_free( dict **dr );
 
-void free_trash( dict *d, trash *t );
-void free_set( dict *d, set *s );
-void free_slot( dict *d, slot *s );
-void free_node( dict *d, node *n );
-void free_sref( dict *d, sref *r );
-void free_xtrn( dict *d, xtrn *x );
+void free_set(  void *ptr, void *arg );
+void free_slot( void *ptr, void *arg );
+void free_node( void *ptr, void *arg );
+void free_sref( void *ptr, void *arg );
+void free_xtrn( void *ptr, void *arg );
 
 rstat do_create( dict **d, dict_settings settings, dict_methods methods );
 

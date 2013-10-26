@@ -55,7 +55,8 @@ int do_set_usref(  dict *d, location *loc, void *key, void *val, set_spec *spec,
 int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
 int do_set_slot(   dict *d, location *loc, void *key, void *val, set_spec *spec, rstat *stat );
 
-void *do_set_create( dict *d, epoch *e, void *key, void *val, create_type type, set_spec *spec );
+// TODO: is 'eid' necessary?
+void *do_set_create( dict *d, uint8_t eid, void *key, void *val, create_type type, set_spec *spec );
 
 #endif
 

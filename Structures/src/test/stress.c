@@ -80,6 +80,8 @@ int main() {
 
     START = time(NULL);
 
+    __atomic_thread_fence(__ATOMIC_SEQ_CST);
+
     pthread_t threads[15];
     pthread_create( &(threads[0]), NULL, thread_uniq_delete, d );
     pthread_create( &(threads[1]), NULL, thread_uniq_deref, d );
@@ -93,7 +95,7 @@ int main() {
     pthread_create( &(threads[8]), NULL, thread_rand_get, d );
     pthread_create( &(threads[9]), NULL, thread_rand_delete, d );
     pthread_create( &(threads[10]), NULL, thread_rand_deref, d );
-    //pthread_create( &(threads[11]), NULL, thread_rand_ref, d );
+    pthread_create( &(threads[11]), NULL, thread_rand_ref, d );
 
 
     pthread_join( threads[0], NULL );
@@ -108,7 +110,7 @@ int main() {
     pthread_join( threads[8], NULL );
     pthread_join( threads[9], NULL );
     pthread_join( threads[10], NULL );
-    //pthread_join( threads[11], NULL );
+    pthread_join( threads[11], NULL );
 
     dict_free( &d );
     printf( "\n" );
