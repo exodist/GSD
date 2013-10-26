@@ -47,6 +47,7 @@ int free_prm( prm *p ) {
     for (uint8_t i = 0; i < p->count; i++) {
         int ok = __atomic_add_fetch( &(p->epochs[i].active), 1, __ATOMIC_SEQ_CST );
         if (ok != 1) {
+            __atomic_sub_fetch( &(p->epochs[i].active), 1, __ATOMIC_SEQ_CST);
             for (uint8_t j = 0; j < i; j++) {
                 assert( __atomic_sub_fetch( &(p->epochs[j].active), 1, __ATOMIC_SEQ_CST) == 0 );
             }
@@ -139,13 +140,13 @@ void leave_epoch( prm *p, uint8_t ei ) {
     e->trash_bags = NULL;
     e->dep        = -1;
 
+    new_trash_bag( p, ei, 0 );
+
     // re-open epoch, including memory barrier
     // We want to be sure the epoch is made available before we free the
     // garbage and dependancies in case it is expensive to free them, we do
     // not want the other threads to spin.
-    if(new_trash_bag( p, ei, 0 )) {
-        assert( __atomic_sub_fetch( &(e->active), 1, __ATOMIC_SEQ_CST ) == 0 );
-    }
+    assert( __atomic_sub_fetch( &(e->active), 1, __ATOMIC_SEQ_CST ) == 0 );
 
     // Don't spawn a new thread without garbage worth the effort
     size_t count = 0;
@@ -170,14 +171,6 @@ void leave_epoch( prm *p, uint8_t ei ) {
         pthread_t pt;
         pthread_create( &pt, NULL, garbage_truck, bin );
         pthread_detach( pt );
-    }
-
-    // If adding a trash bag failed earlier, try again
-    // If we fail then we will still open the epoch up the trash bag can be
-    // added later.
-    if (!e->trash_bags) {
-        new_trash_bag( p, ei, 0 );
-        assert( __atomic_sub_fetch( &(e->active), 1, __ATOMIC_SEQ_CST ) == 0 );
     }
 }
 
