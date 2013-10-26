@@ -16,8 +16,7 @@
 typedef struct location location;
 
 struct location {
-    epoch   *epoch_local;
-    epoch   *epoch_shared;
+    epoch   *epoch;
     set     *set;
     size_t   slotn;
     uint8_t  slotn_set;
