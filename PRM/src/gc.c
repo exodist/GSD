@@ -862,6 +862,8 @@ int gc_cycle( collector *c ) {
             c->cycle_state = GC_CYCLE_PULSE;
         return 0;
     }
+
+    return 0;
 }
 
 void *sweep_thread(void *arg) {

@@ -270,18 +270,110 @@ void test_callback_iteration() {
     printf( "Completed test_callback_iteration\n\n" );
 }
 
+void *DESTROYED = NULL;
+int destructor_defer( void *alloc, void *arg ) {
+    DESTROYED = alloc;
+    return 0;
+}
+
 void test_deferred_destruction() {
-    // Create item
-    // end epoch
-    // wait, then ensure item is added to list for us to use
-    // Verify its state
-    // Cycle a couple times
-    // Verify state
-    // call gc_destructor_free
-    // cleanup
+    collector *c = build_collector( not_iterable, NULL, NULL, NULL, NULL, destructor_defer, NULL, 5 );
+    void *root = gc_alloc_root( c, 1 );
+    assert( root );
+    start_collector_thread( c );
+    uint8_t e = gc_join_epoch( c );
+
+    void *extra = gc_alloc( c, 1, e );
+    assert( extra );
+
+    gc_leave_epoch( c, e );
+
+    for( int i = 0; i < 10 && !DESTROYED; i++ ) {
+        printf( "Waiting...\n" );
+        sleep(1);
+    }
+    assert( DESTROYED == extra );
+    assert( gc_tag(DESTROYED)->state == GC_DESTROYED );
+
+    for ( int i = 0; i < 4; i++ ) {
+        printf( "Cycle...\n" );
+        uint8_t e = gc_join_epoch( c );
+        gc_leave_epoch( c, e );
+        sleep(1);
+    }
+    assert( DESTROYED == extra );
+    assert( gc_tag(DESTROYED)->state == GC_DESTROYED );
+
+    // call destructor_free
+    destructor_free( DESTROYED );
+    DESTROYED = NULL;
+
+    stop_collector_thread( c );
+    destroy_collector( c );
+
+    for( int i = 0; i < 10 && !DESTROYED; i++ ) {
+        printf( "Waiting...\n" );
+        sleep(1);
+    }
+    assert( DESTROYED == root );
+    assert( gc_tag(DESTROYED)->state == GC_DESTROYED );
+    destructor_free( DESTROYED );
+
+    free_collector( c );
+
+    printf( "Completed test_deferred_destruction\n\n" );
+}
+
+int   ORDER_IDX = -1;
+void *ORDER[5] = { 0, 0, 0, 0, 0 };
+int destructor_ordered( void *alloc, void *arg ) {
+    ORDER[ORDER_IDX++] = alloc;
+    return 1;
 }
 
 void test_destruction_order() {
-    // Create nested items to destroy
-    // Ensure destruction order
+    collector *c = build_collector(
+        use_iterator,
+        get_iterator,
+        iterator_next,
+        iterator_free,
+        NULL,
+        destructor_ordered, NULL,
+        5
+    );
+    void *x = gc_alloc_root( c, 1 );
+    assert( x );
+
+    start_collector_thread( c );
+    uint8_t e = gc_join_epoch( c );
+
+    void *root = gc_alloc( c, sizeof(void *) * 2, e );
+    assert( root );
+
+    uint8_t old = 0;
+    assert( gc_set_pad( root, &old, 2 ));
+
+    void *A = gc_alloc( c, 1, e );
+    void *B = gc_alloc( c, 1, e );
+    assert( A );
+    assert( B );
+    assert( gc_set_pad( A, &old, 1 ));
+    assert( gc_set_pad( B, &old, 1 ));
+
+    // Add a and b as children of root
+    void **r = (void **)root;
+    r[0] = A;
+    r[1] = B;
+
+    gc_leave_epoch( c, e );
+    stop_collector_thread( c );
+    destroy_collector( c );
+    free_collector( c );
+
+    assert( ORDER[0] == A || ORDER[0] == B );
+    assert( ORDER[1] == A || ORDER[1] == B );
+    assert( ORDER[0] != ORDER[1] );
+    assert( ORDER[2] == root );
+
+    printf( "Completed test_destruction_order\n\n" );
 }
