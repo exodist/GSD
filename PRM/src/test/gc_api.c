@@ -124,10 +124,17 @@ void test_destructor() {
     void *extra = gc_alloc( c, 1, e );
     assert( extra );
 
+    FREED = 0;
+
     gc_leave_epoch( c, e );
 
     for ( int i = 0; i < 10 && !FREED; i++ ) {
         printf( "Waiting\n" );
+
+        // Might need some activity to push it along.
+        uint8_t e = gc_join_epoch( c );
+        gc_leave_epoch( c, e );
+
         sleep(1);
     }
     assert( FREED == (uintptr_t)extra );
