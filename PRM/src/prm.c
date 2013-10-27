@@ -158,7 +158,6 @@ void leave_epoch( prm *p, uint8_t ei ) {
 
     if ( !p->thread_at || count < p->thread_at ) {
         free_garbage( p, b );
-        if (dep != -1) leave_epoch( p, dep );
     }
     else {
         __atomic_add_fetch( &(p->detached_threads), 1, __ATOMIC_ACQ_REL );
@@ -172,6 +171,8 @@ void leave_epoch( prm *p, uint8_t ei ) {
         pthread_create( &pt, NULL, garbage_truck, bin );
         pthread_detach( pt );
     }
+
+    if (dep != -1) leave_epoch( p, dep );
 }
 
 void *garbage_truck( void *args ) {
@@ -180,10 +181,6 @@ void *garbage_truck( void *args ) {
     // Free Garbage
     if ( bin->trash_bags != NULL )
         free_garbage( bin->prm, bin->trash_bags );
-
-    // dec dep
-    if ( bin->dep != -1 )
-        leave_epoch( bin->prm, bin->dep );
 
     __atomic_sub_fetch( &(bin->prm->detached_threads), 1, __ATOMIC_ACQ_REL );
 
