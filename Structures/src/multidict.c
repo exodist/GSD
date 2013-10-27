@@ -102,25 +102,25 @@ rstat merge_transfer_slot( set *oset, size_t idx, void **args ) {
         usref *ur = n->usref;
         if ( null_swap ) __sync_bool_compare_and_swap( &(ur->sref), NULL, null_swap );
         sref *sr = ur->sref;
-        xtrn *x  = (sr && !blocked_null( sr )) ? sr->xtrn : NULL;
+        void *x  = (sr && !blocked_null( sr )) ? sr->xtrn : NULL;
 
         if ( x && !blocked_null( x )) {
             if ( settings->reference == 2 ) {
                 location *l = NULL;
                 set_spec spec = { 1, 0, NULL, ur };
-                out = do_set( dest, &l, n->key->value, NULL, &spec );
+                out = do_set( dest, &l, n->key, NULL, &spec );
                 free_location( dest, l );
                 if ( out.bit.error ) goto MERGE_XFER_ERROR;
             }
             else if ( settings->reference ) {
-                out = op_reference( orig, n->key->value, &orig_spec, dest, n->key->value, &dest_spec );
+                out = op_reference( orig, n->key, &orig_spec, dest, n->key, &dest_spec );
                 // Failure is not an error, it means the set_specs prevent us
                 // from merging this value, which is desired.
                 if ( out.bit.error ) goto MERGE_XFER_ERROR;
             }
             else {
                 location *loc = NULL;
-                out = do_set( dest, &loc, n->key->value, x->value, &dest_spec );
+                out = do_set( dest, &loc, n->key, x, &dest_spec );
                 if ( loc != NULL ) free_location( dest, loc );
                 // Failure is not an error, it means the set_specs prevent us
                 // from merging this value, which is desired.

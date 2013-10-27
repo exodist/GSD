@@ -8,7 +8,7 @@ libGSDDict.so: *.o
 	ln -sd libGSDDict.so.1.0.0 libGSDDict.so
 
 *.o:
-	$(GCC) $(CFLAGS) -O2 -c *.c
+	$(GCC) $(CFLAGS) -g -O1 -c *.c
 
 clean:
 	rm -rf *.o
@@ -68,7 +68,7 @@ stress: libGSDDict.so
 	LD_LIBRARY_PATH=".:../../" ./stress.run
 
 performance: libGSDDict.so
-	$(GCC) $(CFLAGS) -O2 -I. -L../../ -L. test/performance.c -lGSDDict -lGSDPRM -lpthread -lrt -operformance.run
+	$(GCC) $(CFLAGS) -O0 -g -I. -L../../ -L. test/performance.c -lGSDDict -lGSDPRM -lpthread -lrt -operformance.run
 	LD_LIBRARY_PATH=".:../../" ./performance.run
 
 grind_performance: libGrindGSDDict.so

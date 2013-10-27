@@ -26,9 +26,9 @@ rstat do_create( dict **d, dict_settings settings, dict_methods methods );
 
 set   *create_set( dict_settings settings, size_t slot_count );
 slot  *create_slot( node *root );
-node  *create_node( xtrn *key, usref *ref, size_t min_ref_count );
+node  *create_node( void *key, usref *ref, size_t min_ref_count );
 usref *create_usref( sref *ref );
-sref  *create_sref( xtrn *x, trigger_ref *t );
-xtrn  *create_xtrn( dict *d, void *value );
+sref  *create_sref( void *x, trigger_ref *t );
+void  *create_xtrn( dict *d, void *value );
 
 #endif

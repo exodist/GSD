@@ -197,10 +197,10 @@ rstat dump_dot_slots_node( dot *dd, node *n ) {
     if ( ret.num ) return ret;
 
     // print node with name
-    xtrn *v = ( sr && !blocked_null( sr )) ? sr->xtrn : NULL;
+    void *v = ( sr && !blocked_null( sr )) ? sr->xtrn : NULL;
     char *name = dd->decode(
-        n->key->value,
-        v ? v->value : NULL
+        n->key,
+        v
     );
 
     char *style = ref_count > 0

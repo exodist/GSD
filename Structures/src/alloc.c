@@ -85,13 +85,11 @@ void free_sref( void *ptr, void *arg ) {
 }
 
 void free_xtrn( void *ptr, void *arg ) {
-    xtrn *x = ptr;
+    void *x = ptr;
     dict *d = arg;
 
-    if ( d->methods.ref && x->value )
-        d->methods.ref( d, x->value, -1 );
-
-    free( x );
+    if ( d->methods.ref && x )
+        d->methods.ref( d, x, -1 );
 }
 
 rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
@@ -104,7 +102,7 @@ rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
     if ( out == NULL ) return rstat_mem;
     memset( out, 0, sizeof( dict ));
 
-    out->prm = build_prm( 5, 63, 10 );
+    out->prm = build_prm( 5, 63, 100 );
     if (!out->prm) {
         free( out );
         return rstat_mem;
@@ -153,7 +151,7 @@ slot *create_slot( node *root ) {
     return new_slot;
 }
 
-node *create_node( xtrn *key, usref *ref, size_t min_start_refcount ) {
+node *create_node( void *key, usref *ref, size_t min_start_refcount ) {
     dev_assert( ref );
     dev_assert( key );
 
@@ -189,28 +187,23 @@ usref *create_usref( sref *ref ) {
     return new_usref;
 }
 
-sref *create_sref( xtrn *x, trigger_ref *t ) {
+sref *create_sref( void *xtrn, trigger_ref *t ) {
     sref *new_sref = malloc( sizeof( sref ));
     if ( !new_sref ) return NULL;
     memset( new_sref, 0, sizeof( sref ));
-    new_sref->xtrn = x;
+    new_sref->xtrn = xtrn;
     new_sref->trigger = t;
 
     return new_sref;
 }
 
-xtrn *create_xtrn( dict *d, void *value ) {
+void *create_xtrn( dict *d, void *value ) {
     dev_assert( value );
     dev_assert( d );
-    xtrn *new_xtrn = malloc( sizeof( xtrn ));
-    if ( !new_xtrn ) return NULL;
-    memset( new_xtrn, 0, sizeof( xtrn ));
 
     if ( d->methods.ref )
         d->methods.ref( d, value, 1 );
 
-    new_xtrn->value = value;
-
-    return new_xtrn;
+    return value;
 }
 

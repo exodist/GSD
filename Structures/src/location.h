@@ -27,7 +27,7 @@ struct location {
     node    *node;
     usref   *usref;
     sref    *sref;
-    xtrn    *xtrn;
+    void    *xtrn;
 };
 
 location *create_location( dict *d );

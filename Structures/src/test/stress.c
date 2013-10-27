@@ -69,7 +69,7 @@ void *thread_transactions( void *ptr );
 void *thread_rand( void *ptr );
 
 // How long to run in seconds
-int LENGTH = 60 * 10;
+int LENGTH = 60 * 5;
 int START = 0;
 
 int main() {

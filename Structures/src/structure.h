@@ -17,7 +17,6 @@
 typedef struct dict  dict;
 typedef struct set   set;
 typedef struct slot  slot;
-typedef struct xtrn  xtrn;
 typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
@@ -54,14 +53,10 @@ struct slot {
     volatile uint8_t patho;
 };
 
-struct xtrn {
-    void *value;
-};
-
 struct node {
     node  * volatile left;
     node  * volatile right;
-    xtrn  * key;
+    void  * key;
     usref * volatile usref;
 };
 
@@ -72,13 +67,13 @@ struct usref {
 
 struct sref {
     volatile size_t refcount;
-    xtrn * volatile xtrn;
+    void * volatile xtrn;
     trigger_ref *trigger;
 };
 
 struct trigger_ref {
     dict_trigger *function;
-    xtrn         *arg;
+    void         *arg;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

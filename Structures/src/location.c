@@ -121,7 +121,7 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
     node *n = in;
     while ( n != NULL && !blocked_null( n )) {
         uint8_t error = 0;
-        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key->value, &error );
+        int dir = d->methods.cmp( lc->set->settings.meta, key, n->key, &error );
         if (error) {
             rstat out = { .bit = {
                 .fail  = 1,

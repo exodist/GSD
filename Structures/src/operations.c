@@ -28,7 +28,7 @@ rstat op_get( dict *d, void *key, void **val ) {
             *val = NULL;
         }
         else {
-            *val = loc->xtrn->value;
+            *val = loc->xtrn;
             if ( d->methods.ref )
                 d->methods.ref( d, *val, 1 );
         }
@@ -190,12 +190,9 @@ rstat do_deref( dict *d, void *key, location *loc, sref *swap ) {
     // Swap old sref with new sref, skip if sref has changed already
     if( __sync_bool_compare_and_swap( &(loc->usref->sref), r, swap )) {
         if ( d->methods.change ) {
-            xtrn *nv = r    ? r->xtrn    : NULL;
-            xtrn *ov = swap ? swap->xtrn : NULL;
-            d->methods.change( d, loc->set->settings.meta, key,
-                nv ? nv->value : NULL,
-                ov ? ov->value : NULL
-            );
+            void *nv = r    ? r->xtrn    : NULL;
+            void *ov = swap ? swap->xtrn : NULL;
+            d->methods.change( d, loc->set->settings.meta, key, nv, ov );
         }
 
         // Lower ref count of old sref, dispose of sref if count hits 0
@@ -275,7 +272,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
     if ( loc->sref->trigger ) {
         const char *error = loc->sref->trigger->function(
-            loc->sref->trigger->arg->value,
+            loc->sref->trigger->arg,
             val
         );
 
@@ -286,7 +283,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
         }
     }
 
-    xtrn *new_xtrn = NULL;
+    void *new_xtrn = NULL;
 
     if ( val ) {
         new_xtrn = do_set_create( d, loc->eid, key, val, CREATE_XTRN, spec );
@@ -298,9 +295,9 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
     // If this an atomic swap set
     if ( spec->swap_from ) {
-        xtrn *current = loc->sref->xtrn;
+        void *current = loc->sref->xtrn;
         uint8_t error = 0;
-        int diff = d->methods.cmp( loc->set->settings.meta, current->value, spec->swap_from, &error );
+        int diff = d->methods.cmp( loc->set->settings.meta, current, spec->swap_from, &error );
         if (error) {
             *stat = error( 1, 0, error + 100, "Application error in compare method" );
             return 0;
@@ -308,7 +305,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
 
         if ( !diff ) {
             if ( __sync_bool_compare_and_swap( &(loc->sref->xtrn), current, new_xtrn )) {
-                *old_val = current->value;
+                *old_val = current;
                 dispose( d->prm, current, free_xtrn, d );
                 *stat = rstat_ok;
                 return 0;
@@ -321,7 +318,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
     }
 
     while (1) {
-        xtrn *current = loc->sref->xtrn;
+        void *current = loc->sref->xtrn;
 
         // If it is null we need to be able to insert
         // If it is not null we need to be able to update
@@ -336,7 +333,7 @@ int do_set_sref( dict *d, location *loc, void *key, void *val, set_spec *spec, v
                 d->methods.change(
                     d, loc->set->settings.meta,
                     key,
-                    current ? current->value : NULL, val
+                    current, val
                 );
             }
 
@@ -378,7 +375,7 @@ int do_set_parent( dict *d, location *loc, void *key, void *val, set_spec *spec,
     while ( 1 ) {
         node * volatile *branch = NULL;
         uint8_t error = 0;
-        int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key->value, &error);
+        int dir = d->methods.cmp( loc->set->settings.meta, key, loc->parent->key, &error);
         if (error) {
             *stat = error( 1, 0, error + 100, "Application error in compare method" );
             return 0;
@@ -474,7 +471,7 @@ void *do_set_create( dict *d, uint8_t eid, void *key, void *val, create_type typ
         new_usref = spec->usref;
     }
     else {
-        xtrn *new_xtrn = NULL;
+        void *new_xtrn = NULL;
         if ( val || type == CREATE_XTRN ) {
             dev_assert( val );
             new_xtrn = create_xtrn( d, val );
@@ -491,7 +488,7 @@ void *do_set_create( dict *d, uint8_t eid, void *key, void *val, create_type typ
                 return NULL;
             }
 
-            xtrn *arg = create_xtrn( d, spec->trigger_arg );
+            void *arg = create_xtrn( d, spec->trigger_arg );
             if ( !arg ) {
                 free( trig );
                 if( new_xtrn ) dispose( d->prm, new_xtrn, free_xtrn, d );
@@ -520,7 +517,7 @@ void *do_set_create( dict *d, uint8_t eid, void *key, void *val, create_type typ
         }
     }
 
-    xtrn *new_xtrn_key = create_xtrn( d, key );
+    void *new_xtrn_key = create_xtrn( d, key );
     if ( !new_xtrn_key ) {
         dispose( d->prm, new_usref, NULL, NULL );
         return NULL;

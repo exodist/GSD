@@ -110,7 +110,7 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
 rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     // Copy the key, xtrn structs are not refcounted, they go away with their
     // container, so for node cloning the xtrn must also be cloned.
-    xtrn *key = create_xtrn( d, n->key->value );
+    void *key = create_xtrn( d, n->key );
     if ( !key ) return rstat_mem;
 
     node *new_node = create_node( key, n->usref, 1 );
@@ -130,7 +130,7 @@ rstat rebalance_insert( dict *d, set *st, slot **s, node *n, size_t ideal ) {
     }
 
     location *loc = NULL;
-    rstat stat = locate_from_node( d, key->value, &loc, st, (*s)->root );
+    rstat stat = locate_from_node( d, key, &loc, st, (*s)->root );
     if ( stat.bit.error ) {
         if ( loc ) free_location( d, loc );
         dispose( d->prm, new_node, free_node, d );
