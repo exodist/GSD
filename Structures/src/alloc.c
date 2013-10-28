@@ -50,12 +50,12 @@ void free_node( void *ptr, void *arg ) {
     if ( n->right && !blocked_null( n->right ))
         free_node( n->right, d );
 
-    size_t count = __sync_sub_and_fetch( &(n->usref->refcount), 1 );
+    size_t count = __atomic_sub_fetch( &(n->usref->refcount), 1, __ATOMIC_ACQ_REL );
     if( count == 0 ) {
         sref *r = n->usref->sref;
         if ( r && !blocked_null( r )) {
-            count = __sync_sub_and_fetch( &(r->refcount), 1 );
-            // If refcount is SIZE_MAX we almost certainly have an underflow. 
+            count = __atomic_sub_fetch( &(r->refcount), 1, __ATOMIC_ACQ_REL );
+            // If refcount is SIZE_MAX we almost certainly have an underflow.
             dev_assert( count != SIZE_MAX );
             if( count == 0 ) free_sref( r, d );
         }
@@ -159,18 +159,24 @@ node *create_node( void *key, usref *ref, size_t min_start_refcount ) {
     if ( !new_node ) return NULL;
     memset( new_node, 0, sizeof( node ));
     new_node->key = key;
-    size_t rc;
+    size_t rc = __atomic_load_n( &(ref->refcount), __ATOMIC_CONSUME );
     while ( 1 ) {
-        rc = ref->refcount;
         if ( rc < min_start_refcount ) {
             free( new_node );
             return NULL;
         }
 
-        if ( __sync_bool_compare_and_swap( &(ref->refcount), rc, rc + 1 ))
-            break;
+        int res = __atomic_compare_exchange_n(
+            &(ref->refcount),
+            &rc,
+            rc + 1,
+            0,
+            __ATOMIC_RELEASE,
+            __ATOMIC_CONSUME
+        );
+        if (res) break;
     }
-    dev_assert( ref->refcount );
+    dev_assert( __atomic_load_n( &(ref->refcount), __ATOMIC_CONSUME ));
     new_node->usref = ref;
 
     return new_node;
@@ -181,7 +187,7 @@ usref *create_usref( sref *ref ) {
     if ( !new_usref ) return NULL;
     memset( new_usref, 0, sizeof( usref ));
     if ( ref ) {
-        __sync_add_and_fetch( &(ref->refcount), 1 );
+        __atomic_add_fetch( &(ref->refcount), 1, __ATOMIC_ACQ_REL );
     }
     new_usref->sref = ref;
     return new_usref;
