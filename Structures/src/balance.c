@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <assert.h>
 
 #include "devtools.h"
 #include "structure.h"
@@ -9,10 +10,19 @@
 #include "alloc.h"
 
 rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
-    slot *sl = st->slots[slotn];
+    slot *sl = NULL;
+    __atomic_load( st->slots + slotn, &sl, __ATOMIC_CONSUME );
     if ( sl == NULL || blocked_null( sl )) return rstat_ok;
-    if( !__sync_bool_compare_and_swap( &(sl->rebuild), 0, 1 ))
-        return rstat_ok;
+    int zero = 0;
+    int succ = __atomic_compare_exchange_n(
+        &(sl->rebuild),
+        &zero,
+        1,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_RELAXED
+    );
+    if (!succ) return rstat_ok;
 
     rstat out = rstat_ok;
 
@@ -47,49 +57,100 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
 
     // swap
     slot *old_slot = sl;
-    int success = __sync_bool_compare_and_swap( &(st->slots[slotn]), old_slot, ns );
+    succ = __atomic_compare_exchange(
+         st->slots + slotn,
+         &old_slot,
+         &ns,
+         0,
+         __ATOMIC_ACQ_REL,
+         __ATOMIC_RELAXED
+    );
 
-    if ( success ) {
+    if ( succ ) {
         *count_diff = old_slot->item_count - count;
 #ifdef METRICS
-        __sync_add_and_fetch( &(d->rebalanced), 1 );
+        __atomic_add_fetch( &(d->rebalanced), 1, __ATOMIC_ACQ_REL );
 #endif
         dispose( d->prm, old_slot, free_slot, d );
         return rstat_ok;
-    }
-    else {
-        sl = old_slot;
     }
 
     REBALANCE_CLEANUP:
     rebalance_unblock( sl->root );
     if ( ns )  dispose( d->prm, ns, free_slot, d );
     if ( all ) free( all );
-    __sync_bool_compare_and_swap( &(sl->rebuild), 1, 0 );
+    int one = 1;
+    assert( __atomic_compare_exchange_n(
+        &(sl->rebuild),
+        &one,
+        0,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_RELAXED
+    ));
     return out;
 }
 
 void rebalance_unblock( node *n ) {
-    __sync_bool_compare_and_swap( &(n->right), RBAL, NULL );
-    if ( n->right != NULL ) rebalance_unblock( n->right );
+    node *curr = (node *)&RBAL;
 
-    __sync_bool_compare_and_swap( &(n->usref->sref), RBAL, NULL );
+    int empty = __atomic_compare_exchange_n(
+        &(n->right),
+        &curr,
+        NULL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
+    if ( !empty ) rebalance_unblock( curr );
 
-    __sync_bool_compare_and_swap( &(n->left), RBAL, NULL );
-    if ( n->left != NULL ) rebalance_unblock( n->left );
+    __atomic_compare_exchange_n(
+        &(n->usref->sref),
+        (void **)&RBAL,
+        NULL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
+
+    curr = (node *)&RBAL;
+    empty = __atomic_compare_exchange_n(
+        &(n->left),
+        &curr,
+        NULL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
+    if ( !empty ) rebalance_unblock( curr );
 }
 
 size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
     // If right is NULL we block it off with RBAL, otherwise recurse
-    __sync_bool_compare_and_swap( &(n->right), NULL, RBAL );
-    if ( !blocked_null( n->right )) count = rebalance_add_node( n->right, all, size, count );
+    node *curr = NULL;
+    int empty = __atomic_compare_exchange_n(
+        &(n->right),
+        &curr,
+        RBAL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
+    if ( !empty ) count = rebalance_add_node( curr, all, size, count );
 
     // Mark a node with no sref as rebalance
-    __sync_bool_compare_and_swap( &(n->usref->sref), NULL, RBAL );
+    sref *csref = NULL;
+    empty = __atomic_compare_exchange_n(
+        &(n->usref->sref),
+        &csref,
+        RBAL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
 
     // If this node has an sref, add to the list.
-    sref *sr = n->usref->sref;
-    if ( !blocked_null( sr )) {
+    if ( !empty ) {
         if ( count >= *size ) {
             node **nall = realloc( *all, (*size + 10) * sizeof(node *));
             *size += 10;
@@ -101,8 +162,16 @@ size_t rebalance_add_node( node *n, node ***all, size_t *size, size_t count ) {
     }
 
     // If left is NULL we block it off with RBAL, otherwise recurse
-    __sync_bool_compare_and_swap( &(n->left), NULL, RBAL );
-    if ( !blocked_null( n->left )) count = rebalance_add_node( n->left, all, size, count );
+    curr = NULL;
+    empty = __atomic_compare_exchange_n(
+        &(n->left),
+        &curr,
+        RBAL,
+        0,
+        __ATOMIC_RELEASE,
+        __ATOMIC_CONSUME
+    );
+    if ( !empty ) count = rebalance_add_node( curr, all, size, count );
 
     return count;
 }
