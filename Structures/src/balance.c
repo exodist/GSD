@@ -62,7 +62,7 @@ rstat rebalance( dict *d, set *st, size_t slotn, size_t *count_diff ) {
          &old_slot,
          &ns,
          0,
-         __ATOMIC_ACQ_REL,
+         __ATOMIC_SEQ_CST,
          __ATOMIC_RELAXED
     );
 
@@ -266,7 +266,11 @@ rstat balance_check( dict *d, location *loc, size_t count ) {
     if ( height > (ideal + max_imb) && !loc->slot->rebuild ) {
         size_t count_diff = 0;
         rstat ret = rebalance( d, loc->set, loc->slotn, &count_diff );
-        __sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
+        // XXX Is this swap necessary? if the rebalance worked then we should
+        // have a new slot that was never marked as rebalance. If it failed it
+        // should have cleaned itself up... Commenting it out, we will see what
+        // happens.
+        //__sync_bool_compare_and_swap( &(loc->slot->rebuild), 1, 0 );
 
         if ( ret.bit.error ) {
             ret.bit.fail  = 0;

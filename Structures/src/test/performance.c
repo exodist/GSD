@@ -62,14 +62,14 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    size_t min_ops = 1024 * 4 * 4;
-    size_t max_ops = 1024 * 4 * 4 * 4 * 4 * 4;
+    size_t min_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4;
+    size_t max_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4;
     size_t min_slots = 1024;
     size_t max_slots = 1024;
     size_t min_imbalance = 16;
     size_t max_imbalance = 16;
-    size_t min_threads = 1;
-    size_t max_threads = 256;
+    size_t min_threads = 4;
+    size_t max_threads = 4;
 
     dict_settings set = { 0, 0, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
