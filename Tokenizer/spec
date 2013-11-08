@@ -1,0 +1,113 @@
+ALPHA
+DIGIT
+ALPHADIGIT
+QUOTE
+SPACE
+NOSPACE
+SYMBOL
+CONTROL
+
+"..." or '...' - literal
+~...~          - insertion
+
+SCOPE - {START-PATTERN; NAME: PATTERN; END-PATTERN}
+ALT   - (NAME: PAT1 | PAT2 | ...)
+GROUP - [NAME: PATTERN]
+SLURP - <ESCAPE; NAME: END-PATTERN; PATTERN>
+REGEX - =NAME: /.../...=
+NAMED - name or sub-grammar::name
+
+------
+
+Quantifiers:
++ 1 or more
+* 0 or more
+? 0 or 1
+! Do not capture
+
+--------------
+
+match {
+    type: [ text, group, scope ]
+    uint8_t *name;
+    match *next;
+}
+
+group_match {
+    match match
+    match **parts
+}
+
+scope_match {
+    group_match match
+    void *scope_data
+}
+
+text_match {
+    match match
+    char_type: ENUM
+    uint8_t *start
+    size_t   size
+    size_t   length
+}
+
+---------------
+
+pattern {
+    uint8_t *name
+    node *start
+}
+
+node {
+    type: ...
+    //        -      ?       *    +
+    quant: [ ONE, OPTIONAL, ANY, SOME ]
+    node *next;
+}
+
+prim_node {
+    node node
+    match: [ ... ]
+}
+
+name_node {
+    node node
+    uint8_t *name
+    node *node
+}
+
+// Also used for slurp
+group_node {
+    node node
+    uint8_t *name
+}
+
+scope_node {
+    node node
+    uint8_t *name
+    node *start
+    node *main
+    node *term
+}
+
+alt_node {
+    node node
+    uint8_t *name
+    node **alts
+    size_t count;
+}
+
+regex_node {
+    node node
+    uint8_t *name
+    ?
+}
+
+-----------
+
+keyword sub(identifier signature? {'{'; code: gsd_code; '}'} ~;~)
+
+keyword '{'(; code: gsd_code; '}')
+
+keyword keyword((string|identifier) ['('!pattern')'!]? {'{'; code: gsd_code; '}'} ~;~)
+

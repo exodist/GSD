@@ -62,38 +62,44 @@ timespec time_diff(timespec start, timespec end) {
 }
 
 int main() {
-    size_t min_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4;
-    size_t max_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4;
+    //size_t min_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4;
+    //size_t max_ops = 1024 * 4 * 4 * 4 * 4 * 4 * 4 * 4;
+
+    size_t min_ops = 5000000;
+    size_t max_ops = 5000000;
     size_t min_slots = 1024;
-    size_t max_slots = 1024;
+    size_t max_slots = 16000000;
     size_t min_imbalance = 16;
     size_t max_imbalance = 16;
     size_t min_threads = 4;
-    size_t max_threads = 4;
+    size_t max_threads = 64;
 
     dict_settings set = { 0, 0, NULL };
     dict_methods  met = { kv_cmp, kv_loc, kv_change, kv_ref };
     dict *d = NULL;
 
     fprintf( stdout,
-        "Threads, "
-        "Max Imbalance, "
-        "Slot Count, "
-        "Operations, "
-        "Insert Time, "
-        "Rebalance Time, "
-        "Update Time, "
-        "Resize Time, "
-        "Lookup Time, "
-        "Immute Time\n"
+        "%4s, %2s, %7s, %8s: %11s %11s %11s %11s %11s %11s %11s\n",
+        "T",
+        "MI",
+        "Slots",
+        "Ops",
+        "Insert",
+        "Rebalance",
+        "Update",
+        "Resize",
+        "Lookup",
+        "Immute"
     );
     fflush( stdout );
 
     for ( size_t threads = min_threads; threads <= max_threads; threads *= 4 ) {
         for ( size_t imbalance = min_imbalance; imbalance <= max_imbalance; imbalance *= 4 ) {
-            for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 4 ) {
+            for ( size_t slot_count = min_slots; slot_count <= max_slots; slot_count *= 32 ) {
                 for ( size_t operations = min_ops; operations <= max_ops; operations *= 4 ) {
-                    fprintf( stdout, "%5zi, %3zi, %6zi, %6zi, ",
+                    uint64_t sec  = 0;
+                    uint64_t nsec = 0;
+                    fprintf( stdout, "%4zi, %2zi, %7zi, %8zi: ",
                         threads,
                         imbalance,
                         slot_count,
@@ -122,19 +128,23 @@ int main() {
                     }
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec insert_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li ",
                         (long long)insert_duration.tv_sec, insert_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += insert_duration.tv_sec;
+                    nsec += insert_duration.tv_nsec;
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                     dict_rebalance( d, threads );
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec rebalance_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li ",
                         (long long)rebalance_duration.tv_sec, rebalance_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += rebalance_duration.tv_sec;
+                    nsec += rebalance_duration.tv_nsec;
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                     for ( int tid = 0; tid < threads; tid++ ) {
@@ -149,10 +159,12 @@ int main() {
                     }
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec update_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li ",
                         (long long)update_duration.tv_sec, update_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += update_duration.tv_sec;
+                    nsec += update_duration.tv_nsec;
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                     set.slot_count = slot_count * 2;
@@ -162,10 +174,12 @@ int main() {
                     }
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec resize_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li ",
                         (long long)resize_duration.tv_sec, resize_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += resize_duration.tv_sec;
+                    nsec += resize_duration.tv_nsec;
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                     for ( int tid = 0; tid < threads; tid++ ) {
@@ -180,10 +194,12 @@ int main() {
                     }
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
                     timespec lookup_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li ",
                         (long long)lookup_duration.tv_sec, lookup_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += lookup_duration.tv_sec;
+                    nsec += lookup_duration.tv_nsec;
 
                     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
                     dict *copy = dict_clone_immutable( d, threads );
@@ -191,12 +207,19 @@ int main() {
                     if ( copy == NULL )
                         fprintf( stderr, "\nERROR: Failed to make immutable clone\n" );
                     timespec imut_duration = time_diff( start, end );
-                    fprintf( stdout, "%lli.%09li, ",
+                    fprintf( stdout, "%2lli.%09li",
                         (long long)imut_duration.tv_sec, imut_duration.tv_nsec
                     );
                     fflush( stdout );
+                    sec  += imut_duration.tv_sec;
+                    nsec += imut_duration.tv_nsec;
 
                     fprintf( stdout, "\n" ); fflush( stdout );
+                    while ( nsec >= 1000000000 ) {
+                        nsec -= 1000000000;
+                        sec++;
+                    }
+                    fprintf( stdout, "%lli.%09li\n", sec, nsec );
                     free( pts );
                     free( args );
                     dict_free( &d );
