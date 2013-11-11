@@ -4,7 +4,6 @@
 #include <pthread.h>
 #include <stdint.h>
 #include "include/gsd_gc.h"
-#include "include/gsd_prm.h"
 
 #define MAX_BUCKET 5
 
