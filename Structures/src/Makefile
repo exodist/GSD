@@ -95,6 +95,23 @@ memtest: libGSDStructures.so
 	$(GCC) $(CFLAGS) -O2 -I. -L../../ -L. test/memory.c -lGSDStructures -lGSDPRM -lpthread -omemorytest.run
 	LD_LIBRARY_PATH=".:../../" ./memorytest.run
 
+stringtest: libGSDStructures.so
+	$(GCC) $(CFLAGS) -O2 -I. -L../../ -L. test/stringdict.c -lGSDStructures -lGSDPRM -lGSDHashlib -lpthread -ostringdict.run
+	LD_LIBRARY_PATH=".:../../" ./stringdict.run
+
+grind_stringtest: libGSDStructures.so
+	$(GCC) $(CFLAGS) -g -O0 -I. -L../../ -L. test/stringdict.c -lGSDStructures -lGSDPRM -lGSDHashlib -lpthread -ostringdict.run
+	LD_LIBRARY_PATH=".:../../" valgrind --leak-check=full \
+								 --read-var-info=yes \
+								 --track-origins=yes \
+								 --show-reachable=yes \
+						./stringdict.run 2> grind.txt
+
+debug_stringtest: libGSDStructures.so
+	$(GCC) $(CFLAGS) -g -O0 -I. -L../../ -L. test/stringdict.c -lGSDStructures -lGSDPRM -lGSDHashlib -lpthread -ostringdict.run
+	LD_LIBRARY_PATH=".:../../" gdb ./stringdict.run
+
+
 grind_apitest: libGrindGSDStructures.so
 	$(GCC) $(CFLAGS) -O0 -g -I. -L../../ -L. test/apitest.c -lGrindGSDStructures -lGSDPRM -lpthread -DDEV_ASSERTS -oapitest.run
 	LD_LIBRARY_PATH=".:../../" valgrind --leak-check=full \

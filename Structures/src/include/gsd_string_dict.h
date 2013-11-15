@@ -6,10 +6,10 @@
 
 dict *new_string_dict(size_t slots, void (release)(void *));
 
-get_stat     strd_get( dict *d, uint8_t *key            );
-dict_stat    strd_set( dict *d, uint8_t *key, void *val );
-dict_stat strd_update( dict *d, uint8_t *key, void *val );
-dict_stat strd_insert( dict *d, uint8_t *key, void *val );
-dict_stat strd_delete( dict *d, uint8_t *key            );
+get_stat     strd_get( dict *d, char *key            );
+dict_stat    strd_set( dict *d, char *key, void *val );
+dict_stat strd_update( dict *d, char *key, void *val );
+dict_stat strd_insert( dict *d, char *key, void *val );
+dict_stat strd_delete( dict *d, char *key            );
 
 #endif

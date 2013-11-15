@@ -14,7 +14,7 @@ dict *new_string_dict(size_t slots, void (release)(void *)) {
     return dict_build( slots, METHODS, release );
 }
 
-strd_key *str_to_key( uint8_t *s ) {
+strd_key *str_to_key( char *s ) {
     size_t len = strlen( s );
 
     strd_key *k = malloc( sizeof( strd_key ));
@@ -24,13 +24,13 @@ strd_key *str_to_key( uint8_t *s ) {
 
     k->ref.refs = 1;
 
-    k->ref.val = malloc( len );
+    k->ref.val = malloc( len + 1 );
     if ( !k->ref.val ) {
         free(k);
         return NULL;
     }
 
-    memcpy( k->ref.val, s, len );
+    memcpy( k->ref.val, s, len + 1 );
 
     return k;
 }
@@ -43,12 +43,12 @@ strd_ref *ptr_to_ref( void *p ) {
 
     r->refs = 1;
     r->type = STRD_REF;
-    r->val = p;
+    r->val  = p;
 
     return r;
 }
 
-get_stat strd_get( dict *d, uint8_t *key ) {
+get_stat strd_get( dict *d, char *key ) {
     get_stat out = {
         .got  = NULL,
         .stat = { .num = 0 }
@@ -60,41 +60,66 @@ get_stat strd_get( dict *d, uint8_t *key ) {
         return out;
     }
 
-    out.stat = dict_get( d, k, &(out.got));
+    strd_ref *ref = NULL;
+    out.stat = dict_get( d, k, (void **)(&ref) );
+
+    if (!out.stat.bit.fail) out.got = ref ? ref->val : NULL;
 
     string_dict_ref( d, k, -1 );
+    if(ref) string_dict_ref( d, ref, -1 );
 
     return out;
 }
 
-dict_stat strd_set( dict *d, uint8_t *key, void *val ) {
+dict_stat strd_set( dict *d, char *key, void *val ) {
     strd_key *k = str_to_key( key );
     if (!k) return rstat_mem;
 
-    dict_stat out = dict_set( d, k, val );
+    strd_ref *r = ptr_to_ref(val);
+    if (!r){
+        string_dict_ref( d, k, -1 );
+        return rstat_mem;
+    }
+
+    dict_stat out = dict_set( d, k, r );
     string_dict_ref( d, k, -1 );
+    string_dict_ref( d, r, -1 );
     return out;
 }
 
-dict_stat strd_update( dict *d, uint8_t *key, void *val ) {
+dict_stat strd_update( dict *d, char *key, void *val ) {
     strd_key *k = str_to_key( key );
     if (!k) return rstat_mem;
 
-    dict_stat out = dict_update( d, k, val );
+    strd_ref *r = ptr_to_ref(val);
+    if (!r){
+        string_dict_ref( d, k, -1 );
+        return rstat_mem;
+    }
+
+    dict_stat out = dict_update( d, k, r );
     string_dict_ref( d, k, -1 );
+    string_dict_ref( d, r, -1 );
     return out;
 }
 
-dict_stat strd_insert( dict *d, uint8_t *key, void *val ) {
+dict_stat strd_insert( dict *d, char *key, void *val ) {
     strd_key *k = str_to_key( key );
     if (!k) return rstat_mem;
 
-    dict_stat out = dict_insert( d, k, val );
+    strd_ref *r = ptr_to_ref(val);
+    if (!r){
+        string_dict_ref( d, k, -1 );
+        return rstat_mem;
+    }
+
+    dict_stat out = dict_insert( d, k, r );
     string_dict_ref( d, k, -1 );
+    string_dict_ref( d, r, -1 );
     return out;
 }
 
-dict_stat strd_delete( dict *d, uint8_t *key ) {
+dict_stat strd_delete( dict *d, char *key ) {
     strd_key *k = str_to_key( key );
     if (!k) return rstat_mem;
 
@@ -132,11 +157,14 @@ int string_dict_cmp( void *meta, void *key1, void *key2, uint8_t *error ) {
     if (h1 < h2) return -1;
 
     size_t idx = 0;
+    char *ks1 = k1->ref.val;
+    char *ks2 = k2->ref.val;
+
     while(1) {
-        int diff = k1->ref.val[idx] - k2->ref.val[idx];
+        int diff = ks1[idx] - ks2[idx];
 
         // Keys are identical up until the null char.
-        if (!diff && k1->ref.val[idx] == '\0') break;
+        if (!diff && ks1[idx] == '\0') break;
 
         idx++;
 
@@ -171,7 +199,7 @@ uint64_t strd_hash( strd_key *k ) {
 
         __atomic_store_n(
             &(k->hash),
-            fnv_hash(k->ref.val, strlen(k->ref.val), NULL),
+            fnv_hash((uint8_t *)(k->ref.val), strlen(k->ref.val), NULL),
             __ATOMIC_RELEASE
         );
 
