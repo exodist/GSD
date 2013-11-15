@@ -1,5 +1,5 @@
-#ifndef GSD_DICT_LIST_H
-#define GSD_DICT_LIST_H
+#ifndef GSD_LIST_H
+#define GSD_LIST_H
 #include "gsd_dict.h"
 
 typedef struct list list;
