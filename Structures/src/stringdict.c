@@ -13,6 +13,37 @@ dict *new_string_dict(size_t slots, void (release)(void *)) {
     return dict_build( slots, METHODS, release );
 }
 
+strd_key *str_to_key( uint8_t *s ) {
+    size_t len = strlen( s );
+
+    strd_key *k = malloc( sizeof( strd_key ));
+    if (!k) return NULL;
+    memset( k, 0, sizeof( strd_key ));
+    k->ref.type = STRD_KEY;
+
+    k->ref.val = malloc( len );
+    if ( !k->ref.val ) {
+        free(k);
+        return NULL;
+    }
+
+    memcpy( k->ref.val, s, len );
+
+    return k;
+}
+
+strd_ref *ptr_to_ref( void *p ) {
+    strd_ref *r = malloc( sizeof( strd_ref ));
+    if (!r) return NULL;
+
+    memset( r, 0, sizeof( strd_ref ));
+
+    r->type = STRD_REF;
+    r->val = p;
+
+    return r;
+}
+
 get_stat     strd_get( dict *d, uint8_t *key            );
 dict_stat    strd_set( dict *d, uint8_t *key, void *val );
 dict_stat strd_update( dict *d, uint8_t *key, void *val );
@@ -26,7 +57,10 @@ void string_dict_ref( dict *d, void *ref, int delta ) {
 
     dict_settings s = dict_get_settings( d );
 
-    if (s.meta) {
+    if (r->type == STRD_KEY) {
+        free( r->val );
+    }
+    else if (s.meta) {
         void (*release)(void *) = s.meta;
         release( r->val );
     }
