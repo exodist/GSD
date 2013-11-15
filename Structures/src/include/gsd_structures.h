@@ -58,6 +58,13 @@ typedef union {
     } bit;
 } dict_stat;
 
+typedef struct get_stat get_stat;
+
+struct get_stat {
+    dict_stat stat;
+    void      *got;
+};
+
 const char *dict_stat_message( dict_stat s );
 
 #endif
