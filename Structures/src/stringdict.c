@@ -1,6 +1,7 @@
 #include <string.h>
 #include "stringdict.h"
 #include "../../Hashlib/src/include/gsd_hashlib.h"
+#include "error.h"
 
 static dict_methods METHODS = {
     .cmp    = string_dict_cmp,
@@ -21,6 +22,8 @@ strd_key *str_to_key( uint8_t *s ) {
     memset( k, 0, sizeof( strd_key ));
     k->ref.type = STRD_KEY;
 
+    k->ref.refs = 1;
+
     k->ref.val = malloc( len );
     if ( !k->ref.val ) {
         free(k);
@@ -38,20 +41,71 @@ strd_ref *ptr_to_ref( void *p ) {
 
     memset( r, 0, sizeof( strd_ref ));
 
+    r->refs = 1;
     r->type = STRD_REF;
     r->val = p;
 
     return r;
 }
 
-get_stat     strd_get( dict *d, uint8_t *key            );
-dict_stat    strd_set( dict *d, uint8_t *key, void *val );
-dict_stat strd_update( dict *d, uint8_t *key, void *val );
-dict_stat strd_insert( dict *d, uint8_t *key, void *val );
-dict_stat strd_delete( dict *d, uint8_t *key            );
+get_stat strd_get( dict *d, uint8_t *key ) {
+    get_stat out = {
+        .got  = NULL,
+        .stat = { .num = 0 }
+    };
+
+    strd_key *k = str_to_key( key );
+    if (!k) {
+        out.stat = rstat_mem;
+        return out;
+    }
+
+    out.stat = dict_get( d, k, &(out.got));
+
+    string_dict_ref( d, k, -1 );
+
+    return out;
+}
+
+dict_stat strd_set( dict *d, uint8_t *key, void *val ) {
+    strd_key *k = str_to_key( key );
+    if (!k) return rstat_mem;
+
+    dict_stat out = dict_set( d, k, val );
+    string_dict_ref( d, k, -1 );
+    return out;
+}
+
+dict_stat strd_update( dict *d, uint8_t *key, void *val ) {
+    strd_key *k = str_to_key( key );
+    if (!k) return rstat_mem;
+
+    dict_stat out = dict_update( d, k, val );
+    string_dict_ref( d, k, -1 );
+    return out;
+}
+
+dict_stat strd_insert( dict *d, uint8_t *key, void *val ) {
+    strd_key *k = str_to_key( key );
+    if (!k) return rstat_mem;
+
+    dict_stat out = dict_insert( d, k, val );
+    string_dict_ref( d, k, -1 );
+    return out;
+}
+
+dict_stat strd_delete( dict *d, uint8_t *key ) {
+    strd_key *k = str_to_key( key );
+    if (!k) return rstat_mem;
+
+    dict_stat out = dict_delete( d, k );
+    string_dict_ref( d, k, -1 );
+    return out;
+}
 
 void string_dict_ref( dict *d, void *ref, int delta ) {
     strd_ref *r = ref;
+    // TODO: Make Atomic
     r->refs += delta;
     if (r->refs != 0) return;
 
@@ -104,6 +158,7 @@ size_t string_dict_loc( size_t slot_count, void *meta, void *key, uint8_t *error
 }
 
 uint64_t strd_hash( strd_key *k ) {
+    // TODO: Make Atomic
     if (!k->hash_set) {
         k->hash = fnv_hash(k->ref.val, strlen(k->ref.val), NULL);
         k->hash_set = 1;
