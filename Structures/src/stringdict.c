@@ -105,9 +105,8 @@ dict_stat strd_delete( dict *d, uint8_t *key ) {
 
 void string_dict_ref( dict *d, void *ref, int delta ) {
     strd_ref *r = ref;
-    // TODO: Make Atomic
-    r->refs += delta;
-    if (r->refs != 0) return;
+    size_t refs = __atomic_add_fetch( &(r->refs), delta, __ATOMIC_ACQ_REL );
+    if (refs) return;
 
     dict_settings s = dict_get_settings( d );
 
@@ -158,10 +157,29 @@ size_t string_dict_loc( size_t slot_count, void *meta, void *key, uint8_t *error
 }
 
 uint64_t strd_hash( strd_key *k ) {
-    // TODO: Make Atomic
-    if (!k->hash_set) {
-        k->hash = fnv_hash(k->ref.val, strlen(k->ref.val), NULL);
-        k->hash_set = 1;
+    while(!__atomic_load_n(&(k->hash_set), __ATOMIC_CONSUME)) {
+        uint8_t expect = 0;
+        int success = __atomic_compare_exchange_n(
+            &(k->hash_set),
+            &expect,
+            1,
+            0,
+            __ATOMIC_RELEASE,
+            __ATOMIC_RELAXED
+        );
+        if (!success) continue;
+
+        __atomic_store_n(
+            &(k->hash),
+            fnv_hash(k->ref.val, strlen(k->ref.val), NULL),
+            __ATOMIC_RELEASE
+        );
+
+        __atomic_store_n(
+            &(k->hash_set),
+            1,
+            __ATOMIC_RELEASE
+        );
     }
 
     return k->hash;
