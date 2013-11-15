@@ -1,5 +1,5 @@
 #include "../include/gsd_dict.h"
-#include "../include/gsd_dict_return.h"
+#include "../include/gsd_structures.h"
 #include "../structure.h"
 #include <stdint.h>
 #include <stdlib.h>

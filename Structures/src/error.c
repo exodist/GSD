@@ -1,4 +1,4 @@
-#include "include/gsd_dict_return.h"
+#include "include/gsd_structures.h"
 #include "error.h"
 #include "devtools.h"
 

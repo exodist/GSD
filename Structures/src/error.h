@@ -2,7 +2,7 @@
 #define ERROR_H
 
 #include <stdint.h>
-#include "include/gsd_dict_return.h"
+#include "include/gsd_structures.h"
 #include "error.h"
 
 // rstat stands for return_stat

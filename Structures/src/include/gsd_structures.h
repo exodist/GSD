@@ -1,5 +1,5 @@
-#ifndef GSD_DICT_ERROR_H
-#define GSD_DICT_ERROR_H
+#ifndef GSD_STRUCTURES_H
+#define GSD_STRUCTURES_H
 
 #include <stdlib.h>
 #include <stdint.h>

@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "gsd_dict_return.h"
+#include "gsd_structures.h"
 
 typedef struct dict_merge_settings dict_merge_settings;
 typedef struct dict_settings dict_settings;
