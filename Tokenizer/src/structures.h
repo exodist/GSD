@@ -47,16 +47,10 @@ struct node {
 
 struct prim_node {
     node node;
-    enum {
-        PRIM_ALPHA,
-        PRIM_DIGIT,
-        PRIM_ALPHADIGIT,
-        PRIM_QUOTE,
-        PRIM_SPACE,
-        PRIM_NOSPACE,
-        PRIM_SYMBOL,
-        PRIM_CONTROL,
-    } match;
+    // string is the string to match against, line number is the current line
+    // number (at offset), offset is the position in the string to start, and
+    // length is total length of the string.
+    match (*match)(uint8_t *str, size_t *line, size_t offset, size_t length);
 };
 
 struct name_node {

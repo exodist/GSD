@@ -40,7 +40,7 @@ struct match {
     enum { MATCH_TOKEN, MATCH_SCOPE, MATCH_GROUP } type;
     size_t line_number;
     size_t start_char;
-    size_t  term_char;
+    size_t length;
     match *next;
 };
 
@@ -54,6 +54,7 @@ struct scope_match {
 struct token_match {
     match match;
     uint8_t *value;
+    size_t   length;
 
     // Will be name of pattern matched, or name of structure in the pattern
     uint8_t *matched;
