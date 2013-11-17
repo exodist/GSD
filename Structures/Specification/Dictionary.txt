@@ -1,0 +1,356 @@
+Dictionary Specification:
+
+= Guarentees =
+======================================
+
+The internal state of the dictionary will always remain consistent, even in the
+event of errors, so long as the API is used correctly.
+
+Any number of threads may access the dictionary for reading and/or writing
+without introducing errors.
+
+The only operation that will ever block is inserting new keys.
+
+Reading and Updating keys will never block.
+
+If 2 threads modify the value of the same key, the dictionary will guarentee
+that reads in either thread after the update will get one value or the other,
+not the original value, and not an invalid or combination value.
+
+The dictionary does not suffer from the A-B-A problem internally. However the
+provided compare-and-swap operations do not solve the A-B-A problem in your own
+code.
+
+When ref-counting is used, the ref count of a key or value will always be
+bumped by 1 before it is returned to you.
+
+When ref-counting is used, it is fine to have one thread remove a value while
+another reads it. The refcount bump by the read will ALWAYS happen before the
+refcount drop from the removal. (However there is no guarentee that the read
+will happen before the removal, this guarentee is only for cases where it
+does.)
+
+= Callbacks =
+======================================
+
+== Required Callbacks ==
+
+-------------------------
+    int dict_cmp( void *meta, void *key1, void *key2, uint8_t *error );
+
+Used to check if 2 keys are equivilent (0), otherwise used to position them in
+a tree (-1 or 1).
+
+void *meta is the metadata pointer attached to the dictionary. This is not used
+by the dictionary internally, but is provided by the API for your use.
+
+You are free to return any error code you would like, it will eventually be
+accessible via the return object when an operation triggers it.
+
+-------------------------
+    size_t dict_loc( size_t slot_count, void *meta, void *key, uint8_t *error );
+
+Used to locate a key in a hashtable. Should return a number between 0 and
+slot_count.
+
+void *meta is the metadata pointer attached to the dictionary. This is not used
+by the dictionary internally, but is provided by the API for your use.
+
+You are free to return any error code you would like, it will eventually be
+accessible via the return object when an operation triggers it.
+
+This callback is typically as hashing algorithm.
+
+== Optional Callbacks ==
+
+-------------------------
+    void dict_change( dict *d, void *meta, void *key, void *old_val, void *new_val );
+
+This is for metadata maintenance. It will trigger whenever a key changes value.
+It will give you the new and old values. One will be undef if the key is being
+inserted or deleted.
+
+NOTE: This should NOT be used for reference counting.
+
+-------------------------
+    void dict_ref( dict *d, void *ref, int delta );
+
+This is mainly for reference counting. This is called whenever the number of
+references to <void *ref> is changed. <int delta> may be positive, negative, or
+even 0. The delta is the refcount change (add it to your refcount).
+
+
+== Other Callbacks ==
+
+-------------------------
+    int dict_handler( void *key, void *value, void *args );
+
+This callback is used when iterating over all values in a dictionary. The args
+pointer is for your use, when you start the iteration you can provide a value
+for it that gets passed in every time the handler is called.
+
+-------------------------
+    const char *dict_trigger( void *arg, void *value );
+
+A trigger, along with an argument, can be attached to a key. When the value is
+changed for a key the trigger will be called. If there is no problem the
+trigger should return NULL. If there is a problem the trigger should return an
+error message which will block the operation.
+
+-------------------------
+    char * dict_dot( void *key, void *val );
+
+Used to let you specify how keys and values should be represented in graphviz
+format.
+
+= Configuration =
+======================================
+
+-------------------------
+    struct dict_methods {
+        dict_cmp    *cmp;
+        dict_loc    *loc;
+        dict_change *change;
+        dict_ref    *ref;
+    };
+
+The dict_methods structure is where you define all your callbacks. The first 2
+(cmp and loc) are required, the others are optional. See the Callbacks section
+for more details.
+
+-------------------------
+    struct dict_settings {
+        size_t slot_count;
+        size_t max_imbalance;
+        void *meta;
+    };
+
+The slot_count sets the number of hash slots in the base hash-table of the
+dictionary. Setting this number higher will consume more memory regardless of
+how many keys and values are present.
+
+The max_imbalance specifies how imbalanced a binary tree inside the dictionary
+may become before a rebalance occurs. A rebalance is one of the few operations
+that can block insertions, and can be an expensive operation. Rouch (and
+unscientific) benchmarking tends to show that setting this low degrades
+performance. A value of 16 is recommended at this time.
+
+The meta pointer is for your use, it will be passed into callbacks. There are
+no restrictions on what you can shove in the meta pointer. It is also not
+required, set it to NULL if you have no use for it.
+
+-------------------------
+    struct dict_merge_settings {
+        enum {
+            MERGE_SET,
+            MERGE_INSERT,
+            MERGE_UPDATE,
+        } operation;
+
+        uint8_t reference;
+    };
+
+The dict_merge_settings structure is used to specify how a merge operation should work.
+
+The operation enum lets you specify how values in the 'from' hash should be put
+into the destination hash.
+
+    MERGE_SET
+        All values in the 'from' dictionary will be put into the destination
+        dictionary, overriding existing values if they are already present.
+
+    MERGE_INSERT
+        Values in the 'from' dictionary will be inserted into the destination
+        dictionaty unless a value is already defined for the given key in the
+        destination dictionary.
+
+    MERGE_UPDATE
+        Values in the 'from' dictionary will override values for the given key
+        in the destination dictionary. If a key is present in the 'from'
+        dictionary, but not in the 'dest' dictionary, it will not be inserted.
+
+The reference flag, when true, will cause the operation to make references
+between the 2 dictionaries instead of simply setting the values. This means
+that future updates to either hash will effect both (for keys that have been
+merged).
+
+
+= Creating, Destroying, and Utility =
+======================================
+
+-------------------------
+    dict *dict_build( size_t slots, dict_methods m, void *meta );
+
+This is the quickest way to build a dictionary. You do not need to make a
+settings hash, most values will be set for you from defaults. NULL will be
+returned in the event of an error, there is no way to know what error occured.
+
+-------------------------
+    dict_stat dict_create( dict **d, dict_settings settings, dict_methods methods );
+
+This is the long, but safer way to build a dictionary. In the event of an error
+*d will be set to NULL. The returned stat object will contain any errors that
+occured.
+
+-------------------------
+    dict_stat dict_merge( dict *from, dict *to, dict_merge_settings s, size_t threads );
+
+This lets you put the keys+values from one dictionary into another. See the
+Configuration section for details of the dict_merge_settings structure. The
+merge operation is parallelizable, so you may specify how many threads should
+be used.
+
+-------------------------
+    dict *dict_clone( dict *d, uint8_t reference, size_t threads );
+
+This lets you clone a dictionary. This can be a shallow-clone (keys+values) or
+it can be a linked clone (keys are referenced between the dictionary). This is
+parallelizable, so you can specify how many threads should be used.
+
+-------------------------
+    dict_stat dict_free( dict **d );
+
+Used to free a dictionary and all its internal structures. *d will be set to
+NULL when complete.
+
+-------------------------
+    dict_settings dict_get_settings( dict *d );
+
+Get the settings structure used by the dictionary.
+
+-------------------------
+    dict_methods dict_get_methods( dict *d );
+
+Get the methods structure used by the dictionary.
+
+-------------------------
+    dict *dict_clone_immutable( dict *d, size_t threads );
+
+Same as dict_clone, except that the new dictionary is immutable.
+
+-------------------------
+    char *dict_dump_dot( dict *d, dict_dot *decode );
+
+Returns a string that is a graphviz dot formated representation of the
+dictionary.
+
+= Dictionary Operations =
+======================================
+
+Note: See the Structures document for the definition of 'dict_stat'.
+
+-------------------------
+    dict_stat dict_reconfigure( dict *d, dict_settings settings, size_t max_threads );
+
+This will let you change the settings of a dictionary such as adding or
+decreasing the slot count. This is parallelizable, so you can specify how many
+threads to use. During the reconfiguration, insertion operations in other
+threads will block, but updates and reads will continue as expected.
+
+-------------------------
+    dict_stat dict_rebalance( dict *d, size_t threads );
+
+This is a way to force a rebalance of all trees inside the dictionary. This is
+a parallelizable task, so you may specify a thread count. During the rebalance
+some insertions in other threads may block. Updates and reads will not block.
+
+-------------------------
+    dict_stat dict_get( dict *d, void *key, void **val );
+
+Get will retrieve the value for the specified key. If the key is not present
+then the value returned is NULL.
+
+A get operation will never block. A get operation may fail if the API is
+misued, or if memory runs out.
+
+-------------------------
+    dict_stat dict_set( dict *d, void *key, void *val );
+
+Set will assign a value to the specified key. Set will update the value if the
+key is already present, otherwise it will insert the key.
+
+-------------------------
+    dict_stat dict_insert( dict *d, void *key, void *val );
+
+Insert will put both the key and the value into the dictionary. The insert will
+return a transaction error if the key is already present in the dictionary.
+This is thread-safe, if 2 threads attempt to insert the key, only one will
+succeed.
+
+-------------------------
+    dict_stat dict_update( dict *d, void *key, void *val );
+
+Update will set the value of a key that is already present in the dictionary.
+If the key is not present than the operation will return a transaction error.
+
+-------------------------
+    dict_stat dict_delete( dict *d, void *key );
+
+Delete will remove a key (and value) from the dictionary, that is that an
+insertion or set will be required to put the key back into the dictionary, as
+well get operations will return NULL.
+
+NOTE: delete is a 'soft' operation, the key may not actually be removed from
+the dictionary, and the refcount may not change. This is because a the key may
+be referenced, in which case a new insertion should effect the reference, even
+if the key was deleted.
+
+NOTE: To actually full remove a key from a dictionary use the dereference
+operation.
+
+-------------------------
+    dict_stat dict_cmp_update( dict *d, void *key, void *old_val, void *new_val );
+
+This is an atomic compare-and-swap operation. It works just like the update
+operation, except that the old_value must match for the update to occur. If
+something else updates the value before this then the operatin will return a
+transaction error.
+
+NOTE: There is no internal A-B-A problem here, but your code still needs to be
+aware of possible A-B-A problems.
+
+-------------------------
+    dict_stat dict_cmp_delete( dict *d, void *key, void *old_val );
+
+This is an atomic compare-and-swap deletion operation. It is just like delete
+except that it will only succeed if the value matched old_val. This operation
+will fail if something else changes the value first.
+
+NOTE: There is no internal A-B-A problem here, but your code still needs to be
+aware of possible A-B-A problems.
+
+
+-------------------------
+    dict_stat dict_reference( dict *orig, void *okey, dict *dest, void *dkey );
+
+This lets you link multiple keys. That is both keys will have the same value,
+if you update one the other reflects the change. References can be made between
+multiple dictionaries as well.
+
+NOTE: If you reference between 2 dictionaries that have different dict_methods
+then the results are undefined.... DO NOT DO IT!
+
+-------------------------
+    dict_stat dict_dereference( dict *d, void *key );
+
+Remove a reference. This actually removes the key from the dictionary, unlike
+delete which is a soft-removal.
+
+NOTE: A rebalance is still necessary for the key to be removed from the
+internal structure of the dictionary, so the refcount drop may not happen
+immedietly.
+
+-------------------------
+    dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val );
+
+This is an insert operation that will also attach a trigger callback+arg to a
+specific key. Same rules and guarentees as a regular insert operation.
+
+-------------------------
+    int dict_iterate( dict *d, dict_handler *h, void *args );
+
+This will iterate over every key and value present in the dictionary. The
+handler 'h' will be called for each key+value pair.
+
+NOTE: Keys inserted into the dictionary, or removed from it, after the iteration
+begins may not be seen.
