@@ -94,8 +94,8 @@ reference to a structure with a 0 ref count it will return a transaction error.
 
 Every internal structure has a specific level. At this time it looks like this:
 
-    Dictionary->Set->Slot->[Tree Nodes]-+------------------>xtrn->{key}
-                                        +->(USRef)->(SRef)->xtrn->{value}
+    Dictionary->Set->Slot->[Tree Nodes]-+------------------>{key}
+                                        +->(USRef)->(SRef)->{value}
 
     [] Tree nodes can be nested within eachother, but are never cyclical.
     () USRef and SRef are reference counted

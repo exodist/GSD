@@ -5,16 +5,6 @@ digraph overview {
 
     Dictionary [shape=hexagon]
 
-    edge [color=grey]
-
-    Dictionary->Epoch1 [color=green]
-    Dictionary->Epoch0 [style=dotted,color=magenta]
-
-    Epoch0->Epoch1 [style=dotted,color=blue]
-    Epoch1->Epoch2 [style=dotted,color=blue]
-    Epoch2->Epoch3 [style=dotted,color=blue]
-    Epoch3->Epoch0 [style=dotted,color=blue]
-
     node [color=magenta,style=dashed]
     Methods
     Settings
@@ -44,27 +34,22 @@ digraph overview {
 
     Node1 [shape=egg]
     Node0 [shape=egg]
-    XtrnA [color=magenta,shape=diamond,label="Xtrn(K)"]
     Key   [color=red]
     USRef [color=green,shape=doublecircle]
     Node2 [shape=egg]
 
     Node1->Node0
-    Node1->XtrnA [color=pink]
-    XtrnA->Key   [color=pink]
+    Node1->Key   [color=pink]
     Node1->USRef [color=pink]
     Node1->Node2
 
     SRef  [color=blue,shape=Mcircle]
-    XtrnB [color=magenta,shape=diamond,label="Xtrn(V)"]
     Value [color=red]
 
     USRef->SRef
-    SRef->XtrnB
-    XtrnB->Value
+    SRef->Value
 
     {rank=same; HashSlot0 HashSlot1 HashSlot2}
     {rank=same; Node0 Node2}
-    {rank=same; XtrnA XtrnB}
     {rank=sink; Key Value}
 }
