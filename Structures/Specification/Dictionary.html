@@ -13,7 +13,7 @@
 <div style="float: right; width: 250px; height: 500px; border: 1px dotted black; margin-left: 20px; padding: 10px;">
 <h3 style="text-align: center">Contents</h3>
 <dl>
-    <dt><a href="#guarentees">Guarentees</a></dt>
+    <dt><a href="#guarantees">Guarantees</a></dt>
     <dt><a href="#callbacks">Callbacks</a></dt>
     <dd>
         <dl style="margin: 0px">
@@ -25,11 +25,12 @@
     <dt><a href="#configuration">Configuration</a></dt>
     <dt><a href="#building">Creating, Destroying, and Utility</a></dt>
     <dt><a href="#operations">Dictionary Operations</a></dt>
+    <dt><a href="#implementation">Implementation Details</a></dt>
 </dl>
 </div>
 
 <hr>
-<h2 id="guarentees">Guarentees</h2>
+<h2 id="guarantees">Guarantees</h2>
 
 <ul>
     <li>
@@ -51,7 +52,7 @@
     </li>
 
     <li>
-        If 2 threads modify the value of the same key, the dictionary will guarentee
+        If 2 threads modify the value of the same key, the dictionary will guarantee
         that reads in either thread after the update will get one value or the other,
         not the original value, and not an invalid or combination value.
     </li>
@@ -71,8 +72,8 @@
 
     <li>
         another reads it. The refcount bump by the read will ALWAYS happen before the
-        refcount drop from the removal.<br/> (However there is no guarentee that the read
-        will happen before the removal, this guarentee is only for cases where it
+        refcount drop from the removal.<br/> (However there is no guarantee that the read
+        will happen before the removal, this guarantee is only for cases where it
         does.)
     </li>
 </ul>
@@ -84,7 +85,7 @@
 
 <pre style="code">int dict_cmp( void *meta, void *key1, void *key2, uint8_t *error );</pre>
 
-Used to check if 2 keys are equivilent (0), otherwise used to position them in
+Used to check if 2 keys are equivalent (0), otherwise used to position them in
 a tree (-1 or 1).
 
 <p>
@@ -100,7 +101,7 @@ accessible via the return object when an operation triggers it.
 <hr>
 <pre style="code">size_t dict_loc( size_t slot_count, void *meta, void *key, uint8_t *error );</pre>
 
-Used to locate a key in a hashtable. Should return a number between 0 and
+Used to locate a key in a hash table. Should return a number between 0 and
 slot_count.
 
 <p>
@@ -195,7 +196,7 @@ how many keys and values are present.
 
 The max_imbalance specifies how imbalanced a binary tree inside the dictionary
 may become before a rebalance occurs. A rebalance is one of the few operations
-that can block insertions, and can be an expensive operation. Rouch (and
+that can block insertions, and can be an expensive operation. Rough (and
 unscientific) benchmarking tends to show that setting this low degrades
 performance. A value of 16 is recommended at this time.
 
@@ -235,7 +236,7 @@ into the destination hash.
     <dt>MERGE_INSERT</dt>
     <dd>
         Values in the 'from' dictionary will be inserted into the destination
-        dictionaty unless a value is already defined for the given key in the
+        dictionary unless a value is already defined for the given key in the
         destination dictionary.
     </dd>
 
@@ -259,14 +260,14 @@ merged).
 
 This is the quickest way to build a dictionary. You do not need to make a
 settings hash, most values will be set for you from defaults. NULL will be
-returned in the event of an error, there is no way to know what error occured.
+returned in the event of an error, there is no way to know what error occurred.
 
 <hr>
 <pre style="code">dict_stat dict_create( dict **d, dict_settings settings, dict_methods methods );</pre>
 
 This is the long, but safer way to build a dictionary. In the event of an error
 *d will be set to NULL. The returned stat object will contain any errors that
-occured.
+occurred.
 
 <hr>
 <pre style="code">dict_stat dict_merge( dict *from, dict *to, dict_merge_settings s, size_t threads );</pre>
@@ -339,7 +340,7 @@ then the value returned is NULL.
 <p>
 
 A get operation will never block. A get operation may fail if the API is
-misued, or if memory runs out.
+misused, or if memory runs out.
 
 <hr>
 <pre style="code">dict_stat dict_set( dict *d, void *key, void *val );</pre>
@@ -425,13 +426,13 @@ delete which is a soft-removal.
 
 NOTE: A rebalance is still necessary for the key to be removed from the
 internal structure of the dictionary, so the refcount drop may not happen
-immedietly.
+immediately.
 
 <hr>
 <pre style="code">dict_stat dict_insert_trigger( dict *d, void *key, dict_trigger *t, void *targ, void *val );</pre>
 
 This is an insert operation that will also attach a trigger callback+arg to a
-specific key. Same rules and guarentees as a regular insert operation.
+specific key. Same rules and guarantees as a regular insert operation.
 
 <hr>
 <pre style="code">int dict_iterate( dict *d, dict_handler *h, void *args );</pre>
@@ -443,5 +444,75 @@ handler 'h' will be called for each key+value pair.
 
 NOTE: Keys inserted into the dictionary, or removed from it, after the iteration
 begins may not be seen.
+
+<hr>
+
+<h2 id="implementation">Implementation Details</h2>
+
+<img src="diagram.png"><br /><br />
+
+As can be seen in the above diagram, A dictionary is a hash-table where each
+hash-slot is a binary tree. A hash-slot remains empty until a key is added that
+uses the slot.
+
+<p>
+
+The binary tree inside each hashslot is made of nodes. A node has a pointer to
+the key object, a left and right child node, and finally a pointer to a USRef.
+The USRef points at an SRef which points to a value object.
+
+<p>
+
+Every one of these objects serves a purpose:
+
+<dl>
+    <dt>Set</dt>
+    <dd>
+        The Set object holds the settings, and the hash slots. A reconfigure
+        operation uses this in an atomic swap. A reconfigure will block new
+        insertions, that construct a new Set including new HashSlots and new
+        nodes for all pairs.
+        <p>
+        Once the construction is done the old Set is swapped out for the new
+        one. This allows updates and reads, which do not change the trees at
+        all, to continue without blocking.
+    </dd>
+
+    <dt>HashSlot</dt>
+    <dd>
+        A hashSlot serves as an anchor point for a binary tree. When a tree
+        becomes imbalanced, the operation will block insertions on the tree,
+        then build a new one and swap it into place. This allows reads/updates
+        to continue on this tree, and does not block any operations on other
+        trees.
+        <p>
+    </dd>
+
+    <dt>Node</dt>
+    <dd>
+        A node holds a key-value pair, as well as links to child nodes. The
+        link to the key is directly in the node, however the link to the value
+        goes through a USRef structure.
+        <p>
+    </dd>
+
+    <dt>USRef (Unshared Ref)</dt>
+    <dd>
+        An unshared ref is dictionary, and tree specific. When a tree is being
+        rebuilt the USRef is referenced in 2 nodes, the one in the old tree,
+        and the one in the new tree that will replace it. This allows updates
+        to already inserted nodes to work even during a rebalance or
+        reconfigure.
+        <p>
+    </dd>
+
+    <dt>SRef  (Shared Ref)</dt>
+    <dd>
+        A shared ref may be used in multiple dictionaries at once, and points
+        at a value. This is the only internal structure that can be referenced
+        in multiple dictionaries at a time.
+        <p>
+    </dd>
+</dl>
 
 </body>
