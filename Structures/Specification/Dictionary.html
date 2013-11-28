@@ -470,7 +470,7 @@ Every one of these objects serves a purpose:
     <dd>
         The Set object holds the settings, and the hash slots. A reconfigure
         operation uses this in an atomic swap. A reconfigure will block new
-        insertions, that construct a new Set including new HashSlots and new
+        insertions, then construct a new Set including new HashSlots and new
         nodes for all pairs.
         <p>
         Once the construction is done the old Set is swapped out for the new
