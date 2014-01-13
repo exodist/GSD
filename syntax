@@ -1,0 +1,167 @@
+
+key NAME(...) {...}
+
+
+switch (...) {
+    case (...) {...}
+    case (...) {...}
+    default    {...}
+}
+
+PROPS:
+    require_sig
+    allow_sig
+    require_name
+    allow_name
+    symbols??
+    process
+
+-----
+
+key ... /key
+
+PROPS:
+    terminator
+    process
+
+-----
+
+try {
+
+}
+catch() {
+
+}
+finally {
+
+}
+
+
+key () {
+
+}
+orkey () {
+
+}
+orkey () {
+
+}
+finalkey {
+
+}
+
+... key ...;
+
+PROPS:
+    require_sig
+    allow_sig
+    alt_key
+    alt_require_sig
+    alt_allow_sig
+    final_key
+    final_require_sig
+    final_allow_sig
+    process
+
+-------
+
+key VAR (...) {
+
+}
+
+key (...) {
+
+}
+
+... key(VAR) ...
+... key ...
+
+PROPS:
+    usage { both, statement, postfix }
+    process
+
+-------
+
+key NAME = ...;
+key NAME, NAME;
+key TYPE NAME = ...;
+key TYPE NAME, TYPE NAME;
+key (NAME, NAME, NAME) = (...);
+
+  maybe - Declare a lexical variable (Can be undef)
+  state - Lexical variable, persistant value (Cannot be undef)
+  var   - Lexical variable, (cannot be undef)
+
+PROPS:
+    process
+
+-----
+
+// Declare a keyword
+key NAME(TYPE) {
+    PROP VAL;
+    process { ... }
+}
+
+-----
+
+SIGNATURE:
+
+    ( name, name, name )
+    ( type name, name, name, type name )
+    ( type name = default, type name )
+    ( type name { ... }, name { ... } )
+    ( name = default )
+
+-----
+
+- Object
+ - Type
+ - Role
+ - Package
+ - Signature
+ *************
+ - Keyword
+  - DeclareScope
+  - DeclareStruct
+  - DeclareSymbol
+  - Conditional
+  - Loop
+  - Operator (keyword that acts like an operator, but at compile time)
+  - Quote
+ - Operator
+  - Prefix(sigil)
+  - Postfix
+  - Anyfix
+ **************
+ - Subroutine
+  - Function
+  - Method
+ - Collection
+  - List
+  - Dict
+  - Stack
+  - Queue
+  - Array
+  - Scope
+ - IO
+  - Stream
+  - File
+  - Socket
+ - String
+ - Number
+  - Integer
+  - Decimal
+  - Rational
+ - Undef
+
+-----
+
+TOKEN:
+ space_before *
+ space_before_length
+ space_after *
+ space_after_length
+ value *
+ value_length
+ type { num, alphanum, sym }
