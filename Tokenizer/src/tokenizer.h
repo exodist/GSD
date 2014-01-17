@@ -16,10 +16,8 @@ struct source {
 };
 
 struct char_info {
-    uint8_t *ptr;
-    uint8_t size;
-
     ucs4_t ucs4;
+    uint8_t size;
 
     token_type type;
 

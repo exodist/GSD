@@ -1,11 +1,12 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <unictype.h>
+#include <unistdio.h>
 #include <unistr.h>
 #include <unitypes.h>
-#include <stdio.h>
-#include <errno.h>
 
 #include "include/gsd_tokenizer_api.h"
 #include "tokenizer.h"
@@ -34,7 +35,7 @@ token_set *tokenize_source( source *s ) {
         if (!inf.size) {
             ts->error      = inf.error;
             ts->file_error = inf.file_error;
-            break;
+            return ts;
         }
 
         // advance to next token if necessary
@@ -46,7 +47,7 @@ token_set *tokenize_source( source *s ) {
             else if (last.type != TOKEN_SPACE && inf.type == TOKEN_COMBINE) {
                 // No Op
             }
-            else if (uc_is_general_category(t->initial, UC_CATEGORY_N) && inf.ptr[0] == '.') {
+            else if (uc_is_general_category(t->start[0], UC_CATEGORY_N) && inf.ucs4 == '.') {
                 // No Op
             }
             else {
@@ -86,11 +87,11 @@ token_set *tokenize_source( source *s ) {
         token *t = ts->tokens[ts->store_group] + ts->store_index;
         if (!t->start) {
             t->type = inf.type;
-            t->initial = inf.ucs4;
         }
-        if(!t->start || t->size + inf.size >= t->buffer_size) {
+
+        if(!t->start || t->size + 1 >= t->buffer_size) {
             t->buffer_size += TOKEN_SIZE;
-            void *new_buffer = realloc(t->start, t->buffer_size);
+            void *new_buffer = realloc(t->start, sizeof(ucs4_t) * t->buffer_size);
             if (!new_buffer) {
                 free_token_set(ts);
                 return NULL;
@@ -99,10 +100,8 @@ token_set *tokenize_source( source *s ) {
         }
 
         // Append character to token
-        for ( int i = 0; i < inf.size; i++ ) {
-            t->start[t->size + i] = inf.ptr[i];
-        }
-        t->size += inf.size;
+        t->start[t->size] = inf.ucs4;
+        t->size++;
 
         last = inf;
     }
@@ -112,11 +111,11 @@ token_set *tokenize_source( source *s ) {
 
 char_info source_get_char(source *s) {
     char_info out = {
-        .ptr   = NULL,
-        .size  = 0,
+        .ucs4  = 0,
         .type  = TOKEN_INVALID,
         .error = TOKEN_ERROR_NONE,
         .file_error = 0,
+        .size = 0,
     };
 
     if (s->fp && !feof(s->fp) && s->size - s->index < 4) {
@@ -153,12 +152,11 @@ char_info source_get_char(source *s) {
 
 char_info get_char_info(uint8_t *start, size_t size) {
     char_info out = {
-        .ptr  = start,
-        .size = 0,
+        .ucs4 = 0,
         .type = TOKEN_INVALID,
         .error = TOKEN_ERROR_NONE,
         .file_error = 0,
-        .ucs4 = 0,
+        .size = 0,
     };
 
     if (!size)  return out;
@@ -167,8 +165,8 @@ char_info get_char_info(uint8_t *start, size_t size) {
     ucs4_t it = 0;
     uint8_t length = u8_mbtouc(&it, start, size);
     assert( length <= 4 );
-    out.size = length;
     out.ucs4 = it;
+    out.size = length;
 
     int combining = uc_combining_class(it);
     if (combining) {
@@ -273,7 +271,11 @@ void dump_token_set( token_set *s ) {
         }
         else {
             if (t->type == TOKEN_COMBINE) printf( " " );
-            fwrite( t->start, 1, t->size > 50 ? 47 : t->size, stdout );
+            for( size_t i = 0; i < t->size && i < 50; i++ ) {
+                uint8_t buffer[4];
+                int l = u8_uctomb(buffer, t->start[i], 4);
+                fwrite( buffer, 1, l, stdout );
+            }
             if (t->size > 50) printf( "..." );
         }
         printf( "\n" );

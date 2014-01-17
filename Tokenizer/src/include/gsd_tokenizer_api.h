@@ -44,13 +44,11 @@ struct token_set_iterator {
 };
 
 struct token {
-    uint8_t *start;
-    size_t   buffer_size;
-    size_t   size;
+    ucs4_t *start;
+    size_t  buffer_size;
+    size_t  size;
 
     token_type type;
-
-    ucs4_t initial;
 };
 
 token_set *tokenize_stream ( FILE *fp );
