@@ -18,14 +18,13 @@ struct source {
 struct char_info {
     uint8_t *ptr;
     uint8_t size;
-    enum {
-        CHAR_INVALID = 0,
-        CHAR_NEWLINE,      // '\n'
-        CHAR_WHITESPACE,   // Z
-        CHAR_ALPHANUMERIC, // L or Nd
-        CHAR_SYMBOL,       // P or S or M or Nl or No
-        CHAR_CONTROL,      // C
-    } type;
+
+    ucs4_t ucs4;
+
+    token_type type;
+
+    tokenizer_error error;
+    size_t file_error;
 };
 
 char_info source_get_char(source *s);
