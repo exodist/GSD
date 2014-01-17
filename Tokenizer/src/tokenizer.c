@@ -16,13 +16,59 @@
 #define GROUP_COUNT 1024
 #define TOKEN_SIZE  16
 
-token_set *tokenize_stream ( FILE *fp ) {
+token_set *tokenize_stream( FILE *fp ) {
+    source s = {
+        .buffer = NULL,
+        .size  = 0,
+        .index = 0,
+        .fp    = fp,
+    };
 
+    token_set *ts = tokenize_source( &s );
+
+    if (s.buffer) free(s.buffer);
+
+    return ts;
 }
 
-token_set *tokenize_cstring( uint8_t *input );
-token_set *tokenize_string ( uint8_t *input,    size_t size );
-token_set *tokenize_file   ( char *filename );
+token_set *tokenize_cstring( char *input ) {
+    return tokenize_string((uint8_t *)input, strlen(input));
+}
+
+token_set *tokenize_string( uint8_t *input, size_t size ) {
+    source s = {
+        .buffer = input,
+        .size  = size,
+        .index = 0,
+        .fp    = NULL,
+    };
+
+    return tokenize_source( &s );
+}
+
+token_set *tokenize_file( char *filename ) {
+    source s = {
+        .buffer = NULL,
+        .size  = 0,
+        .index = 0,
+        .fp    = fopen(filename, "r"),
+    };
+
+    if(!s.fp) {
+        token_set *ts = malloc(sizeof(token_set));
+        memset(ts, 0, sizeof(token_set));
+        ts->error = TOKEN_ERROR_FILE;
+        ts->file_error = errno;
+        return ts;
+    }
+
+    token_set *ts = tokenize_source( &s );
+
+    fclose(s.fp);
+    if (s.buffer) free(s.buffer);
+
+    return ts;
+}
 
 token_set *tokenize_source( source *s ) {
     token_set *ts = malloc(sizeof(token_set));

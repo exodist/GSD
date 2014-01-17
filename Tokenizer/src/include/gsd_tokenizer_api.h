@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <unictype.h>
 
 typedef struct token token;
 typedef struct token_set token_set;
@@ -53,7 +54,7 @@ struct token {
 
 token_set *tokenize_stream ( FILE *fp );
 token_set *tokenize_file   ( char *filename );
-token_set *tokenize_cstring( uint8_t *input );
+token_set *tokenize_cstring( char *input );
 token_set *tokenize_string ( uint8_t *input, size_t size );
 
 token *ts_iter_next( token_set_iterator *tsi );
