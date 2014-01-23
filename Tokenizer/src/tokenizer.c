@@ -270,18 +270,26 @@ token_set_iterator iterate_token_set( token_set *ts ) {
 }
 
 token *ts_iter_next( token_set_iterator *tsi ) {
+    token *t = ts_iter_peek( tsi );
+
+    if(t) {
+        tsi->index++;
+        if (tsi->index >= tsi->ts->group_size) {
+            tsi->index = 0;
+            tsi->group++;
+        }
+    }
+
+    return t;
+}
+
+token *ts_iter_peek( token_set_iterator *tsi ) {
     if (!tsi->ts->tokens) return NULL;
     if (tsi->group >= tsi->ts->group_count) return NULL;
     if (!tsi->ts->tokens[tsi->group]) return NULL;
 
     token *t = tsi->ts->tokens[tsi->group] + tsi->index;
     if (t->size < 1) return NULL;
-
-    tsi->index++;
-    if (tsi->index >= tsi->ts->group_size) {
-        tsi->index = 0;
-        tsi->group++;
-    }
 
     return t;
 }

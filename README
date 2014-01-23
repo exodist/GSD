@@ -62,3 +62,26 @@ successor to perl.
  * Better way to interface with system code, XS doesn't cut it.
  * Cononical spec that allows for multiple implementations.
  * Removal of ambiguity. Example: '{}' is this a function, or a hashref?
+ * Separation of Package and Class
+
+== GSD Layout ==
+
+foo.gsd - gsd program
+
+Package/Name/Name.gsp
+Package/Name/Class.gsc
+Package/Name/Thing.gsi
+-OR- Package/Name.gsz (tar.gz)
+
+--read package folder
+--create package symbol table
+--declare symbols for each .gsc that build on demand (can tokenize in parallel in advance)
+--phase 1 tokenize Name.gsp
+--phase 2 binder keywords+operators
+
+Scopes as they are finalized:
+--phase 3 statements -> ast (in parallel)
+--phase 4 ast -> bytecode (in parallel)
+
+--phase 5 build any unbuilt .gsc files
+--phase 6 Run package scope

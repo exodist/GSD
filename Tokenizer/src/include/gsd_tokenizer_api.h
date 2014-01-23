@@ -58,6 +58,7 @@ token_set *tokenize_cstring( char *input );
 token_set *tokenize_string ( uint8_t *input, size_t size );
 
 token *ts_iter_next( token_set_iterator *tsi );
+token *ts_iter_peek( token_set_iterator *tsi );
 
 token_set_iterator iterate_token_set( token_set *ts );
 
