@@ -1,99 +1,167 @@
-
-key NAME(...) {...}
-
-
-switch (...) {
-    case (...) {...}
-    case (...) {...}
-    default    {...}
-}
-
-PROPS:
-    require_sig
-    allow_sig
-    require_name
-    allow_name
-    symbols??
-    process
+- Object
+ - Class(Collection)
+ - Role(Collection)
+ - Package(Collection)
+ - Signature(Collection)
+ - Keyword
+  - Scope
+  - Declare
+  - Conditional
+  - Turnary
+  - WordQuote
+  - Quote
+  - Delimited
+  - Begin
+ - Operator
+ - Subroutine
+  - Function(Runnable)
+  - Method(Runnable)
+  - Builder(Runnable)
+ - IO
+  - Stream
+  - File
+  - Socket
+ - String
+ - Number
+  - Integer
+  - Decimal
+  - Rational
+ - List(Collection)
+ - Dict(Collection)
+ - Stack(Collection)
+ - Queue(Collection)
+ - Array(Collection)
+ - Scope(Collection)
+ - Undef
 
 -----
 
-key ... /key
+*KEYWORD TYPES*
 
-PROPS:
-    terminator
-    process
+Scope:
 
------
+    Start a new scope, return on specific token (or subtoken)
+    - Replaces tokens with object
+    - symbol_table (symbols to inject)
 
-try {
+Builder:
 
-}
-catch() {
+    For things like declaring functions, or builders
+    - Code to run
+    - name: [required, optional, forbidden]
+    - name_type: [identifier, string, both]
+    - params: [required, optional, forbidden]
+    - param_type: [signature, statement, text]
+    - symbol_table (symbols to inject into the scope to follow)
 
-}
-finally {
-
-}
+        key NAME(...) {...}
 
 
-key () {
+        switch (...) {
+            case (...) {...}
+            case (...) {...}
+            default    {...}
+        }
 
-}
-orkey () {
+Declare:
 
-}
-orkey () {
+    For declaring variables, or similar keywords
+    - Has code to run against [type,name,nullable,value] sets
 
-}
-finalkey {
+        key NAME = ...;
+        key NAME? = ...;
+        key NAME, NAME;
+        key TYPE NAME = ...;
+        key TYPE NAME? = ...;
+        key TYPE NAME, TYPE NAME;
+        key (NAME, NAME?, NAME) = (...);
 
-}
+    The question mark determines if the variable is allowed to have a
+    null/undef value. If the question mark is there then an initial value must
+    also be set.
 
-... key ...;
+Conditional:
 
-PROPS:
-    require_sig
-    allow_sig
-    alt_key
-    alt_require_sig
-    alt_allow_sig
-    final_key
-    final_require_sig
-    final_allow_sig
-    process
+    Declare conditional structures like if/for/while/try
+    - Code to run that returns a runable object
+    - postfixable (can this be a statement postfix)
+    - branch: keyword-token for branch (elsif/catch)
+    - final: keyword-token for fallback (else/finally)
+    - validate: [statement, variable, combo]
+    - default_name: Default name of variable (in combo and variable only)
+    - default_type: Default type of variable (in combo and variable only)
 
--------
+        try {
 
-key VAR (...) {
+        }
+        catch(Type name) {
 
-}
+        }
+        catch(name) {
 
-key (...) {
+        }
+        finally {
 
-}
+        }
 
-... key(VAR) ...
-... key ...
 
-PROPS:
-    usage { both, statement, postfix }
-    process
+        key (...) {
 
--------
+        }
+        orkey (...) {
 
-key NAME = ...;
-key NAME, NAME;
-key TYPE NAME = ...;
-key TYPE NAME, TYPE NAME;
-key (NAME, NAME, NAME) = (...);
+        }
+        orkey (...) {
 
-  maybe - Declare a lexical variable (Can be undef)
-  state - Lexical variable, persistant value (Cannot be undef)
-  var   - Lexical variable, (cannot be undef)
+        }
+        finalkey {
 
-PROPS:
-    process
+        }
+
+        ... key STATEMENT;
+        ... key (TYPE NAME; STATEMENT);
+
+        for (STATEMENT) { }
+        for (TYPE NAME; STATEMENT) { }
+
+Turnary:
+
+    For turnary like things:
+    - process: code that returns a runnable object (gets 3 blocks)
+    - divide: token that divides the 2 options
+
+        foo ? bar : baz
+
+WordQuote:
+
+    For things like perl's => that have auto-quote, or Package::Name
+    - Process: Code to process the 3 tokens(with whitespace) should return
+      replacement tokens.
+
+         thing  ~>  thing
+        "thing" +>  thing
+         thing  -> "thing"
+        "thing" => "thing"
+
+Quote:
+
+    Start a quote.
+    - process: code to munge the quoted string
+    - end_token: Slurp until this
+    - escapable: Can use \TOKEN to insert the token
+
+Delimited:
+
+    Start a delimited "thing". Replaces "thing" with an executable object
+    - process: Code to process sections + flag, returns something executable
+    - sections: Number of sections (delimiters - 1)
+    - flags: Take in alpha-token following last delimiter (no whitespace)
+    - escapable: Can use \DELIM to insert the character
+
+Begin:
+
+    Process the statement at BEGIN time.
+    - process: Code to execute the statement
 
 -----
 
@@ -115,53 +183,9 @@ SIGNATURE:
 
 -----
 
-- Object
- - Type
- - Role
- - Package
- - Signature
- *************
- - Keyword
-  - DeclareScope
-  - DeclareStruct
-  - DeclareSymbol
-  - Conditional
-  - Loop
-  - Operator (keyword that acts like an operator, but at compile time)
-  - Quote
- - Operator
-  - Prefix(sigil)
-  - Postfix
-  - Anyfix
- **************
- - Subroutine
-  - Function
-  - Method
- - Collection
-  - List
-  - Dict
-  - Stack
-  - Queue
-  - Array
-  - Scope
- - IO
-  - Stream
-  - File
-  - Socket
- - String
- - Number
-  - Integer
-  - Decimal
-  - Rational
- - Undef
+Operator properties
 
------
+  - Process: Code to run
+  - Position: [Prefix, Postfix, Anyfix, Infix, Circumfix]
+  - Termination: (circumfix only) termination symbol
 
-TOKEN:
- space_before *
- space_before_length
- space_after *
- space_after_length
- value *
- value_length
- type { num, alphanum, sym }
