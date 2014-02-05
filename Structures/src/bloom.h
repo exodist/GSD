@@ -11,9 +11,10 @@ struct bloom {
     size_t   size;
     size_t   bits;
     uint8_t *bitmap;
+    uint8_t  k;
 };
 
-uint32_t *hash_to_nums(size_t bits, uint64_t hash);
+uint32_t *hash_to_nums(size_t bits, uint64_t hash, uint8_t k);
 
 int bloom_do_insert(bloom *b, uint32_t *nums);
 int bloom_do_lookup(bloom *b, uint32_t *nums);

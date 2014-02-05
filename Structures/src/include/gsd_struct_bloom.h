@@ -9,7 +9,7 @@ typedef struct bloom bloom;
 
 typedef uint64_t(bloom_hasher)(const void *item, void *meta);
 
-bloom *bloom_create(size_t size, bloom_hasher *bh, void *meta);
+bloom *bloom_create(size_t size, uint8_t k, bloom_hasher *bh, void *meta);
 
 // Returns true if the new insert collides with an existing one
 // -1 is returned on error
