@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+
 /* dict_stat: a return type
  * Most operations on the dictionary return a 'dict_stat'. A dict stat in a
  * union, it can be treated as an integer (.num) or as a bit-field structure
@@ -52,9 +53,6 @@ typedef union {
         } error : 8;
 
         const char *message;
-
-        size_t line_number;
-        const char *file_name;
     } bit;
 } dict_stat;
 

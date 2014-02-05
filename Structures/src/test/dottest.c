@@ -56,9 +56,8 @@ int main() {
         dict_stat s = dict_set( d, &k[x], &v );
         if ( s.bit.error ) {
             fprintf( stderr,
-                "\nERROR: %i, '%s' at '%s' line %zi\n",
+                "\nERROR: %i, '%s'\n",
                 s.bit.error, dict_stat_message(s),
-                s.bit.file_name, s.bit.line_number
             );
         }
         int64_t *g = NULL;

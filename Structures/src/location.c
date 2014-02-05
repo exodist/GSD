@@ -56,8 +56,6 @@ rstat locate_key( dict *d, void *key, location **locate ) {
                 .rebal = 0,
                 .error = error + 100,
                 .message     = "Application error in location method",
-                .line_number = 0,
-                .file_name   = "UNKNOWN",
             }};
             return out;
         }
@@ -128,8 +126,6 @@ rstat locate_from_node( dict *d, void *key, location **locate, set *s, node *in 
                 .rebal = 0,
                 .error = error + 100,
                 .message     = "Application error in compare method",
-                .line_number = 0,
-                .file_name   = "UNKNOWN",
             }};
             return out;
         }
