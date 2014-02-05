@@ -19,4 +19,6 @@ int bloom_insert(bloom *b, const void *item);
 // -1 is returned on error
 int bloom_lookup(bloom *b, const void *item);
 
+void free_bloom(bloom *b);
+
 #endif
