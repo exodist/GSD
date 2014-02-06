@@ -3,13 +3,14 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include "gsd_struct_types.h"
 
 typedef struct bloom bloom;
 
-typedef uint64_t(bloom_hasher)(const void *item, void *meta);
+bloom *bloom_create_k(void *meta, size_t size, uint8_t k, ...);
 
-bloom *bloom_create(size_t size, uint8_t k, bloom_hasher *bh, void *meta);
+bloom *bloom_create(void *meta, size_t size, uint8_t k, hasher *bh);
 
 // Returns true if the new insert collides with an existing one
 // -1 is returned on error
