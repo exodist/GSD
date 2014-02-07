@@ -6,8 +6,6 @@
 #include <stdarg.h>
 #include "gsd_struct_types.h"
 
-typedef struct bloom bloom;
-
 bloom *bloom_create_k(void *meta, size_t size, uint8_t k, ...);
 
 bloom *bloom_create(void *meta, size_t size, uint8_t k, hasher *bh);

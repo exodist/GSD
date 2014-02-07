@@ -4,13 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct dict  dict;
-typedef struct sdict sdict;
-typedef struct ref   ref;
-typedef struct array array;
-typedef struct queue queue;
-typedef struct stack stack;
-typedef struct bloom bloom;
+typedef struct dict   dict;
+typedef struct sdict  sdict;
+typedef struct ref    ref;
+typedef struct array  array;
+typedef struct bloom  bloom;
+typedef struct sbloom sbloom;
 
 typedef struct result result;
 
