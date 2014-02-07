@@ -6,7 +6,7 @@
 
 #include "gsd_struct_types.h"
 
-array *array_create(size_t seg_size, size_t init_size, refdelta *rd);
+array *array_create(size_t init_size, size_t grow_delta, refdelta *rd);
 
 result array_get    (array *a, int64_t idx);
 result array_get_ref(array *a, int64_t idx);

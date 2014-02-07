@@ -10,8 +10,6 @@ typedef int   (dict_cmp) (void *meta, void *key1, void  *key2);
 typedef size_t(dict_loc) (void *meta, void *key,  size_t slot_count);
 typedef void(dict_change)(void *meta, void *key,  void  *old_val, void *new_val);
 
-typedef char *(dict_dot)(void *key, void *val);
-
 typedef int(dict_handler)(void *key, void *val, void *args);
 
 typedef enum {MERGE_SET, MERGE_INSERT, MERGE_UPDATE} dict_merge_op;
@@ -52,8 +50,7 @@ refdelta           *dict_refdelta (dict *d);
 const dict_builder *dict_built    (dict *d);
 
 // Utility
-char *dict_dump_dot(dict *d, dict_dot *decode);
-int   dict_iterate (dict *d, dict_handler *h, void *args);
+int dict_iterate (dict *d, dict_handler *h, void *args);
 
 // Operations
 
