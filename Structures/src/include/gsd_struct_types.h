@@ -10,6 +10,7 @@ typedef struct ref    ref;
 typedef struct array  array;
 typedef struct bloom  bloom;
 typedef struct sbloom sbloom;
+typedef struct bitmap bitmap;
 
 typedef struct result result;
 
