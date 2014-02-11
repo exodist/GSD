@@ -1,5 +1,5 @@
-#ifndef MAGIC_POINTERS_H
-#define MAGIC_POINTERS_H
+#ifndef COMMON_MAGIC_POINTERS_H
+#define COMMON_MAGIC_POINTERS_H
 
 extern const void *IMUT;
 extern const void *RBAL;

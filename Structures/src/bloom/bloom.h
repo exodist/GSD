@@ -1,7 +1,7 @@
-#ifndef BLOOM_H
-#define BLOOM_H
+#ifndef BLOOM_BLOOM_H
+#define BLOOM_BLOOM_H
 
-#include "include/gsd_struct_bloom.h"
+#include "../include/gsd_struct_bloom.h"
 
 struct bloom {
     void *meta;

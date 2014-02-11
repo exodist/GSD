@@ -1,5 +1,5 @@
-#ifndef STRINGDICT_H
-#define STRINGDICT_H
+#ifndef DICT_STRINGDICT_H
+#define DICT_STRINGDICT_H
 
 #include "include/gsd_string_dict.h"
 

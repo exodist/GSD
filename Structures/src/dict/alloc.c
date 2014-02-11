@@ -68,30 +68,6 @@ void free_node( void *ptr, void *arg ) {
     free( n );
 }
 
-void free_sref( void *ptr, void *arg ) {
-    sref *r = ptr;
-    dict *d = arg;
-    if ( r->xtrn && !blocked_null( r->xtrn ))
-        free_xtrn( r->xtrn, d );
-
-    if ( r->trigger ) {
-        if ( r->trigger->arg )
-            free_xtrn( r->trigger->arg, d );
-
-        free( r->trigger );
-    }
-
-    free( r );
-}
-
-void free_xtrn( void *ptr, void *arg ) {
-    void *x = ptr;
-    dict *d = arg;
-
-    if ( d->methods.ref && x )
-        d->methods.ref( d, x, -1 );
-}
-
 rstat do_create( dict **d, dict_settings settings, dict_methods methods ) {
     if ( methods.cmp == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'cmp' method may not be NULL." );
     if ( methods.loc == NULL ) return error( 1, 0, DICT_API_MISUSE, "The 'loc' method may not be NULL." );
@@ -191,25 +167,5 @@ usref *create_usref( sref *ref ) {
     }
     new_usref->sref = ref;
     return new_usref;
-}
-
-sref *create_sref( void *xtrn, trigger_ref *t ) {
-    sref *new_sref = malloc( sizeof( sref ));
-    if ( !new_sref ) return NULL;
-    memset( new_sref, 0, sizeof( sref ));
-    new_sref->xtrn = xtrn;
-    new_sref->trigger = t;
-
-    return new_sref;
-}
-
-void *create_xtrn( dict *d, void *value ) {
-    dev_assert( value );
-    dev_assert( d );
-
-    if ( d->methods.ref )
-        d->methods.ref( d, value, 1 );
-
-    return value;
 }
 

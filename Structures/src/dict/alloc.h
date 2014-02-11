@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef ALLOC_H
-#define ALLOC_H
+#ifndef DICT_ALLOC_H
+#define DICT_ALLOC_H
 
 #include "structure.h"
 #include "error.h"
@@ -19,8 +19,6 @@ rstat do_free( dict **dr );
 void free_set(  void *ptr, void *arg );
 void free_slot( void *ptr, void *arg );
 void free_node( void *ptr, void *arg );
-void free_sref( void *ptr, void *arg );
-void free_xtrn( void *ptr, void *arg );
 
 rstat do_create( dict **d, dict_settings settings, dict_methods methods );
 
@@ -28,7 +26,5 @@ set   *create_set( dict_settings settings, size_t slot_count );
 slot  *create_slot( node *root );
 node  *create_node( void *key, usref *ref, size_t min_ref_count );
 usref *create_usref( sref *ref );
-sref  *create_sref( void *x, trigger_ref *t );
-void  *create_xtrn( dict *d, void *value );
 
 #endif

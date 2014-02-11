@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef MULTIDICT_H
-#define MULTIDICT_H
+#ifndef DICT_MULTIDICT_H
+#define DICT_MULTIDICT_H
 
 #include "include/gsd_dict.h"
 #include "structure.h"

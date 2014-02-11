@@ -7,11 +7,20 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef COMMON_UTIL_H
-#define COMMON_UTIL_H
+#ifndef DICT_UTIL_H
+#define DICT_UTIL_H
 
+#include <stdlib.h>
 #include <stdint.h>
+#include "error.h"
+
+typedef struct set set;
+typedef rstat(traverse_callback)( set *s, size_t idx, void **cb_args );
 
 uint8_t max_bit( uint64_t num );
+
+rstat threaded_traverse( set *s, size_t start, size_t count, traverse_callback w, void **args, size_t threads );
+
+void *threaded_traverse_worker( void *in );
 
 #endif

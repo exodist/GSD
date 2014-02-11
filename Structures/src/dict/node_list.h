@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef NODE_LIST_H
-#define NODE_LIST_H
+#ifndef DICT_NODE_LIST_H
+#define DICT_NODE_LIST_H
 
 #include "error.h"
 #include "structure.h"

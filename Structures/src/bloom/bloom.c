@@ -185,7 +185,7 @@ int bloom_do_lookup(bloom *b, uint64_t *nums) {
         uint8_t val = 1 << bit;
         uint8_t current = __atomic_load_n(b->bitmap + byte, __ATOMIC_CONSUME);
 
-        if (val & bit) continue;
+        if (val & current) continue;
 
         return 0;
     }

@@ -14,6 +14,8 @@ int bitmap_set(bitmap *b, int64_t idx, int state);
 
 int64_t bitmap_fetch(bitmap *b, int state);
 
+void bitmap_reset(bitmap *b, unsigned int state);
+
 void bitmap_free(bitmap *b);
 
 #endif

@@ -1,5 +1,5 @@
-#ifndef ERROR_H
-#define ERROR_H
+#ifndef DICT_ERROR_H
+#define DICT_ERROR_H
 
 #include <stdint.h>
 #include "include/gsd_structures.h"

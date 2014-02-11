@@ -1,5 +1,5 @@
-#ifndef DEVTOOLS_H
-#define DEVTOOLS_H
+#ifndef COMMON_DEVTOOLS_H
+#define COMMON_DEVTOOLS_H
 
 #ifdef DEV_ASSERTS
 #include <assert.h>

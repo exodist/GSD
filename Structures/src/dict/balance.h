@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef BALANCE_H
-#define BALANCE_H
+#ifndef DICT_BALANCE_H
+#define DICT_BALANCE_H
 
 #include <stdint.h>
 

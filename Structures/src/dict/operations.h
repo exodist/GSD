@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef OPERATIONS_H
-#define OPERATIONS_H
+#ifndef DICT_OPERATIONS_H
+#define DICT_OPERATIONS_H
 
 #include "location.h"
 #include "structure.h"

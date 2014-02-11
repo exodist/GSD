@@ -2,11 +2,6 @@
 #include <assert.h>
 #include <string.h>
 
-uint64_t FULL64 = 0xFFFFFFFFFFFFFFFFUL;
-uint32_t FULL32 = 0xFFFFFFFFU;
-uint32_t FULL16 = 0xFFFFU;
-uint32_t FULL08 = 0xFFU;
-
 bitmap *bitmap_alloc(int64_t bits) {
     assert(bits > 0);
     bitmap *b = malloc(sizeof(bitmap));
@@ -24,7 +19,7 @@ bitmap *bitmap_alloc(int64_t bits) {
         free(b);
         return NULL;
     }
-    memset(b->data, 0, b->bytes);
+    bitmap_reset(b, 0);
 
     return b;
 }
@@ -155,4 +150,6 @@ void bitmap_free(bitmap *b) {
     free(b);
 }
 
-
+void bitmap_reset(bitmap *b, unsigned int state) {
+    memset(b->data, state ? FULL08 : 0, b->bytes);
+}

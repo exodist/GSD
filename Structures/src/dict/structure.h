@@ -7,8 +7,8 @@
  * only use the include/gsd_dict.h header file in external programs.
 \*/
 
-#ifndef STRUCTURE_H
-#define STRUCTURE_H
+#ifndef DICT_STRUCTURE_H
+#define DICT_STRUCTURE_H
 
 #include "include/gsd_dict.h"
 #include "error.h"
@@ -20,8 +20,6 @@ typedef struct slot  slot;
 typedef struct node  node;
 typedef struct flags flags;
 typedef struct usref usref;
-typedef struct sref  sref;
-typedef struct trigger_ref trigger_ref;
 
 struct dict {
     dict_methods methods;
@@ -63,17 +61,6 @@ struct node {
 struct usref {
     volatile size_t refcount;
     sref * volatile sref;
-};
-
-struct sref {
-    volatile size_t refcount;
-    void * volatile xtrn;
-    trigger_ref *trigger;
-};
-
-struct trigger_ref {
-    dict_trigger *function;
-    void         *arg;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );
