@@ -18,8 +18,7 @@ size_t sref_delta(sref *sr, int delta) {
 }
 
 void sref_free(sref *sr, refdelta *rd) {
-    if (rd && sr->xtrn && !blocked_null(sr->xtrn))
-        rd(sr->xtrn, -1);
+    if (rd && sr->xtrn) rd(sr->xtrn, -1);
 
     if (sr->trig) {
         size_t count = trig_ref_delta(sr->trig, -1);
