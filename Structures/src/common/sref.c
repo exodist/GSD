@@ -17,8 +17,16 @@ size_t sref_delta(sref *sr, int delta) {
     return count;
 }
 
+void sref_dispose(void *sr, void *delta) {
+    sref_free(sr, delta);
+}
+
 void sref_free(sref *sr, refdelta *rd) {
-    if (rd && sr->xtrn) rd(sr->xtrn, -1);
+    if (rd) {
+        void *xtrn = NULL;
+        __atomic_load(&(sr->xtrn), &xtrn, __ATOMIC_CONSUME);
+        if (xtrn) rd(xtrn, -1);
+    }
 
     if (sr->trig) {
         size_t count = trig_ref_delta(sr->trig, -1);
@@ -37,8 +45,11 @@ result sref_trigger_check(sref *sr, void *val) {
 result sref_set(sref *sr, void *val) {
     result out = sref_trigger_check(sr, val);
 
+    out.item_type = RESULT_ITEM_USER;
+    out.item.user.val = NULL;
+    out.item.user.rd  = NULL;
+
     if (out.status) {
-        out.item_type = RESULT_ITEM_USER;
         __atomic_exchange(&(sr->xtrn), &val, &(out.item.user.val), __ATOMIC_ACQ_REL);
     }
 

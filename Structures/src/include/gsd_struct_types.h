@@ -29,6 +29,7 @@ typedef enum {
     RES_IMMUTABLE,
     RES_TRIGGER_BLOCKED,
     RES_INVALID_NULL_VALUE,
+    RES_BLOCKED,
     RES_UNKNOWN
 } res_error;
 
@@ -58,6 +59,7 @@ struct result {
         RESULT_ITEM_USER,
         RESULT_ITEM_REF,
         RESULT_ITEM_NUM,
+        RESULT_ITEM_PTR,
     } item_type;
 
     union {
@@ -65,6 +67,7 @@ struct result {
             void *val;
             refdelta *rd;
         } user;
+        void *ptr;
         ref *ref;
         int64_t num;
     } item;
@@ -75,5 +78,6 @@ void     *result_get_val(result r);
 refdelta *result_get_dlt(result r);
 ref      *result_get_ref(result r);
 int64_t   result_get_num(result r);
+void     *result_get_ptr(result r);
 
 #endif

@@ -6,7 +6,7 @@
 
 #include "gsd_struct_types.h"
 
-array *array_create(size_t init_size, size_t grow_delta, refdelta *rd);
+array *array_create(int64_t init_size, int64_t grow_delta, refdelta *rd);
 
 result array_get    (array *a, int64_t idx);
 result array_get_ref(array *a, int64_t idx);
@@ -26,7 +26,6 @@ result array_shift    (array *a);
 result array_pop_ref  (array *a);
 result array_shift_ref(array *a);
 
-// Returns index, or -1 on failure.
 int64_t array_push       (array *a, void *val);
 int64_t array_unshift    (array *a, void *val);
 int64_t array_push_ref   (array *a, ref *val);

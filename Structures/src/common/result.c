@@ -40,3 +40,7 @@ int64_t result_get_num(result r) {
     return r.item.num;
 }
 
+void *result_get_ptr(result r) {
+    assert(r.item_type == RESULT_ITEM_PTR);
+    return r.item.ptr;
+}

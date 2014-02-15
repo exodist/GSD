@@ -19,7 +19,6 @@ typedef struct set   set;
 typedef struct slot  slot;
 typedef struct node  node;
 typedef struct flags flags;
-typedef struct usref usref;
 
 struct dict {
     dict_methods methods;
@@ -56,11 +55,6 @@ struct node {
     node  * volatile right;
     void  * key;
     usref * volatile usref;
-};
-
-struct usref {
-    volatile size_t refcount;
-    sref * volatile sref;
 };
 
 int iterate( dict *d, dict_handler *h, void *args );

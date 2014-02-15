@@ -2,8 +2,15 @@
 #define COMMON_SREF_H
 
 #include "../include/gsd_struct_types.h"
-#include "../common/magic_pointers.h"
 #include "../common/trigger.h"
+
+// ******* WARNING *******
+// With exception of sref_free and sref_dispose, NONE of these functions will
+// modify the refcount of the xtrn pointer. If you use these, and are using
+// refcount, you MUST adjust the refcount of the xtrn's according to the result
+// of the actions. Items that swap xtrns will returnt he one that has been
+// replaced so that you can do this.
+
 
 typedef struct sref sref;
 
@@ -14,10 +21,12 @@ struct sref {
     trig_ref *trig;
 };
 
-
+// Newly created sref will have a refcount of 0
 sref *sref_create(void *xtrn, trig_ref *t);
 size_t sref_delta(sref *sr, int delta);
-void  sref_free(sref *sr, refdelta rd);
+
+void sref_free   (sref *sr, refdelta *rd);
+void sref_dispose(void *sr, void *delta);
 
 result sref_trigger_check(sref *sr, void *val);
 

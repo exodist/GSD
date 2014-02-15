@@ -6,26 +6,20 @@
 #include "../common/sref.h"
 #include "../../../PRM/src/include/gsd_prm.h"
 
-#define LOOKUP_OFFSET   1
-#define LOOKUP_FREE     0
-#define LOOKUP_BLOCKED  0xFFFFFFFF
-#define STORAGE_FREE    0UL
-#define STORAGE_BLOCKED 0xFFFFFFFFFFFFFFFFUL
-#define STORAGE_EXTRA   10
-
-typedef struct array_data array_data;
+typedef struct array_data   array_data;
+typedef struct array_bounds array_bounds;
 
 struct array_data {
     size_t size;
+    usref *items;
+};
 
-    union {
-        uint32_t parts[2];
-        uint64_t both;
-    } ends; 
-
-    uint32_t *lookup;
-    sref    **storage;
-    bitmap   *available;
+struct array_bounds {
+    int64_t offset;
+    int64_t count;
+    int64_t inner_offset;
+    uint8_t offset_lock;
+    uint8_t count_lock;
 };
 
 struct array {
@@ -33,11 +27,18 @@ struct array {
     refdelta *delta;
     size_t grow;
 
-    array_data *current;
-    array_data *resize;
+    array_data *inner;
+    array_data *outer;
+
+    array_bounds *bounds;
 };
 
-void array_data_free(array_data *d);
-array_data *array_data_create(size_t s);
+usref *array_usref(array *a, int64_t idx, int vivify);
+usref *array_push(array *a);
+usref *array_pop(array *a);
+usref *array_shift(array *a);
+usref *array_unshift(array *a);
+
+int array_grow(array *a, int side);
 
 #endif
