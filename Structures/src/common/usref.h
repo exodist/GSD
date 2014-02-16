@@ -6,11 +6,13 @@
 #include "../common/magic_pointers.h"
 
 // ******* WARNING *******
-// With exception of sref_free and sref_dispose, NONE of these functions will
+// With exception of usref_free and usref_dispose, NONE of these functions will
 // modify the refcount of the xtrn pointer. If you use these, and are using
 // refcount, you MUST adjust the refcount of the xtrn's according to the result
 // of the actions. Items that swap xtrns will returnt he one that has been
 // replaced so that you can do this.
+//
+// Refcounting *IS* done for the sref related functions
 
 typedef struct usref usref;
 
@@ -39,7 +41,6 @@ result usref_get(usref *usr);
 
 result usref_set_sref(usref *usr, sref *val);
 result usref_update_sref(usref *usr, sref *val);
-result usref_delete_sref(usref *usr);
 
 result usref_get_sref(usref *usr);
 
@@ -58,5 +59,7 @@ result usref_cmp_swap(usref *usr, void *old, void *new);
 
 result usref_insert_sref(usref *usr, sref *val);
 result usref_cmp_swap_sref(usref *usr, sref *old, sref *new);
+
+static result usref_do_set_sref(usref *usr, sref *val, int null_switch) {
 
 #endif
