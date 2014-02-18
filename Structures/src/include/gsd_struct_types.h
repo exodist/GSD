@@ -4,13 +4,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct dict   dict;
-typedef struct sdict  sdict;
-typedef struct ref    ref;
-typedef struct array  array;
-typedef struct bloom  bloom;
-typedef struct sbloom sbloom;
-typedef struct bitmap bitmap;
+typedef struct dict     dict;
+typedef struct sdict    sdict;
+typedef struct ref      ref;
+typedef struct array    array;
+typedef struct bloom    bloom;
+typedef struct sbloom   sbloom;
+typedef struct bitmap   bitmap;
+typedef struct pool     pool;
+typedef struct pool_res pool_res;
 
 typedef struct result result;
 
