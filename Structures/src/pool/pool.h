@@ -10,7 +10,8 @@ typedef union {
     uint64_t bundle;
     struct {
         unsigned int blocked  : 1;
-        size_t       refcount : 63;
+        unsigned int removal  : 1;
+        size_t       refcount : 62;
     } status;
 } pool_item_montor;
 
@@ -38,7 +39,7 @@ struct pool {
     void  (*free) (void *item);
 };
 
-int  pool_init_group(pool *p);
-void pool_term_group(pool *p);
+int  pool_init_group(pool *p, size_t group);
+void pool_term_group(pool *p, size_t group);
 
 #endif
