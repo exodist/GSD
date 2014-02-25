@@ -28,6 +28,10 @@ struct pool {
     size_t max_index;
     size_t index;
 
+    bitmap *loadmap;
+    bitmap *freemap;
+    bitmap *blockmap;
+
     size_t load_step;
     size_t usage;
     size_t blocking;
@@ -39,7 +43,6 @@ struct pool {
     void  (*free) (void *item);
 };
 
-int  pool_init_group(pool *p, size_t group);
-void pool_term_group(pool *p, size_t group);
+int pool_init_group(pool *p, size_t group);
 
 #endif
