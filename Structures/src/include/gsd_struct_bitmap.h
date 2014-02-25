@@ -12,7 +12,7 @@ bitmap *bitmap_clone(bitmap *b, int64_t bits);
 int bitmap_get(bitmap *b, int64_t idx);
 int bitmap_set(bitmap *b, int64_t idx, int state);
 
-int64_t bitmap_fetch(bitmap *b, int state);
+int64_t bitmap_fetch(bitmap *b, int state, int64_t max);
 
 void bitmap_reset(bitmap *b, unsigned int state);
 

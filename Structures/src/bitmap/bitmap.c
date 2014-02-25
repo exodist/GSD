@@ -9,7 +9,7 @@ bitmap *bitmap_alloc(int64_t bits) {
     b->bits = bits;
 
     int64_t bytes = bits / 64 * 8;
-    if (bits % 8) bytes += 8;
+    if (bits % 64) bytes += 8;
     assert(bytes > 0);
 
     b->bytes = bytes;
@@ -70,8 +70,9 @@ int bitmap_set(bitmap *b, int64_t idx, int state) {
     return mask & old;
 }
 
-int64_t bitmap_fetch(bitmap *b, int state) {
-    for(int64_t i64 = 0; i64 < b->bytes; i64++) {
+int64_t bitmap_fetch(bitmap *b, int state, int64_t max) {
+    int64_t max_64 = max ? (max / 64) + 1 : b->bytes / 8;
+    for(int64_t i64 = 0; i64 < (b->bytes / 8); i64++) {
         while(1) {
             uint64_t current = __atomic_load_n(b->data + i64, __ATOMIC_ACQUIRE);
             if(state  && current == FULL64) break;
@@ -123,7 +124,8 @@ int64_t bitmap_fetch(bitmap *b, int state) {
             }
 
             int64_t idx = i64 * 64 + i32 * 32 + i16 * 16 + i08 * 8 + i01;
-            if (idx >= b->bits) return -1;
+            if (idx >= b->bits || (max && idx > max))
+                return -1;
 
             int64_t  slot = idx / 64;
             uint8_t  bit  = idx % 64;
