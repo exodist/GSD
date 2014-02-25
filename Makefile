@@ -15,10 +15,6 @@ libGSDGC.so:
 	make -C GC/src libGSDGC.so
 	ln -s GC/src/*.so* ./
 
-libGSDPRM.so:
-	make -C PRM/src libGSDPRM.so
-	ln -s PRM/src/*.so* ./
-
 libGSDStructures.so:
 	make -C Structures/src libGSDStructures.so
 	ln -s Structures/src/*.so* ./

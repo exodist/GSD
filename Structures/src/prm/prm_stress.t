@@ -1,4 +1,4 @@
-#include "../include/gsd_prm.h"
+#include "../include/gsd_struct_prm.h"
 #include <stdio.h>
 #include <assert.h>
 #include <pthread.h>
@@ -42,13 +42,13 @@ int main() {
 }
 
 void do_it() {
-    prm *p = build_prm(
+    prm *p = prm_create(
         4,   // Epoch Count
         64, // Bag limit
         0    // Fork for this much garbage
     );
 
-    uint8_t e = join_epoch( p );
+    uint8_t e = prm_join_epoch( p );
 
     // threads x allocs
     uint8_t ***allocs = malloc( sizeof(uint8_t **) * THREADS );
@@ -74,20 +74,20 @@ void do_it() {
         }
     }
 
-    leave_epoch( p, e );
+    prm_leave_epoch( p, e );
 
-    e = join_epoch( p );
+    e = prm_join_epoch( p );
     for (int t = 0; t < THREADS; t++) {
         for (int i = 0; i < ALLOCS; i++) {
             // Should be destroyed
             assert( *(allocs[t][i]) == 30 );
             *(allocs[t][i]) = 35;
-            dispose( p, allocs[t][i], destroy2, NULL );
+            prm_dispose( p, allocs[t][i], destroy2, NULL );
         }
     }
-    leave_epoch( p, e );
+    prm_leave_epoch( p, e );
 
-    free_prm( p );
+    prm_free( p );
 
     for (int i = 0; i < THREADS; i++ ) {
         free(allocs[i]);
@@ -98,11 +98,11 @@ void do_it() {
 void *worker( void *in ) {
     worker_args *args = in;
     for ( int i = 0; i < ALLOCS; i++ ) {
-        uint8_t e = join_epoch( args->p );
+        uint8_t e = prm_join_epoch( args->p );
         args->allocs[i] = malloc( sizeof( uint8_t ));
         *(args->allocs[i]) = 25;
-        dispose( args->p, args->allocs[i], destroy1, NULL );
-        leave_epoch( args->p, e );
+        prm_dispose( args->p, args->allocs[i], destroy1, NULL );
+        prm_leave_epoch( args->p, e );
     }
 
     free( in );

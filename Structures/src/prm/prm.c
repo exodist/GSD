@@ -6,10 +6,10 @@
 #include <sys/select.h>
 #include <sys/time.h>
 
-#include "include/gsd_prm.h"
+#include "../include/gsd_struct_prm.h"
 #include "prm.h"
 
-prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
+prm *prm_create( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
     if (epoch_size > 64) epoch_size = 64;
     if (epoch_size < 8)  epoch_size = 8;
 
@@ -42,7 +42,7 @@ prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
     return p;
 }
 
-int free_prm( prm *p ) {
+int prm_free( prm *p ) {
     // Lock all epochs
     for (uint8_t i = 0; i < p->count; i++) {
         int ok = __atomic_add_fetch( &(p->epochs[i].active), 1, __ATOMIC_SEQ_CST );
@@ -80,7 +80,7 @@ int free_prm( prm *p ) {
     return 1;
 }
 
-uint8_t join_epoch( prm *p ) {
+uint8_t prm_join_epoch( prm *p ) {
     int success = 0;
     uint8_t e = 0;
 
@@ -121,7 +121,7 @@ uint8_t join_epoch( prm *p ) {
     return e;
 }
 
-void leave_epoch( prm *p, uint8_t ei ) {
+void prm_leave_epoch( prm *p, uint8_t ei ) {
     epoch *e = p->epochs + ei;
     // ATOMIC __ATOMIC_ACQ_REL
     size_t nactive = __atomic_sub_fetch( &(e->active), 1, __ATOMIC_ACQ_REL );
@@ -172,7 +172,7 @@ void leave_epoch( prm *p, uint8_t ei ) {
         pthread_detach( pt );
     }
 
-    if (dep != -1) leave_epoch( p, dep );
+    if (dep != -1) prm_leave_epoch( p, dep );
 }
 
 void *garbage_truck( void *args ) {
@@ -189,7 +189,7 @@ void *garbage_truck( void *args ) {
     return NULL;
 }
 
-int dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) {
+int prm_dispose( prm *p, void *garbage, void (*destroy)(void *, void*), void *arg ) {
     if ( garbage == NULL ) return 1;
 
     int need = 1;

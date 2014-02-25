@@ -1,11 +1,10 @@
-#ifndef GSD_PRM_H
-#define GSD_PRM_H
+#ifndef GSD_STRUCT_PRM_H
+#define GSD_STRUCT_PRM_H
+
+#include "gsd_struct_types.h"
 
 #include <stdint.h>
 #include <stdlib.h>
-
-typedef struct prm        prm;
-typedef struct destructor destructor;
 
 /*\
  * epochs     - How many epochs to have (they cycle, 2 is usually the minimum)
@@ -16,13 +15,13 @@ typedef struct destructor destructor;
                 garbage. If the garbage is below this it will not thread. 0
                 means never thread.
 \*/
-prm *build_prm( uint8_t epochs, uint8_t epoch_size, size_t thread_at );
-int free_prm( prm *p );
+prm *prm_create( uint8_t epochs, uint8_t epoch_size, size_t thread_at );
+int prm_free( prm *p );
 
-uint8_t join_epoch( prm *p );
-void   leave_epoch( prm *p, uint8_t epoch );
+uint8_t prm_join_epoch( prm *p );
+void    prm_leave_epoch( prm *p, uint8_t epoch );
 
-int dispose(
+int prm_dispose(
     prm *p,
     void *garbage,
     // These are optional, but if 'arg' is specified 'destroy' must be as well.
@@ -54,17 +53,17 @@ EXAMPLE:
     void *get_ref();
     void remove_ref(void *);
 
-    uint8_t e = join_epoch( p );
+    uint8_t e = prm_join_epoch( p );
     void *ref = get_ref();
 
     // After this no other thread will be able to get the ref, though it is
     // possible they already have it.
     if(remove_ref(ref)) { // if it fails then another thread removed it
         // This is safe, it will not be freed until all threads leave the epoch.
-        dispose( p, ref, NULL, NULL );
+        prm_dispose( p, ref, NULL, NULL );
     }
 
-    leave_epoch( p, e );
+    prm_leave_epoch( p, e );
 
 \*/
 

@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#include "include/gsd_prm.h"
+#include "../include/gsd_struct_prm.h"
 
 typedef struct epoch     epoch;
 typedef struct prm       prm;

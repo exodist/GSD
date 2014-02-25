@@ -12,7 +12,7 @@ typedef struct bloom    bloom;
 typedef struct sbloom   sbloom;
 typedef struct bitmap   bitmap;
 typedef struct pool     pool;
-typedef struct pool_res pool_res;
+typedef struct prm      prm;
 
 typedef struct result result;
 
