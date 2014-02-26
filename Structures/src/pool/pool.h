@@ -3,46 +3,35 @@
 
 #include "../include/gsd_struct_types.h"
 #include "../include/gsd_struct_pool.h"
+#include <stdint.h>
 
-typedef struct pool_item pool_item;
+typedef struct {
+    void *item;
+    size_t active;
+    size_t blocks;
+} pool_item;
 
-typedef union {
-    uint64_t bundle;
-    struct {
-        unsigned int blocked  : 1;
-        unsigned int removal  : 1;
-        size_t       refcount : 62;
-    } status;
-} pool_item_montor;
-
-struct pool_item {
-    void *pointer;
-    pool_item_montor monitor;
-};
+typedef struct {
+    size_t count;
+    bitmap *free;
+    pool_item *items[];
+} pool_data;
 
 struct pool {
-    size_t group_limit;
-    size_t group_size;
-    size_t group_index;
+    prm       *prm;
+    pool_data *data;
 
-    size_t max_index;
-    size_t index;
-
-    bitmap *loadmap;
-    bitmap *freemap;
-    bitmap *blockmap;
-
-    size_t load_step;
-    size_t usage;
-    size_t blocking;
-
-    pool_item **items;
-
-    void *spawn_arg;
+    size_t rr;
     void *(*spawn)(void *arg);
     void  (*free) (void *item);
+    void *spawn_arg;
+
+    uint8_t disabled;
 };
 
-int pool_init_group(pool *p, size_t group);
+pool_data *pool_data_create(size_t count);
+void pool_data_free(pool_data *pd);
+
+int pool_data_init(pool *p, pool_data *pd, size_t from);
 
 #endif

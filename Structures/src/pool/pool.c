@@ -2,76 +2,82 @@
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
+#include "../include/gsd_struct_bitmap.h"
+#include "../include/gsd_struct_prm.h"
 
-pool *pool_create(size_t group_size, size_t max_groups, size_t load_step, void *(*spawn)(void *arg), void (*ifree) (void *item), void *spawn_arg) {
-    pool *out = malloc(sizeof(pool));
-    if (!out) return NULL;
-    memset(out, 0, sizeof(pool));
+pool *pool_create(size_t count, void *(*spawn)(void *arg), void (*free) (void *item), void *spawn_arg) {
+    assert( count );
 
-    out->items = malloc(sizeof(pool_item**) * max_groups);
-    if (!out->items) {
-        free(out);
-        return NULL;
-    }
-    memset(out->items, 0, sizeof(pool_item**) * max_groups);
+    pool *p = malloc(sizeof(pool));
+    if (!p) return NULL;
 
-    out->group_limit = max_groups;
-    out->group_size  = group_size;
-    out->group_index = 0;
+    p->prm = prm_create(2, 8, 0);
+    if (!p->prm) goto CLEANUP;
 
-    out->max_index = max_groups * group_size;
-    out->index     = 0;
+    p->data = pool_data_create(count);
+    if (!p->data) goto CLEANUP;
 
-    out->load_step = load_step;
-    out->usage     = 0;
-    out->blocking  = 0;
+    if (!pool_data_init(p, p->data, 0)) goto CLEANUP;
 
-    out->spawn     = spawn;
-    out->free      = ifree;
-    out->spawn_arg = spawn_arg;
+    p->rr        = 0;
+    p->spawn     = spawn;
+    p->free      = free;
+    p->spawn_arg = spawn_arg;
 
-    int ok = pool_init_group(out, 0);
-    if (!ok) {
-        free(out->items);
-        free(out);
-        return NULL;
-    }
+    return p;
 
-    return out;
+    CLEANUP:
+    if (p->data) pool_data_free(p->data);
+    if (p->prm) prm_free(p->prm);
+    free(p);
+    return NULL;
 }
 
-int pool_init_group(pool *p, size_t group) {
-    pool_item *current = NULL;
-    __atomic_load(p->items + group, &current, __ATOMIC_CONSUME);
-    if (current) return -1;
+pool_data *pool_data_create(size_t count) {
+    size_t size = sizeof(pool_data) + count * sizeof(pool_item *);
+    pool_data *pd = malloc(size);
+    if (!pd) return NULL;
+    memset(pd, 0, size);
 
-    void *new = malloc(sizeof(pool_item *) * p->group_size);
-    if (!new) return 0;
-    memset(new, 0, sizeof(pool_item *) * p->group_size);
+    pd->count = count;
 
-    while(!current) {
-        int ok = __atomic_compare_exchange(
-            p->items + group,
-            &current,
-            &new,
-            0,
-            __ATOMIC_ACQ_REL,
-            __ATOMIC_CONSUME
-        );
-        if (ok) {
-            __atomic_store_n(&(p->index), group * p->group_size, __ATOMIC_ACQ_REL);
-            return 1;
-        }
-    }
+    pd->free = bitmap_create(count);
+    if (!pd->free) goto CLEANUP;
 
-    free(new);
-    return -1;
+    return pd;
+
+    CLEANUP:
+    if (pd->free) bitmap_free(pd->free);
+
+    return NULL;
 }
 
-// This will block until all resources are released
+int pool_data_init(pool *p, pool_data *pd, size_t from) {
+    for (size_t i = from; i < pd->count; i++) {
+        pd->items[i] = p->spawn(p->spawn_arg);
+        if (!pd->items[i]) goto CLEANUP;
+    }
+
+    return 1;
+
+    CLEANUP:
+    for (size_t i = from; i < pd->count; i++) {
+        if (!pd->items[i]) break;
+        p->free(pd->items[i]);
+    }
+
+    return 0;
+}
+
+void pool_data_free(pool_data *pd) {
+    bitmap_free(pd->free);
+    free(pd);
+}
+
+pool *pool_grow(pool *p, size_t delta);
+
 void pool_free(pool *p);
 
-// Request will try
 size_t pool_request(pool *p, size_t ideal, int blocking);
 void   pool_release(pool *p, size_t index, int blocking);
 

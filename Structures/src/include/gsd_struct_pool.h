@@ -6,12 +6,7 @@
 #include "gsd_struct_types.h"
 
 pool *pool_create(
-    size_t group_size,            // Items per group
-    size_t max_groups,            // Max number of groups
-
-    size_t load_step, // load = max(items/groups*group_size, blocking*load_step/groups*group_size)
-                      // when load > load_step, additional groups get initialized
-                      // when load drops groups are freed
+    size_t count, // How many items to have present
 
     void *(*spawn)(void *arg),  // How to create new items
     void  (*free) (void *item), // How to free items
@@ -19,10 +14,11 @@ pool *pool_create(
     void *spawn_arg // Argument to spawn(void *arg)
 );
 
+pool *pool_grow(pool *p, size_t delta);
+
 // This will block until all resources are released
 void pool_free(pool *p);
 
-// Request will try 
 size_t pool_request(pool *p, size_t ideal, int blocking);
 void   pool_release(pool *p, size_t index, int blocking);
 
