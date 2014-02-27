@@ -5,26 +5,34 @@
 #include <stdint.h>
 #include "gsd_struct_types.h"
 
-pool *pool_create(
-    size_t count, // How many items to have present
+typedef struct pool_resource pool_resource;
 
-    void *(*spawn)(void *arg),  // How to create new items
-    void  (*free) (void *item), // How to free items
+typedef void *(pool_spawn)(void *arg);
+typedef void  (pool_unspawn)(void *item);
+
+pool *pool_create(
+    size_t min,      // Minimum number of resources to have available
+    size_t max,      // Maximum number of resources to have available
+    size_t load,     // Number of consumers per resource before resources are added
+    size_t interval, // How many resources to add at a time
+
+    pool_spawn   *spawn,   // How to create new items
+    pool_unspawn *unspawn, // How to free items
 
     void *spawn_arg // Argument to spawn(void *arg)
 );
 
-pool *pool_grow(pool *p, size_t delta);
-
 // This will block until all resources are released
 void pool_free(pool *p);
 
-size_t pool_request(pool *p, size_t ideal, int blocking);
-void   pool_release(pool *p, size_t index, int blocking);
+// NOTE: you must call free() on the returned resource once you are done with
+// it.
+pool_resource *pool_request(pool *p, pool_resource *r, int blocking);
+void pool_release(pool *p, pool_resource *r);
 
-int  pool_block  (pool *p, size_t index);
-void pool_unblock(pool *p, size_t index);
+int pool_block  (pool *p, pool_resource *r);
+int pool_unblock(pool *p, pool_resource *r);
 
-void *pool_fetch(pool *p, size_t index);
+void *pool_fetch(pool *p, pool_resource *r);
 
 #endif
