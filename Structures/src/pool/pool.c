@@ -8,8 +8,8 @@
 #include "../include/gsd_struct_bitmap.h"
 #include "../include/gsd_struct_prm.h"
 
-pool *pool_create(size_t min, size_t max, size_t load, size_t iv, pool_spawn *spawn, pool_unspawn *unspawn, void *spawn_arg) {
-    assert( min );
+pool *pool_create(int64_t min, int64_t max, int64_t load, int64_t iv, pool_spawn *spawn, pool_unspawn *unspawn, void *spawn_arg) {
+    assert( min > 0 );
     assert( min <= max );
     assert( min == max || iv > 0 );
 
@@ -22,6 +22,9 @@ pool *pool_create(size_t min, size_t max, size_t load, size_t iv, pool_spawn *sp
 
     p->data = pool_data_create(min);
     if (!p->data) goto CLEANUP;
+
+    p->free = bitmap_create(max);
+    if (!p->free) goto CLEANUP;
 
     if (!pool_data_init(p, p->data, 0)) goto CLEANUP;
 
@@ -38,7 +41,8 @@ pool *pool_create(size_t min, size_t max, size_t load, size_t iv, pool_spawn *sp
     return p;
 
     CLEANUP:
-    if (p->data) pool_data_free(p->data);
+    if (p->data) free(p->data);
+    if (p->free) bitmap_free(p->free);
     if (p->prm)  prm_free(p->prm);
     free(p);
     return NULL;
@@ -52,15 +56,7 @@ pool_data *pool_data_create(size_t count) {
 
     pd->count = count;
 
-    pd->free = bitmap_create(count);
-    if (!pd->free) goto CLEANUP;
-
     return pd;
-
-    CLEANUP:
-    if (pd->free) bitmap_free(pd->free);
-
-    return NULL;
 }
 
 int pool_data_init(pool *p, pool_data *pd, size_t from) {
@@ -73,7 +69,7 @@ int pool_data_init(pool *p, pool_data *pd, size_t from) {
 
         pd->items[i]->active = 0;
         pd->items[i]->blocks = 0;
-        pd->items[i]->refs   = 0;
+        pd->items[i]->refs   = 1;
     }
 
     return 1;
@@ -82,7 +78,7 @@ int pool_data_init(pool *p, pool_data *pd, size_t from) {
     for (size_t i = from; i < pd->count; i++) {
         if (!pd->items[i]) break;
         if (pd->items[i]->item) {
-            p->unspawn(pd->items[i]->item);
+            p->unspawn(pd->items[i]->item, p->spawn_arg);
         }
         free(pd->items[i]);
     }
@@ -90,9 +86,21 @@ int pool_data_init(pool *p, pool_data *pd, size_t from) {
     return 0;
 }
 
-void pool_data_free(pool_data *pd) {
-    bitmap_free(pd->free);
-    // TODO: Handle items
+void pool_data_destroy(void *pd, void *p) {
+    pool_data_free(p, pd);
+}
+
+void pool_data_free(pool *p, pool_data *pd) {
+    for (size_t i = 0; i < pd->count; i++) {
+        if (!pd->items[i]) continue;
+        size_t refs = __atomic_sub_fetch(&(pd->items[i]->refs), 1, __ATOMIC_ACQ_REL);
+        if (!refs) {
+            prm_dispose(p->prm, pd->items[i]->item, p->unspawn, p->spawn_arg);
+            prm_dispose(p->prm, pd->items[i], NULL, NULL);
+        }
+        pd->items[i] = NULL;
+    }
+
     free(pd);
 }
 
@@ -122,6 +130,7 @@ int pool_resize(pool *p, int64_t delta) {
     if (__atomic_load_n(&(p->disabled), __ATOMIC_CONSUME))
         return -1;
 
+    uint8_t e = prm_join_epoch(p->prm);
     // Atomic lock resize or return -1
     uint8_t old = __atomic_exchange_n(&(p->resize), 1, __ATOMIC_RELEASE);
     if (old) return -1; // We did not get the lock
@@ -132,19 +141,31 @@ int pool_resize(pool *p, int64_t delta) {
     int ok = pool_data_clone(p, p->data, new);
     if (!ok) goto CLEANUP;
 
-    __atomic_store(&(new->old), &(p->data), __ATOMIC_SEQ_CST);
+    pool_data *old_pd = p->data;
     __atomic_store(&(p->data), &new, __ATOMIC_SEQ_CST);
+    prm_dispose(p->prm, old_pd, pool_data_destroy, p);
+    prm_leave_epoch(p->prm, e);
     return 1;
 
     CLEANUP:
+    prm_leave_epoch(p->prm, e);
     __atomic_store_n(&(p->resize), 0, __ATOMIC_SEQ_CST);
-    if(new) pool_data_free(new);
+    if(new) pool_data_free(p, new);
     return 0;
 }
 
 void pool_free(pool *p) {
     uint8_t old = __atomic_exchange_n(&(p->disabled), 1, __ATOMIC_RELEASE);
     if (old) return;
+
+    uint8_t e = prm_join_epoch(p->prm);
+    while (1) {
+        uint8_t old = __atomic_exchange_n(&(p->resize), 1, __ATOMIC_RELEASE);
+        if (!old) break;
+
+        struct timeval timeout = { .tv_sec = 0, .tv_usec = 100 };
+        select( 0, NULL, NULL, NULL, &timeout );
+    }
 
     while(1) {
         int busy = __atomic_load_n(&(p->active), __ATOMIC_CONSUME)
@@ -156,16 +177,98 @@ void pool_free(pool *p) {
         select( 0, NULL, NULL, NULL, &timeout );
     }
 
-    // Iterate all pool_data items
+    pool_data *pd = NULL;
+    __atomic_load( &(p->data), &pd, __ATOMIC_ACQUIRE);
+
+    if (pd) prm_dispose(p->prm, pd, pool_data_destroy, p);
+
+    prm_leave_epoch(p->prm, e);
+    prm_free(p->prm);
 }
 
-    //if (__atomic_load_n(&(p->disabled))) return -1;
-pool_resource *pool_request(pool *p, pool_resource *r, int blocking);
-void pool_release(pool *p, pool_resource *r);
+pool_resource *pool_request(pool *p, int64_t *index, int blocking) {
+    if (__atomic_load_n(&(p->disabled), __ATOMIC_ACQUIRE)) return NULL;
+
+    pool_resource *out = malloc(sizeof(pool_resource));
+    if (!out) return NULL;
+    memset(out, 0, sizeof(pool_resource));
+
+    uint8_t e = prm_join_epoch(p->prm);
+
+    pool_data *pd = NULL;
+    __atomic_load( &(p->data), &pd, __ATOMIC_ACQUIRE);
+    if (!pd) {
+        free(out);
+        return NULL;
+    }
+
+    int64_t ridx = -1;
+    if (index && *index < pd->count) {
+        if (blocking && pd->items[*index]->blocks)   ridx = *index;
+        if (!blocking && !pd->items[*index]->blocks) ridx = *index;
+    }
+    if (ridx < 0) {
+        ridx = bitmap_fetch(p->free, 0, pd->count);
+    }
+    if (ridx < 0) {
+        ridx = __atomic_fetch_add(&(p->rr), 1, __ATOMIC_ACQ_REL) % pd->count;
+    }
+
+    assert(ridx >= 0);
+
+    if (index) *index = ridx;
+
+    out->index = ridx;
+    out->item  = pd->items[ridx];
+
+    if (blocking) {
+        int ok = pool_block(p, out);
+        if (ok < 1) {
+            free(out);
+            return NULL;
+        }
+    }
+
+    assert(__atomic_fetch_add(&(out->item->refs),   1, __ATOMIC_ACQ_REL));
+    assert(__atomic_add_fetch(&(out->item->active), 1, __ATOMIC_ACQ_REL));
+
+    assert(__atomic_add_fetch(&(p->active), 1, __ATOMIC_ACQ_REL));
+
+    prm_leave_epoch(p->prm, e);
+
+    return out;
+}
+
+int64_t pool_release(pool *p, pool_resource *r) {
+    int64_t idx = r->index;
+
+    uint8_t e = prm_join_epoch(p->prm);
+
+    if(r->block) pool_unblock(p, r); 
+
+    __atomic_sub_fetch(&(p->active), 1, __ATOMIC_ACQ_REL);
+    __atomic_sub_fetch(&(r->item->active), 1, __ATOMIC_ACQ_REL);
+
+    size_t refs = __atomic_sub_fetch(&(r->item->refs), 1, __ATOMIC_ACQ_REL);
+
+    if (!refs) {
+        assert(0);
+        prm_dispose(p->prm, r->item->item, p->unspawn, p->spawn_arg);
+        prm_dispose(p->prm, r->item, NULL, NULL);
+    }
+
+    free(r);
+
+    prm_leave_epoch(p->prm, e);
+
+    return idx;
+}
 
 int pool_block  (pool *p, pool_resource *r);
 int pool_unblock(pool *p, pool_resource *r);
 
-void *pool_fetch(pool *p, pool_resource *r);
-
+void *pool_fetch(pool *p, pool_resource *r) {
+    if (!r->item) return NULL;
+    return r->item->item;
+}
 
