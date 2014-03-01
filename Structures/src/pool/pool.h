@@ -53,6 +53,8 @@ void pool_data_free(pool *p, pool_data *pd);
 int pool_data_clone(pool *p, pool_data *from, pool_data *into);
 int pool_data_init(pool *p, pool_data *pd, size_t from);
 
-int pool_resize(pool *p, int64_t delta);
+void pool_resize(pool *p, int64_t new_size);
+
+void pool_balance(pool *p);
 
 #endif
