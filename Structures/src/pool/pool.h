@@ -31,6 +31,7 @@ struct pool {
     bitmap    *free;
 
     size_t rr;
+    size_t brr;
     pool_spawn   *spawn;
     pool_unspawn *unspawn;
     void *spawn_arg;

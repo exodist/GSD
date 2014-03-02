@@ -26,9 +26,6 @@ pool *pool_create(int64_t min, int64_t max, int64_t load, int64_t iv, pool_spawn
     p->free = bitmap_create(max);
     if (!p->free) goto CLEANUP;
 
-    if (!pool_data_init(p, p->data, 0)) goto CLEANUP;
-
-    p->rr        = 0;
     p->spawn     = spawn;
     p->unspawn   = unspawn;
     p->spawn_arg = spawn_arg;
@@ -37,6 +34,8 @@ pool *pool_create(int64_t min, int64_t max, int64_t load, int64_t iv, pool_spawn
     p->max  = max;
     p->load = load;
     p->interval = iv;
+
+    if (!pool_data_init(p, p->data, 0)) goto CLEANUP;
 
     return p;
 
@@ -64,6 +63,7 @@ int pool_data_init(pool *p, pool_data *pd, size_t from) {
         pd->items[i] = malloc(sizeof(pool_item));
         if (!pd->items[i]) goto CLEANUP;
 
+        assert(p->spawn);
         pd->items[i]->item = p->spawn(p->spawn_arg);
         if(!pd->items[i]->item) goto CLEANUP;
 
@@ -95,8 +95,10 @@ void pool_data_free(pool *p, pool_data *pd) {
         if (!pd->items[i]) continue;
         size_t refs = __atomic_sub_fetch(&(pd->items[i]->refs), 1, __ATOMIC_ACQ_REL);
         if (!refs) {
+            uint8_t e = prm_join_epoch(p->prm);
             prm_dispose(p->prm, pd->items[i]->item, p->unspawn, p->spawn_arg);
             prm_dispose(p->prm, pd->items[i], NULL, NULL);
+            prm_leave_epoch(p->prm, e);
         }
         pd->items[i] = NULL;
     }
@@ -180,6 +182,8 @@ void pool_free(pool *p) {
 
     prm_leave_epoch(p->prm, e);
     prm_free(p->prm);
+    bitmap_free(p->free);
+    free(p);
 }
 
 pool_resource *pool_request(pool *p, int64_t *index, int blocking) {
@@ -204,7 +208,18 @@ pool_resource *pool_request(pool *p, int64_t *index, int blocking) {
         ridx = bitmap_fetch(p->free, 0, pd->count);
     }
     if (ridx < 0) {
-        ridx = __atomic_fetch_add(&(p->rr), 1, __ATOMIC_ACQ_REL) % pd->count;
+        if (blocking && p->blocks >= p->max / 3) {
+            size_t initial = __atomic_fetch_add(&(p->brr), 1, __ATOMIC_ACQ_REL) % pd->count;
+            ridx = initial;
+            while (!pd->items[ridx]->blocks) {
+                ridx = __atomic_fetch_add(&(p->brr), 1, __ATOMIC_ACQ_REL) % pd->count;
+                // full loop; In case blocks went from max to none in the time we took to do this.
+                if (ridx == initial) break;
+            }
+        }
+        else {
+            ridx = __atomic_fetch_add(&(p->rr), 1, __ATOMIC_ACQ_REL) % pd->count;
+        }
     }
 
     assert(ridx >= 0);
@@ -339,5 +354,3 @@ void pool_balance(pool *p) {
 
     assert(__atomic_exchange_n(&(p->resize), 0, __ATOMIC_SEQ_CST));
 }
-
-

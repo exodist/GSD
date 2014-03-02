@@ -1,3 +1,5 @@
+/* vim: set filetype=c : */
+
 #include "../include/gsd_struct_bitmap.h"
 #include <stdio.h>
 #include <assert.h>
