@@ -310,7 +310,7 @@ int pool_unblock(pool *p, pool_resource *r) {
     return 1;
 }
 
-void *pool_fetch(pool *p, pool_resource *r) {
+void *pool_fetch(pool_resource *r) {
     if (!r->item) return NULL;
     return r->item->item;
 }

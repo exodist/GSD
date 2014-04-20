@@ -36,6 +36,6 @@ int64_t pool_release(pool *p, pool_resource *r);
 int pool_block  (pool *p, pool_resource *r);
 int pool_unblock(pool *p, pool_resource *r);
 
-void *pool_fetch(pool *p, pool_resource *r);
+void *pool_fetch(pool_resource *r);
 
 #endif
