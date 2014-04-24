@@ -3,7 +3,7 @@ digraph overview {
     bgcolor=black
     fontcolor=white
     labelloc=top
-    label="GSD Structures"
+    label="GSD Array"
 
     subgraph cluster_1 {
         fontcolor=white
@@ -16,46 +16,31 @@ digraph overview {
 
         Key
         Value0 [label="Value"]
-        Value1 [label="Value"]
 
-        {rank=sink; Key Value0 Value1}
+        {rank=sink; Key Value0}
     }
 
     node [color=white,fontcolor=white,shape=hexagon]
     Dictionary
-    Array
 
     SRef0 [color=blue,label="SRef"]
     SRef1 [color=blue,label="SRef"]
 
     edge [color=pink]
     node [color=magenta,style=dashed,fontcolor=white]
-    State
     Methods
     Settings
     Set   [color=cyan,shape=oval,style=solid]
-    Slots [color=cyan,shape=oval,style=solid]
 
-    {rank=same; Settings Methods Set State Slots}
+    {rank=same; Settings Methods Set}
 
     node [shape=oval]
     Dictionary->Methods
     Set->Settings
-    Array->State
 
     node [color=green,style=solid]
     edge [color=blue]
     Dictionary->Set
-    Array->Slots
-
-    I0 [label="Idx:0"]
-    I1 [label="Idx:1"]
-    I2 [label="Idx:2"]
-
-    Slots->I0
-    Slots->I1
-    Slots->I2
-    I0->I1->I2 [style=invisible,arrowhead=none]
 
     edge [color=blue]
     node [color=green,fontcolor=white]
@@ -78,17 +63,15 @@ digraph overview {
     Node1->Node2
 
     USRef->SRef0
-    I1->SRef1
 
     edge [color=red,style=dotted,arrowtail=crow,dir=both]
     Node1->Key
     SRef0->Value0
-    SRef1->Value1
 
     edge [color=yellow,style=dashed,arrowhead=none,arrowtail=none]
     SRef0->SRef1   [label="SRef may be shared",fontcolor=white]
 
-    {rank=same; HashSlot0 HashSlot1 HashSlot2 I0 I1 I2}
+    {rank=same; HashSlot0 HashSlot1 HashSlot2}
     {rank=same; Node0 Node2}
     {rank=same; Node1 USRef}
     {rank=same; SRef0 SRef1}
