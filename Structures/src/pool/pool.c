@@ -17,7 +17,7 @@ pool *pool_create(int64_t min, int64_t max, int64_t load, int64_t iv, pool_spawn
     if (!p) return NULL;
     memset(p, 0, sizeof(pool));
 
-    p->prm = prm_create(2, 8, 0);
+    p->prm = prm_create(2, 8, 0, NULL, NULL);
     if (!p->prm) goto CLEANUP;
 
     p->data = pool_data_create(min);

@@ -6,84 +6,48 @@
 
 #include "gsd_struct_types.h"
 
-typedef int   (dict_cmp) (void *meta, void *key1, void  *key2);
-typedef size_t(dict_loc) (void *meta, void *key,  size_t slot_count);
-typedef void(dict_change)(void *meta, void *key,  void  *old_val, void *new_val);
+typedef struct dict_iterator dict_iterator;
 
-typedef int(dict_handler)(void *key, void *val, void *args);
+dict *dict_create(singularity *s, size_t slots, size_t imbalance);
 
-typedef enum {MERGE_SET, MERGE_INSERT, MERGE_UPDATE} dict_merge_op;
+dict *dict_clone(dict *d, int ref, pool *threads);
+dict *dict_clone_immutable(dict *d, pool *threads);
+dict *make_immutable(dict *d, pool *threads);
 
-typedef struct dict_builder dict_builder;
-struct dict_builder {
-    dict_cmp    *cmp;
-    dict_loc    *loc;
-    refdelta    *dlt;
-    dict_change *cng;
-};
+result dict_merge(dict *dest, dict *origin, merge_method m);
 
-// Constructors
-dict *dict_create(void *meta, dict_cmp *cmp, dict_loc *loc, size_t slots, size_t imbalance);
-dict *dict_build (void *meta, const dict_builder *b, size_t slots, size_t imbalance);
-
-dict *dict_clone          (void *meta, dict *d, int reference, size_t threads);
-dict *dict_clone_immutable(void *meta, dict *d, size_t threads);
-
-dict *dict_build_clone          (void *meta, dict *d, const dict_builder *b, int reference, size_t threads);
-dict *dict_build_clone_immutable(void *meta, dict *d, const dict_builder *b, size_t threads);
-
-// Modifiers
-result *dict_reset(dict *d, size_t slots, size_t max_imbalance, void *meta);
-
-// Combining
-result dict_merge(dict *orig, dict *dest, dict_merge_op op, int reference, size_t threads);
-
-// Cleanup
-result dict_rebalance(dict *d, size_t threads);
 result dict_free(dict *d);
 
-// Meta/settings/etc
-void               *dict_meta     (dict *d);
-size_t              dict_slots    (dict *d);
-size_t              dict_imbalance(dict *d);
-refdelta           *dict_refdelta (dict *d);
-const dict_builder *dict_built    (dict *d);
+result dict_get   (dict *d, object *key); // Retrieve item
+result dict_share (dict *d, object *key); // Remove shared value, keep shared
+result dict_delete(dict *d, object *key); // Remove item without modifying shared values
+result dict_deref (dict *d, object *key); // Share the item (get a reference)
+result dict_unlink(dict *d, object *key); // Unshare the item, keep locally
 
-// Utility
-int dict_iterate (dict *d, dict_handler *h, void *args);
+result dict_set   (dict *d, object *key, object *val);
+result dict_insert(dict *d, object *key, object *val);
+result dict_update(dict *d, object *key, object *val);
 
-// Operations
+result dict_set_ref   (dict *d, object *key, ref *val);
+result dict_insert_ref(dict *d, object *key, ref *val);
+result dict_update_ref(dict *d, object *key, ref *val);
 
-/* get for a given key */
-result dict_get    (dict *d, void *key); // Get the value for a given key
-result dict_get_ref(dict *d, void *key); // Get the ref   for a given key
+result dict_val_cmp_swap       (dict *a, object *key, object *old, object *new);
+result dict_ref_cmp_swap       (dict *a, object *key, ref    *old, ref    *new);
+result dict_val_to_ref_cmp_swap(dict *a, object *key, object *old, ref    *new);
+result dict_ref_to_val_cmp_swap(dict *a, object *key, ref    *old, object *new);
 
-/* insert for a given key, fails if it exists already */
-result dict_insert    (dict *d, void *key, void      *val); // Insert a new key+value Fail if the key exists
-result dict_insert_ref(dict *d, void *key, reference *ref); // Insert a new key+ref   Fail if the key exists
+result dict_cmp_val_delete(dict *a, object *key, object *old);
+result dict_cmp_ref_delete(dict *a, object *key, ref    *old);
+result dict_cmp_val_deref (dict *a, object *key, object *old);
+result dict_cmp_ref_deref (dict *a, object *key, ref    *old);
 
-/* set for a given key, it may or may not exist already */
-result dict_set          (dict *d, void *key, void      *val); // Set the value for the given key
-result dict_set_ref      (dict *d, void *key, reference *ref); // Set the ref   for the given key
-result dict_fetch_set    (dict *d, void *key, void      *val); // Set the value and return the previous one
-result dict_fetch_set_ref(dict *d, void *key, reference *ref); // Set the ref   and return the previous one
+result dict_fetch_set(dict *a, object *key, object *val);
+result dict_fetch_set_ref(dict *a, object *key, ref *val);
 
-/* update for a given key, fails if it does not exist */
-result dict_update          (dict *d, void *key, void      *val); // Update the value for the given key
-result dict_update_ref      (dict *d, void *key, reference *ref); // Update the ref   for the given key
-result dict_fetch_update    (dict *d, void *key, void      *val); // Set the value and return the previous one
-result dict_fetch_update_ref(dict *d, void *key, reference *val); // Set the ref   and return the previous one
-result dict_cmp_update      (dict *d, void *key, void      *old_val, void      *new_val); // Atomic swap
-result dict_cmp_update_ref  (dict *d, void *key, reference *old_ref, reference *new_ref); // Atomic swap
-
-/* clear the value for a given key (the reference remains in the dict) */
-result dict_clear      (dict *d, void *key); // Clear the value for the ref at the given key
-result dict_fetch_clear(dict *d, void *key); // Clear the value at the given key, and return it.
-result dict_cmp_clear  (dict *d, void *key, void *old_val); // Atomic
-
-/* remove the ref for a given key */
-result dict_deref      (dict *d, void *key); // Remove the ref for a given key
-result dict_fetch_deref(dict *d, void *key); // Remove the ref at the given key, and return it.
-result dict_cmp_deref  (dict *d, void *key, reference *old_ref); // Atomic
+// Iteration
+dict_iterator *dict_iterate(dict *d);
+result         dict_iterate_next(dict_iterator *i);
+void           dict_iterator_free(dict_iterator *i);
 
 #endif

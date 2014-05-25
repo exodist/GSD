@@ -86,8 +86,15 @@ result usref_set(usref *usr, void *val) {
 
         sref *new = sref_create(val, NULL);
         if (!new) {
+            result out = {
+                .status    = RES_FAILURE,
+                .error     = RES_OUT_OF_MEMORY,
+                .message   = NULL,
+                .item_type = RESULT_ITEM_NONE,
+                .item.num  = 0,
+            };
+
             out.status = RES_FAILURE;
-            out.error  = RES_OUT_OF_MEMORY;
             return out;
         }
         result out = usref_do_set_sref(usr, new, 1);
@@ -120,7 +127,7 @@ result usref_delete(usref *usr) {
 
     sref *sr = result_get_ptr(check);
 
-    if (sr) return sref_delete(sr, val);
+    if (sr) return sref_delete(sr);
 
     result out = {
         .status    = RES_FAILURE,
@@ -145,7 +152,7 @@ result usref_get(usref *usr) {
         .message   = NULL,
         .item_type = RESULT_ITEM_USER,
         .item.user.val = NULL,
-        .item.user.rd  = NULL;
+        .item.user.rd  = NULL,
     };
 
     return out;
@@ -178,7 +185,7 @@ static result usref_do_set_sref(usref *usr, sref *val, int null_switch) {
             case -1: null_status = sr != NULL; break;
             case  1: null_status = sr == NULL; break;
             case  0: null_status = 1;          break;
-            default: assert( ok );
+            default: assert( 0 );
         }
 
         if (!null_status) {
@@ -219,7 +226,19 @@ result usref_update_sref(usref *usr, sref *val) {
 }
 
 result usref_get_sref(usref *usr) {
+    sref *sr = NULL;
+    __atomic_load(&(usr->sref), &sr, __ATOMIC_CONSUME);
+    sref_delta(sr, 1);
 
+    result out = {
+        .status    = RES_SUCCESS,
+        .error     = RES_NO_ERROR,
+        .message   = NULL,
+        .item_type = RESULT_ITEM_PTR,
+        .item.ptr  = sr,
+    };
+
+    return out;
 }
 
 result usref_unlink(usref *usr) {
@@ -227,21 +246,30 @@ result usref_unlink(usref *usr) {
 }
 
 result usref_unblock(usref *usr) {
+    sref *sr = NULL;
+    __atomic_load(&(usr->sref), &sr, __ATOMIC_CONSUME);
+    assert(blocked_null(sr));
+    return usref_do_set_sref(usr, NULL, 1);
 }
 
 
 result usref_block(usref *usr, void *type) {
+    assert(blocked_null(type));
+    return usref_do_set_sref(usr, type, 1);
 }
 
 // result.item is always NULL
 
 result usref_insert(usref *usr, void *val) {
+    // Build new sref, call insert_sref
 }
 
 result usref_cmp_swap(usref *usr, void *old, void *new) {
+    // build new sref, call swap_sref
 }
 
-result usref_insert_sref(usref *usr, sref *val);
-result usref_cmp_swap_sref(usref *usr, sref *old, sref *new);
+result usref_insert_sref(usref *usr, sref *val) {
+}
 
-
+result usref_cmp_swap_sref(usref *usr, sref *old, sref *new) {
+}

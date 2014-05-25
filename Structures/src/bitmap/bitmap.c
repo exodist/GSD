@@ -72,7 +72,7 @@ int bitmap_set(bitmap *b, int64_t idx, int state) {
 
 int64_t bitmap_fetch(bitmap *b, int state, int64_t max) {
     int64_t max_64 = max ? (max / 64) + 1 : b->bytes / 8;
-    for(int64_t i64 = 0; i64 < (b->bytes / 8); i64++) {
+    for(int64_t i64 = 0; i64 < max_64; i64++) {
         while(1) {
             uint64_t current = __atomic_load_n(b->data + i64, __ATOMIC_ACQUIRE);
             if(state  && current == FULL64) break;

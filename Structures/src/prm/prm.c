@@ -9,7 +9,7 @@
 #include "../include/gsd_struct_prm.h"
 #include "prm.h"
 
-prm *prm_create( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
+prm *prm_create(uint8_t epochs, uint8_t epoch_size, size_t thread_at, void (*destroy)(void *ptr, void *arg), void *arg) {
     if (epoch_size > 64) epoch_size = 64;
     if (epoch_size < 8)  epoch_size = 8;
 
@@ -17,9 +17,11 @@ prm *prm_create( uint8_t epochs, uint8_t epoch_size, size_t thread_at ) {
     if (!p) return NULL;
     memset( p, 0, sizeof( prm ));
 
-    p->thread_at = thread_at;
-    p->size      = epoch_size;
-    p->count     = epochs;
+    p->destroy     = destroy;
+    p->destroy_arg = arg;
+    p->thread_at   = thread_at;
+    p->size        = epoch_size;
+    p->count       = epochs;
 
     p->epochs = malloc(sizeof(epoch) * epochs);
     if (!p->epochs) {

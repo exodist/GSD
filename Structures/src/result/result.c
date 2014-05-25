@@ -1,12 +1,23 @@
-#include "../include/gsd_struct_types.h"
-#include "../include/gsd_struct_ref.h"
 #include <assert.h>
+#include "result.h"
+#include "../include/gsd_struct_ref.h"
+
+res_error_code result_error(result r) {
+    return r.error;
+}
+
+res_status_code result_status(result r) {
+    return r.status;
+}
+
+const char *result_message(result r) {
+    return r.message;
+}
 
 void result_discard(result r) {
     switch(r.item_type) {
-        case RESULT_ITEM_USER:
-            if(r.item.user.val && r.item.user.rd)
-                r.item.user.rd(r.item.user.val, -1);
+        case RESULT_ITEM_PTR:
+            assert(0); // TODO
         return;
 
         case RESULT_ITEM_REF:
@@ -18,16 +29,6 @@ void result_discard(result r) {
         default:
         return;
     }
-}
-
-void *result_get_val(result r) {
-    assert(r.item_type == RESULT_ITEM_USER);
-    return r.item.user.val;
-}
-
-refdelta *result_get_dlt(result r) {
-    assert(r.item_type == RESULT_ITEM_USER);
-    return r.item.user.rd;
 }
 
 ref *result_get_ref(result r) {
@@ -44,3 +45,4 @@ void *result_get_ptr(result r) {
     assert(r.item_type == RESULT_ITEM_PTR);
     return r.item.ptr;
 }
+

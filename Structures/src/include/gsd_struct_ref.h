@@ -3,13 +3,13 @@
 
 #include "gsd_struct_types.h"
 
-ref *ref_create(void *val, refdelta *d, trigger *t, void *t_arg);
+result ref_create(singularity *s, object *val);
 
 result ref_get(ref *r);
-result ref_set(ref *r, void *val);
-result ref_update(ref *r, void *val);
-result ref_insert(ref *r, void *val);
-result ref_delete(ref *r);
+
+result ref_set   (ref *r, object *val);
+result ref_update(ref *r, object *val);
+result ref_insert(ref *r, object *val);
 
 void ref_free(ref *r);
 

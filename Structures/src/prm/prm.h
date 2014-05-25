@@ -20,6 +20,9 @@ struct prm {
     size_t thread_at;
     size_t detached_threads;
 
+    void (*destroy)(void *ptr, void *arg);
+    void *destroy_arg;
+
     epoch   *epochs;
     size_t   size;
     uint8_t  count;

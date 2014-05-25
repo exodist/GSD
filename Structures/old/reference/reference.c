@@ -12,7 +12,7 @@ ref *ref_create(void *val, refdelta *d, trigger *t, void *t_arg) {
     else {
         assert(!t_arg);
     }
-    
+
     sref *sr = sref_create(val, tr);
     if (!sr) {
         trig_ref_free(tr, d);

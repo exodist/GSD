@@ -4,7 +4,7 @@
 #include "../include/gsd_struct_bloom.h"
 
 struct bloom {
-    void *meta;
+    singularity *s;
 
     union {
         hasher  *bh;
@@ -18,7 +18,7 @@ struct bloom {
     uint8_t  is_multihash;
 };
 
-uint64_t *get_nums(bloom *b, const void *item);
+uint64_t *get_nums(bloom *b, const object *item);
 uint64_t *hash_to_nums(size_t bits, uint64_t hash, uint8_t k);
 
 int bloom_do_insert(bloom *b, uint64_t *nums);

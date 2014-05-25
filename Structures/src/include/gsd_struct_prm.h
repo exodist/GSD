@@ -15,11 +15,11 @@
                 garbage. If the garbage is below this it will not thread. 0
                 means never thread.
 \*/
-prm *prm_create( uint8_t epochs, uint8_t epoch_size, size_t thread_at );
-int prm_free( prm *p );
+prm *prm_create(uint8_t epochs, uint8_t epoch_size, size_t thread_at, void (*destroy)(void *ptr, void *arg), void *arg);
+int prm_free(prm *p);
 
-uint8_t prm_join_epoch( prm *p );
-void    prm_leave_epoch( prm *p, uint8_t epoch );
+uint8_t prm_join_epoch(prm *p);
+void    prm_leave_epoch(prm *p, uint8_t epoch);
 
 int prm_dispose(
     prm *p,

@@ -11,7 +11,6 @@
 // of the actions. Items that swap xtrns will returnt he one that has been
 // replaced so that you can do this.
 
-
 typedef struct sref sref;
 
 struct sref {

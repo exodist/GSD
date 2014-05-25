@@ -18,7 +18,7 @@ typedef struct usref usref;
 
 struct usref {
     size_t refcount;
-    sref *usref;
+    sref *sref;
 };
 
 // Newly created usref will have a refcount of 0
@@ -60,6 +60,6 @@ result usref_cmp_swap(usref *usr, void *old, void *new);
 result usref_insert_sref(usref *usr, sref *val);
 result usref_cmp_swap_sref(usref *usr, sref *old, sref *new);
 
-static result usref_do_set_sref(usref *usr, sref *val, int null_switch) {
+static result usref_do_set_sref(usref *usr, sref *val, int null_switch);
 
 #endif

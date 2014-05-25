@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <assert.h>
 
-bloom *bloom_create_k(void *meta, size_t size, uint8_t k, ...) {
-    bloom *out = bloom_create(meta, size, k, NULL);
+bloom *bloom_create_k(singularity *s, size_t size, uint8_t k, ...) {
+    bloom *out = bloom_create(s, size, k, NULL);
 
     out->hashers.bhs = malloc(sizeof(hasher *) * k);
     if (!out->hashers.bhs) {
@@ -24,13 +24,13 @@ bloom *bloom_create_k(void *meta, size_t size, uint8_t k, ...) {
     return out;
 }
 
-bloom *bloom_create(void *meta, size_t size, uint8_t k, hasher *bh) {
+bloom *bloom_create(singularity *s, size_t size, uint8_t k, hasher *bh) {
     assert(k > 0);
     bloom *b = malloc(sizeof(bloom));
     if (!b) return NULL;
 
     b->k      = k;
-    b->meta   = meta;
+    b->s      = s;
     b->size   = size;
     b->bits   = size * 8;
     b->is_multihash = 0;
@@ -47,25 +47,25 @@ bloom *bloom_create(void *meta, size_t size, uint8_t k, hasher *bh) {
     return b;
 }
 
-uint64_t *get_nums(bloom *b, const void *item) {
+uint64_t *get_nums(bloom *b, const object *item) {
     uint64_t *nums = NULL;
 
     if (b->is_multihash) {
         nums = malloc(sizeof(uint64_t) * b->k);
         if (!nums) return NULL;
         for (int i = 0; i < b->k; i++) {
-            nums[i] = b->hashers.bhs[i](item, b->meta);
+            nums[i] = b->hashers.bhs[i](item);
         }
     }
     else {
-        uint64_t hash = b->hashers.bh(item, b->meta);
+        uint64_t hash = b->hashers.bh(item);
         nums = hash_to_nums(b->bits, hash, b->k);
     }
 
     return nums;
 }
 
-int bloom_insert(bloom *b, const void *item) {
+int bloom_insert(bloom *b, const object *item) {
     uint64_t *nums = get_nums(b, item);
     if (!nums) return -1;
 
@@ -74,7 +74,7 @@ int bloom_insert(bloom *b, const void *item) {
     return out;
 }
 
-int bloom_lookup(bloom *b, const void *item) {
+int bloom_lookup(bloom *b, const object *item) {
     uint64_t *nums = get_nums(b, item);
     if (!nums) return -1;
 
