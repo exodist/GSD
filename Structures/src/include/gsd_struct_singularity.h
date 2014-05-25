@@ -7,7 +7,7 @@
 #include "gsd_struct_types.h"
 #include "../../../GC/src/include/gsd_gc.h"
 
-singularity *singularity_create(collector *c, pool *threads, pool *prms, alloc *pointers, uint8_t hasherc, ...);
+singularity *singularity_create(collector *c, pool *threads, pool *prms, alloc *pointers, int8_t hasherc, ...);
 
 collector *singularity_collector(singularity *s);
 
@@ -16,9 +16,10 @@ pool *singularity_prms   (singularity *s);
 
 alloc *singularity_pointers(singularity *s);
 
-uint8_t *singularity_hasherc(singularity *s);
-hasher  *singularity_hasher (singularity *s, uint8_t id);
+int8_t  singularity_hasherc(singularity *s);
+hasher *singularity_hasher (singularity *s, int8_t id);
 
-int16_t *singularity_hasher_push(hasher *h);
+// Negative value is returned on error
+int8_t singularity_hasher_push(singularity *s, hasher *h);
 
 #endif
