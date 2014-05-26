@@ -9,7 +9,7 @@ typedef struct alloc_group alloc_group;
 struct alloc_chunk {
     bitmap   *map;
     uint32_t *refcounts;
-    uint8_t  *data;
+    uint8_t   data[];
 };
 
 struct alloc_group {

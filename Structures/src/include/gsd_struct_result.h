@@ -27,9 +27,31 @@ typedef enum {
     RES_SUCCESS_FUZZY = 2,
 } res_status_code;
 
-res_error_code result_error(result r);
-res_status_code result_status(result r);
-const char *result_message(result r);
+struct result {
+    // If these are both 0 then the operation failed, but there was no error.
+    // This happens when failure is an acceptable result. An example would be
+    // if an insert into a dict fails because the key is already present, this
+    // is a blocked transaction, but no error has actually occured, it is
+    // working as designed.
+    res_status_code status; // True on success
+    res_error_code  error;  // True on error
+
+    // Sometimes an error will come with a helpful message, this can be NULL.
+    const char *message;
+
+    enum {
+        RESULT_ITEM_NONE = 0,
+        RESULT_ITEM_REF,
+        RESULT_ITEM_PTR,
+        RESULT_ITEM_NUM
+    } item_type;
+
+    union {
+        void    *ptr;
+        ref     *ref;
+        int64_t  num;
+    } item;
+};
 
 void      result_discard(result r);
 ref      *result_get_ref(result r);
