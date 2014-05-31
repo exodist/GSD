@@ -8,11 +8,11 @@
 
 typedef struct alloc_iterator alloc_iterator;
 
-alloc *alloc_create(size_t item_size, size_t item_count, prm *prm);
+alloc *alloc_create(size_t item_size, size_t item_count, uint8_t ref_bytes, prm *prm);
 
-result alloc_spawn(alloc *a);             // ref count =1
-result alloc_get(alloc *a, uint32_t idx); // ref count +1
-void   alloc_ret(alloc *a, uint32_t idx); // rec count -1
+int64_t alloc_spawn(alloc *a);             // ref count =1
+void   *alloc_get(alloc *a, uint32_t idx); // ref count +1
+void    alloc_ret(alloc *a, uint32_t idx); // rec count -1
 
 alloc_iterator *alloc_iterate(alloc *a);
 result          alloc_iterate_next(alloc_iterator *i);

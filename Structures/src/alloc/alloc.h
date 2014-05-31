@@ -8,19 +8,19 @@ typedef struct alloc_group alloc_group;
 
 struct alloc_chunk {
     bitmap   *map;
-    uint32_t *refcounts;
+    uint8_t  *refcounts;
     uint8_t   data[];
 };
 
 struct alloc_group {
     size_t chunks_max;
-    size_t chunk_idx;
     alloc_chunk *chunks[];
 };
 
 struct alloc {
-    size_t item_size;
-    size_t item_count;
+    size_t  item_size;
+    size_t  item_count;
+    uint8_t ref_bytes;
 
     prm *prm;
 
@@ -29,5 +29,7 @@ struct alloc {
 
 alloc_group *alloc_create_group(alloc *a, alloc_group *grow);
 alloc_chunk *alloc_create_chunk(alloc *a);
+
+size_t alloc_ref_delta(alloc *a, uint32_t chunk, uint32_t idx, int8_t delta);
 
 #endif

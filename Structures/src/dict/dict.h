@@ -21,15 +21,16 @@ struct node_branch {
 struct node {
     node_branch left  : 64;
     node_branch right : 64;
-    node_ref    ref   : 64;
+    node_ref    key   : 64;
+    node_ref    val   : 64;
 };
 
 struct dict_base {
     alloc *nodes;
     alloc *refs;
 
-    uint32_t     root_count;
-    node_branch *roots;
+    uint32_t    root_count;
+    node_branch roots[];
 };
 
 struct dict {
