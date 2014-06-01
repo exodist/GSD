@@ -6,15 +6,18 @@
 #include "string.h"
 #include "assert.h"
 
-alloc *alloc_create(size_t item_size, size_t item_count, uint8_t ref_bytes, prm *prm) {
+alloc *alloc_create(size_t item_size, size_t item_count, size_t offset, size_t ref_bytes, prm *prm) {
     assert(ref_bytes == 0 || ref_bytes == 1 || ref_bytes == 2 || ref_bytes == 4 || ref_bytes == 8);
     alloc *out = malloc(sizeof(alloc));
     if (!out) return NULL;
 
     out->item_size  = item_size;
     out->item_count = item_count;
+    out->offset     = 1 + offset;
     out->ref_bytes  = ref_bytes;
     out->prm = prm;
+
+    assert(out->offset >= 1);
 
     out->group = alloc_create_group(out, NULL);
     if (!out->group) {
@@ -90,7 +93,7 @@ alloc_chunk *alloc_create_chunk(alloc *a) {
     return out;
 }
 
-size_t alloc_ref_delta(alloc *a, uint32_t chunk, uint32_t idx, int8_t delta) {
+size_t alloc_ref_delta(alloc *a, size_t chunk, uint64_t idx, int8_t delta) {
     uint8_t *ptr = &(a->group->chunks[chunk]->refcounts[idx * a->ref_bytes]);
     switch(a->ref_bytes) {
         case 8: return __atomic_add_fetch((uint64_t *)ptr, delta, __ATOMIC_ACQ_REL);
@@ -105,7 +108,7 @@ size_t alloc_ref_delta(alloc *a, uint32_t chunk, uint32_t idx, int8_t delta) {
 }
 
 // ref count =1
-int64_t alloc_spawn(alloc *a) {
+uint64_t alloc_spawn(alloc *a) {
     uint8_t epoch = prm_join_epoch(a->prm);
 
     while(1) {
@@ -143,14 +146,17 @@ int64_t alloc_spawn(alloc *a) {
 
         prm_leave_epoch(a->prm, epoch);
  
-        return (chunk * a->item_count) + chunk_idx;
+        return (chunk * a->item_count) + chunk_idx + a->offset;
     }
 }
 
 // ref count +1
-void *alloc_get(alloc *a, uint32_t idx) {
-    uint32_t chunk      = idx / a->item_count;
-    uint32_t chunk_idx  = idx % a->item_count;
+void *alloc_fetch(alloc *a, uint64_t idx) {
+    assert(idx >= a->offset);
+    idx -= a->offset;
+
+    size_t   chunk      = idx / a->item_count;
+    uint64_t chunk_idx  = idx % a->item_count;
     uint64_t chunk_byte = chunk_idx * a->item_size;
 
     if (a->ref_bytes) assert(alloc_ref_delta(a, chunk, chunk_idx, 1) >= 1);
@@ -162,10 +168,13 @@ void *alloc_get(alloc *a, uint32_t idx) {
 }
 
 // rec count -1
-void alloc_ret(alloc *a, uint32_t idx) {
-    uint32_t chunk      = idx / a->item_count;
-    uint32_t chunk_idx  = idx % a->item_count;
-    uint8_t epoch = prm_join_epoch(a->prm);
+void alloc_deref(alloc *a, uint64_t idx) {
+    assert(idx >= a->offset);
+    idx -= a->offset;
+
+    size_t   chunk     = idx / a->item_count;
+    uint64_t chunk_idx = idx % a->item_count;
+    uint8_t  epoch     = prm_join_epoch(a->prm);
 
     if((a->ref_bytes)) {
         size_t count = alloc_ref_delta(a, chunk, chunk_idx, 1);

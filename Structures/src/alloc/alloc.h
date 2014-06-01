@@ -18,9 +18,10 @@ struct alloc_group {
 };
 
 struct alloc {
-    size_t  item_size;
-    size_t  item_count;
-    uint8_t ref_bytes;
+    size_t item_size;
+    size_t item_count;
+    size_t ref_bytes;
+    size_t offset;
 
     prm *prm;
 
@@ -30,6 +31,6 @@ struct alloc {
 alloc_group *alloc_create_group(alloc *a, alloc_group *grow);
 alloc_chunk *alloc_create_chunk(alloc *a);
 
-size_t alloc_ref_delta(alloc *a, uint32_t chunk, uint32_t idx, int8_t delta);
+size_t alloc_ref_delta(alloc *a, size_t chunk, uint64_t idx, int8_t delta);
 
 #endif
